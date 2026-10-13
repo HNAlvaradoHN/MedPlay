@@ -1,6 +1,6 @@
 # PROJECT STATE — SendGram
 
-status: BOOTSTRAP_INITIALIZED
+status: READY
 protocol_version: 1
 repository: HNAlvaradoHN/SendGram
 default_branch: main
@@ -8,8 +8,8 @@ visibility: public
 
 ## Session registry
 
-last_session_number: 0
-active_session: none
+last_session_number: 1
+active_session: 1
 
 A new chat may increment this counter only after full synchronization and a valid user authorization to modify.
 
@@ -45,4 +45,4 @@ This is product direction, not yet an implemented or technically validated contr
 
 ## Next step
 
-After bootstrap is re-read and synchronized, register session #1 for the current authorized chat. Then define and validate the minimum architecture/MVP before creating product code.
+Define and validate the minimum architecture/MVP for the core flow before creating product code.
