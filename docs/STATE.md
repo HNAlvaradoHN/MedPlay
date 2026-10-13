@@ -20,13 +20,13 @@ A new chat may increment this counter only after full synchronization and a vali
 - Development version: none.
 - Release/APK: none.
 - CI: not configured.
-- Architecture: MVP architecture documented on branch `docs/mvp-architecture`; pending merge.
+- Architecture: MVP architecture merged into `main` and documented in `docs/ARCHITECTURE.md` / `docs/DECISIONS.md`.
 - External paid services: none approved.
 - Secrets allowed in repository: none.
 
 ## Current objective
 
-Validate and record the minimum MVP architecture before product code.
+Create the first Android/Kotlin skeleton and validate a writable DocumentsProvider before integrating TDLib.
 
 ## Product direction already established by owner
 
@@ -45,4 +45,4 @@ This is product direction, not yet an implemented or technically validated contr
 
 ## Next step
 
-Review/merge the MVP architecture. After merge, create the first Android/Kotlin skeleton and prove that SendGram appears as a writable DocumentsProvider before integrating TDLib.
+Create the first Android/Kotlin skeleton and prove that SendGram appears as a writable DocumentsProvider before integrating TDLib.
