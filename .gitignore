@@ -1,0 +1,29 @@
+# Local secrets and environment
+.env
+.env.*
+local.properties
+secrets.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+
+# Telegram / TDLib local state
+tdlib/
+tdlib-data/
+tdlib-files/
+**/tdlib/
+**/tdlib-data/
+**/tdlib-files/
+
+# Android / Gradle
+.gradle/
+build/
+**/build/
+.idea/
+*.iml
+
+# OS/editor
+.DS_Store
+Thumbs.db
