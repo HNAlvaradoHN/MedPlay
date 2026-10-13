@@ -2,7 +2,7 @@
 
 ## What exists
 
-Project governance, official memory, and an MVP architecture/decision set exist. No Android application code exists yet.
+Project governance, official memory, and the merged MVP architecture/decision set exist. No Android application code exists yet.
 
 ## Required reading for a new chat
 
