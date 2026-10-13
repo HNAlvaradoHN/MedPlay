@@ -2,7 +2,7 @@
 
 ## What exists
 
-Only project governance and official memory. No Android application code exists yet.
+Project governance, official memory, and an MVP architecture/decision set exist. No Android application code exists yet.
 
 ## Required reading for a new chat
 
@@ -19,14 +19,22 @@ Build SendGram from zero as a simple Android app focused on saving/downloading f
 
 Each user should provide their own Telegram API ID and API Hash. The repository is public, so no real credentials or personal information may ever be committed.
 
-## Not yet decided / not yet proven
+## Decided for MVP
 
-- Exact Android architecture.
-- Exact TDLib integration method/version.
-- DocumentsProvider behavior with remote Telegram writes.
-- UX for credential entry and destination selection.
-- Background upload behavior and file-size constraints.
+- Android native + Kotlin.
+- Android DocumentsProvider / Storage Access Framework is the primary save integration.
+- TDLib will authenticate the user account.
+- Each user supplies their own api_id/api_hash.
+- No backend for MVP.
+- Provider writes go to app-private temporary storage and upload after descriptor close.
+
+## Still not proven
+
+- Real-device DocumentsProvider save behavior across browser/apps.
+- TDLib Android packaging and build integration.
+- Large-file/background upload behavior.
+- Final UX for credential onboarding and destination management.
 
 ## Next handoff action
 
-Synchronize against GitHub, register the next session number only after valid modification authorization, then work on the single official next task recorded in STATE.md.
+After the architecture PR is merged, build the smallest Android/Kotlin skeleton and validate a writable DocumentsProvider on a real device before adding TDLib.
