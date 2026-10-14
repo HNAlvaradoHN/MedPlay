@@ -1,60 +1,64 @@
-# DECISIONS — SendGram
+# DECISIONS — MedPlay ⏯️
 
-## DEC-001 — Android native + Kotlin
+## DEC-001 — Native Android + Kotlin
 
-Status: ACCEPTED_FOR_MVP
+Status: OWNER_DIRECTION / ACCEPTED_FOR_PROTOTYPE
 
-Use native Android/Kotlin for the first implementation.
-
-Reason:
-The core feature depends directly on Android's Storage Access Framework, `DocumentsProvider`, lifecycle/background behavior and file descriptors. Native Android minimizes integration layers for the first proof.
-
-## DEC-002 — DocumentsProvider is the primary product integration
-
-Status: ACCEPTED_FOR_MVP
-
-SendGram will target Android's system document picker/save flow instead of only using the Share sheet.
+Use native Android/Kotlin.
 
 Reason:
-The product goal is for SendGram to behave like a storage destination when an app saves/downloads a document.
+The core features depend directly on MediaProjection, MediaCodec, foreground services, overlays, MediaStore and device encoder capabilities.
 
-## DEC-003 — TDLib instead of Bot API
-
-Status: ACCEPTED_FOR_MVP
-
-Use TDLib to authenticate and act as the user's Telegram account.
-
-Reason:
-A bot cannot represent the user's complete Telegram account or Saved Messages in the same way.
-
-## DEC-004 — Each user supplies their own Telegram API credentials
+## DEC-002 — Retroactive recording is the core product feature
 
 Status: OWNER_DECISION
 
-Each user provides their own `api_id` and `api_hash`.
+MedPlay continuously retains only a configurable recent window and saves that previous interval when triggered.
 
 Reason:
-The owner does not want a public APK to embed developer-owned Telegram API credentials.
+The user should not need to know beforehand that a noteworthy gameplay moment is about to happen.
+
+## DEC-003 — Quality is a first-class requirement
+
+Status: OWNER_DECISION
+
+MedPlay should prioritize high visual quality for fast-motion content and expose multiple quality configurations.
 
 Consequence:
-Onboarding is less convenient, but developer credential exposure is avoided.
+Resolution alone is insufficient. Bitrate/quality mode, FPS, codec, encoder capability and thermal limits must be handled explicitly.
 
-## DEC-005 — No backend for MVP
-
-Status: ACCEPTED_FOR_MVP
-
-The MVP has no SendGram server.
-
-Reason:
-The core path can be implemented device-to-Telegram, reducing cost, privacy exposure and operational complexity.
-
-## DEC-006 — Local temporary file before Telegram upload
+## DEC-004 — Hardware encoding preferred
 
 Status: ACCEPTED_FOR_PROTOTYPE
 
-When another app writes a new file through the provider, SendGram uses an app-private temporary local file and uploads after the write descriptor closes.
+Prefer MediaCodec hardware encoders when available.
 
 Reason:
-Android's official DocumentsProvider documentation explicitly supports a close listener for write-mode files and describes using that point to update cloud storage.
+Continuous game capture must minimize CPU load and battery/thermal impact.
 
-Revisit only if real-device tests show unacceptable storage/performance behavior.
+## DEC-005 — No backend required for recording MVP
+
+Status: ACCEPTED_FOR_PROTOTYPE
+
+Capture, rolling buffering and clip saving remain local to the Android device.
+
+Reason:
+Lower cost, lower privacy exposure and simpler architecture.
+
+## DEC-006 — REA/JADX used only for reference analysis
+
+Status: OWNER_DIRECTION
+
+Use REA/JADX to study reference applications such as Medal and understand architecture/behavior relevant to MedPlay.
+
+Constraints:
+- no proprietary source copying;
+- no protected asset copying;
+- no permanent public commit of third-party APKs without redistribution rights;
+- findings must be converted into original MedPlay implementation decisions.
+
+## DEC-007 — Cloud analysis should avoid requiring the owner's PC
+
+Status: OWNER_DECISION
+
+Prefer GitHub Actions for REA/JADX experiments so the analysis can run from the cloud and results can be inspected from ChatGPT/GitHub.
