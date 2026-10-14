@@ -1,8 +1,8 @@
-# HANDOFF — SendGram
+# HANDOFF — MedPlay ⏯️
 
 ## What exists
 
-Project governance, official memory, and the merged MVP architecture/decision set exist. No Android application code exists yet.
+MedPlay governance and official memory now exist. No Android application code exists yet.
 
 ## Required reading for a new chat
 
@@ -15,26 +15,34 @@ Project governance, official memory, and the merged MVP architecture/decision se
 
 ## Current owner intent
 
-Build SendGram from zero as a simple Android app focused on saving/downloading files to Telegram destinations.
+Build MedPlay as an Android application that can preserve a rolling window of screen recording and save what happened before the user taps a floating button.
 
-Each user should provide their own Telegram API ID and API Hash. The repository is public, so no real credentials or personal information may ever be committed.
+Quality is a primary requirement. The app should expose several recording resolutions, frame rates, codecs, bitrate/quality profiles and clip durations.
 
-## Decided for MVP
+## Reference analysis
 
-- Android native + Kotlin.
-- Android DocumentsProvider / Storage Access Framework is the primary save integration.
-- TDLib will authenticate the user account.
-- Each user supplies their own api_id/api_hash.
-- No backend for MVP.
-- Provider writes go to app-private temporary storage and upload after descriptor close.
+A Medal 7.1.1 Android package was supplied in the conversation as a research/reference target.
+
+The intended analysis path is:
+GitHub Actions -> REA/JADX -> structured logs/artifacts -> ChatGPT review.
+
+Reference analysis is for understanding architecture, APIs and behavior. Do not copy proprietary source code or protected assets into MedPlay.
+
+## First prototype focus
+
+1. Validate REA/JADX automation in GitHub Actions.
+2. Create native Android/Kotlin project.
+3. Capture screen with MediaProjection.
+4. Encode with hardware MediaCodec.
+5. Maintain a bounded rolling buffer.
+6. Save a valid playable clip for the previous configured interval.
+7. Add basic quality and duration settings.
+8. Add a floating save control.
 
 ## Still not proven
 
-- Real-device DocumentsProvider save behavior across browser/apps.
-- TDLib Android packaging and build integration.
-- Large-file/background upload behavior.
-- Final UX for credential onboarding and destination management.
-
-## Next handoff action
-
-After the architecture PR is merged, build the smallest Android/Kotlin skeleton and validate a writable DocumentsProvider on a real device before adding TDLib.
+- Best rolling-buffer storage model.
+- Seamless MP4 generation from arbitrary prior time boundaries.
+- Device-specific maximum stable bitrate/FPS/resolution.
+- Thermal/battery behavior during long gaming sessions.
+- Internal audio capture compatibility.
