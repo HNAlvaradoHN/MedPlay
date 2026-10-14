@@ -1,8 +1,8 @@
-# PROJECT STATE — SendGram
+# PROJECT STATE — MedPlay ⏯️
 
 status: READY
 protocol_version: 1
-repository: HNAlvaradoHN/SendGram
+repository: HNAlvaradoHN/MedPlay
 default_branch: main
 visibility: public
 
@@ -11,7 +11,7 @@ visibility: public
 last_session_number: 1
 active_session: 1
 
-A new chat may increment this counter only after full synchronization and a valid user authorization to modify.
+This is MedPlay's first official session. Previous SendGram numbering/content in this repository is not part of MedPlay's session history.
 
 ## Verified project state
 
@@ -19,30 +19,36 @@ A new chat may increment this counter only after full synchronization and a vali
 - Stable version: none.
 - Development version: none.
 - Release/APK: none.
-- CI: not configured.
-- Architecture: MVP architecture merged into `main` and documented in `docs/ARCHITECTURE.md` / `docs/DECISIONS.md`.
+- CI: not configured yet.
+- Architecture: initial MedPlay direction documented for prototype.
 - External paid services: none approved.
 - Secrets allowed in repository: none.
+- Reference analysis target available in conversation: Medal 7.1.1 Android package.
+- REA/JADX cloud workflow: proposed, not yet implemented.
 
 ## Current objective
 
-Create the first Android/Kotlin skeleton and validate a writable DocumentsProvider before integrating TDLib.
+Bootstrap MedPlay as an Android project for high-quality retroactive screen recording and validate a cloud-based analysis workflow using GitHub Actions + REA/JADX without requiring the owner's PC.
 
-## Product direction already established by owner
+## Product direction established by owner
 
-Target concept: an Android application named SendGram that can use each user's own Telegram API ID/API Hash rather than credentials owned by the app developer.
-
-Desired core experience to validate later:
-Android save/download flow -> SendGram -> selected Telegram destination.
-
-This is product direction, not yet an implemented or technically validated contract.
+MedPlay should:
+- record the screen continuously into a rolling buffer;
+- save the previous configurable interval when the user taps a floating action;
+- prioritize very high recording quality for games;
+- support multiple quality/resolution/time profiles;
+- support internal audio and optional microphone where Android permits;
+- avoid visible quality loss/pixelation as much as hardware limits allow.
 
 ## Blockers / pending validation
 
-- Technical feasibility of Android DocumentsProvider/Storage Access Framework + Telegram user-account integration must be validated before declaring the core flow solved.
-- Telegram credential handling/storage design must be reviewed before implementation.
-- No Android build exists yet.
+- Confirm practical MediaProjection + MediaCodec rolling-buffer strategy on Android.
+- Determine safe keyframe/container strategy for retroactive MP4 clip extraction.
+- Detect per-device encoder limits for resolution/FPS/bitrate/codecs.
+- Validate internal-audio behavior across Android versions/devices.
+- Build and test REA/JADX GitHub Actions workflow.
+- No Android project exists yet.
 
 ## Next step
 
-Create the first Android/Kotlin skeleton and prove that SendGram appears as a writable DocumentsProvider before integrating TDLib.
+Create the first REA/JADX GitHub Actions experiment and then scaffold the smallest Android/Kotlin MedPlay prototype around MediaProjection + hardware encoding.
