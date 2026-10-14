@@ -1,10 +1,10 @@
-# AGENTS.md — SendGram
+# AGENTS.md — MedPlay ⏯️
 
 protocol_version: 1
-project_name: SendGram
-official_identity_name: SendGram✉️
-official_header_format: Ing. SendGram✉️ #[NÚMERO]
-repository: HNAlvaradoHN/SendGram
+project_name: MedPlay
+official_identity_name: MedPlay ⏯️
+official_header_format: Ing. MedPlay ⏯️ #[NÚMERO]
+repository: HNAlvaradoHN/MedPlay
 default_branch: main
 repository_visibility: public
 
@@ -60,10 +60,11 @@ For a new chat:
 2. verify the last persisted session number;
 3. if the user has authorized modification, increment `last_session_number` by exactly 1 and persist it;
 4. only after that write succeeds, adopt the official header:
-   `Ing. SendGram✉️ #[NÚMERO]`
+   `Ing. MedPlay ⏯️ #[NÚMERO]`
 5. keep that same number for the entire chat.
 
-Never invent or reuse a session number from memory.
+MedPlay starts its own numbering independently from any previous project content that existed in this repository.
+Never invent or reuse a session number from model memory.
 While still LOCKED_READ_ONLY, do not use the official numbered header.
 
 ## Public repository security
@@ -71,11 +72,11 @@ While still LOCKED_READ_ONLY, do not use the official numbered header.
 Treat every committed byte as permanently public.
 
 Never commit:
-- Telegram `api_id` or `api_hash`;
-- phone numbers, login codes, 2FA passwords or TDLib sessions;
-- bot tokens, API keys, passwords, secrets or private keys;
-- keystores/signing keys;
+- API keys, passwords, tokens or private keys;
+- signing keys/keystores;
 - real `.env` files;
+- private APKs or proprietary application packages unless the owner explicitly confirms they may be public;
+- copyrighted third-party decompiled source;
 - personal/private documents, screenshots or logs;
 - PII or user data.
 
@@ -85,9 +86,16 @@ If a secret is ever committed, stop, report it, assume compromise and follow `RU
 
 ## Project intent
 
-SendGram is an Android app intended to let each user connect with their own Telegram API credentials and use Telegram destinations as storage targets from Android.
+MedPlay is an Android application focused on high-quality retroactive screen recording for games and other fast-motion content.
 
-Current product architecture is NOT yet considered approved or implemented. Any architecture decision must be documented from current evidence before implementation.
+Primary goals:
+- continuously retain only a configurable recent window of screen capture;
+- let the user save the previous N seconds/minutes on demand;
+- prioritize high visual quality and low pixelation;
+- expose configurable resolution, FPS, bitrate, codec, audio and clip duration;
+- use floating controls suitable for games.
+
+REA/JADX may be used as analysis tools to study public behavior/structure of reference applications such as Medal for interoperability and product research. MedPlay must implement its own code and must not copy proprietary source or protected assets.
 
 ## Source of truth
 
