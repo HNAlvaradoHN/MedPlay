@@ -1,26 +1,37 @@
-# SECURITY — SendGram
+# SECURITY — MedPlay ⏯️
 
 This repository is public.
 
 ## Never commit
 
-- Telegram api_id/api_hash
-- Telegram phone numbers, login codes, 2FA passwords or session databases
-- bot tokens or third-party API keys
-- passwords, secrets, private keys, certificates or signing keystores
-- real .env files
-- personal/private files, screenshots, logs or PII
-- user content or production dumps
+- API keys, tokens, passwords or private keys;
+- Android signing keystores/certificates;
+- real .env files;
+- personal/private files, screenshots, logs or PII;
+- user recordings or captured screen/audio;
+- private app packages;
+- copyrighted third-party decompiled source or proprietary assets.
 
-## Development rules
+## Reverse-engineering / reference-analysis rules
 
-- Use placeholders/fake data in examples.
-- Keep local secrets outside Git.
-- Add secret-bearing/local files to .gitignore before they are created when possible.
-- Do not print credentials or private content in CI logs.
-- Do not upload TDLib session directories or Android signing material.
-- No paid/facturable service may be enabled without explicit owner approval.
+- Use REA/JADX to study behavior, APIs, architecture and interoperability where lawful.
+- Do not publish proprietary decompiled source from Medal or other third-party apps.
+- Do not copy protected assets, branding or code into MedPlay.
+- Keep third-party APKs out of the public repository unless the owner has the right to redistribute them.
+- Prefer workflow inputs/artifacts with limited retention rather than committed APK binaries.
 
-## Incident rule
+## Recording privacy
 
-If a secret enters public Git history, treat it as compromised: stop further exposure, notify the owner, revoke/rotate the secret, remove it from current files, inspect artifacts/history, and rewrite public history only with explicit authorization.
+MedPlay may capture sensitive screen/audio content.
+
+Design requirements:
+- recording must require explicit Android MediaProjection consent;
+- show clear active-capture state;
+- keep captured data local by default;
+- do not upload recordings without explicit user action;
+- avoid logging filenames/content that may reveal private information;
+- provide predictable deletion/cleanup behavior.
+
+## Cost rule
+
+No paid/facturable service may be enabled without explicit owner approval.
