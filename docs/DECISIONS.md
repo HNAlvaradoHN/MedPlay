@@ -62,3 +62,34 @@ Constraints:
 Status: OWNER_DECISION
 
 Prefer GitHub Actions for REA/JADX experiments so the analysis can run from the cloud and results can be inspected from ChatGPT/GitHub.
+
+## DEC-008 — Optimize for sustainable quality, not absolute maximum settings
+
+Status: OWNER_DECISION
+
+MedPlay must target the highest quality a device can sustain without materially harming gameplay responsiveness or thermal behavior.
+
+Consequences:
+- do not force the highest resolution, FPS or bitrate globally;
+- capability detection is mandatory;
+- stable frame delivery is more important than nominal peak settings;
+- thermal/load safeguards should be designed into the recorder;
+- user-visible high-quality modes may exceed defaults, but unsafe/unsupported combinations should not be presented as guaranteed.
+
+## DEC-009 — Prefer segmented encoded rolling storage and remux over re-encoding
+
+Status: RESEARCH-BACKED DIRECTION / ACCEPTED_FOR_PROTOTYPE
+
+Prototype the rolling recorder as short encoded segments retained in a bounded window, then assemble/remux selected segments when the user saves a clip.
+
+Reason:
+Medal analysis confirms a segmented recorder/muxer subsystem, and this architecture aligns with MedPlay's own performance goals.
+
+Expected benefits:
+- low save-time CPU use;
+- reduced thermal spikes;
+- no generational quality loss from re-encoding;
+- bounded storage;
+- simpler retroactive retention.
+
+This is an original MedPlay design decision; Medal's proprietary implementation must not be copied.
