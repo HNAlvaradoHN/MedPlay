@@ -1,6 +1,6 @@
 # PROJECT STATE — MedPlay ⏯️
 
-status: READY
+status: ACTIVE_RESEARCH
 protocol_version: 1
 repository: HNAlvaradoHN/MedPlay
 default_branch: main
@@ -15,40 +15,80 @@ This is MedPlay's first official session. Previous SendGram numbering/content in
 
 ## Verified project state
 
-- Product code: none.
+- Product code: none yet.
 - Stable version: none.
 - Development version: none.
 - Release/APK: none.
-- CI: not configured yet.
-- Architecture: initial MedPlay direction documented for prototype.
+- Public CI: REA/JADX smoke workflow exists and passed.
+- Private lab: HNAlvaradoHN/Medplay-Lab.
+- Private Medal analysis workflow: implemented and running successfully with GitHub Actions + JADX.
 - External paid services: none approved.
 - Secrets allowed in repository: none.
-- Reference analysis target available in conversation: Medal 7.1.1 Android package.
-- REA/JADX cloud workflow: proposed, not yet implemented.
+- Reference target: Medal 7.1.1 Android package, stored temporarily as a private Release asset in Medplay-Lab, not committed to Git history.
 
 ## Current objective
 
-Bootstrap MedPlay as an Android project for high-quality retroactive screen recording and validate a cloud-based analysis workflow using GitHub Actions + REA/JADX without requiring the owner's PC.
+Finish reference analysis of Medal's recorder internals, then scaffold MedPlay as an original native Android/Kotlin app for high-quality retroactive screen recording.
+
+The owner's highest priority is not simply "maximum settings". The product must target the best sustainable visual quality while minimizing heat, battery cost, dropped frames, gameplay stutter and device stress.
 
 ## Product direction established by owner
 
 MedPlay should:
-- record the screen continuously into a rolling buffer;
+- continuously retain only a recent rolling window;
 - save the previous configurable interval when the user taps a floating action;
-- prioritize very high recording quality for games;
-- support multiple quality/resolution/time profiles;
+- prioritize excellent fast-motion game quality;
+- use hardware encoding wherever practical;
+- avoid re-encoding when saving retroactive clips;
+- expose multiple resolution/FPS/quality profiles, but never pretend unsupported combinations are safe;
 - support internal audio and optional microphone where Android permits;
-- avoid visible quality loss/pixelation as much as hardware limits allow.
+- adapt to device capability and sustained load rather than blindly forcing maximum resolution/bitrate;
+- prefer stable gameplay and thermal behavior over benchmark-style peak settings.
+
+## Reference-analysis results confirmed so far
+
+Private Medal analysis has confirmed:
+- screen capture starts through MediaProjectionManager / MediaProjection;
+- Medal has a dedicated RecordActivity flow around capture permission and recording startup;
+- Medal uses a segmented recorder architecture;
+- a component named SegmentsMediaMuxer exists under tv.medal.recorder.core.engine.segments.muxer;
+- this strongly supports a rolling short-segment/remux architecture for MedPlay rather than an unlimited monolithic recording or naive raw byte ring buffer;
+- Medal contains a VideoQualityInfo model with bitrate, width and height;
+- editor-side bitrate presets include 5, 10, 20, 50 and 100 Mbps; these values are not yet proven to be live-recorder presets;
+- JADX can decompile enough of Medal to expose relevant recorder architecture, even though some methods remain undecompiled;
+- REA inspect-android-package currently returns execution_failure in this environment, so JADX is the reliable analysis path for now.
+
+## GitHub Actions / analysis history
+
+- Public REA/JADX smoke test: success.
+- Private run #1: failed at REA before JADX.
+- Private run #2: same issue due workflow replacement not taking effect.
+- Private run #3: JADX completed useful discovery, but artifact upload failed because Actions artifact storage quota was exhausted.
+- Private run #4: success after switching findings to private workflow logs instead of artifacts.
+- Private run #5: invalid YAML introduced while inserting a targeted analysis step; no analysis job ran.
+- Private run #6: success; targeted quality/performance scan completed.
+- Private run #7: deep-dive recorder-internals scan was launched and should be reviewed next.
+
+## Important technical direction
+
+Current preferred architecture remains:
+
+MediaProjection -> VirtualDisplay -> hardware MediaCodec encoder -> short rolling encoded segments -> keep only recent window -> on save, select valid prior segments/keyframe boundary -> remux/assemble without re-encoding -> MediaStore/Gallery
+
+This direction is favored because it can preserve quality while reducing CPU work and heat at save time.
 
 ## Blockers / pending validation
 
-- Confirm practical MediaProjection + MediaCodec rolling-buffer strategy on Android.
-- Determine safe keyframe/container strategy for retroactive MP4 clip extraction.
-- Detect per-device encoder limits for resolution/FPS/bitrate/codecs.
-- Validate internal-audio behavior across Android versions/devices.
-- Build and test REA/JADX GitHub Actions workflow.
-- No Android project exists yet.
+- Extract the actual live-recorder bitrate/FPS/resolution mapping from Medal.
+- Identify which codecs Medal uses for live recording and whether it selects hardware encoders explicitly.
+- Determine segment duration and retention behavior.
+- Identify any per-device capability filtering.
+- Identify any thermal/battery/performance adaptation logic.
+- Determine keyframe interval and clip assembly behavior.
+- Validate internal-audio strategy.
+- Build first MedPlay Android prototype.
+- Measure sustained thermals, dropped frames and gameplay impact on real devices.
 
 ## Next step
 
-Create the first REA/JADX GitHub Actions experiment and then scaffold the smallest Android/Kotlin MedPlay prototype around MediaProjection + hardware encoding.
+Review private analysis run #7, document concrete recorder findings, then convert those findings into an original MedPlay recording profile strategy and initial Android prototype design.
