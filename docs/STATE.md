@@ -281,3 +281,14 @@ Current feature branch reduces avoidable I/O/thermal load and tightens service l
 - the actual remux path remains off the main thread and still performs compressed-sample copy only.
 
 This deliberately favors stable gameplay and low I/O contention over allowing multiple simultaneous saves.
+
+
+## Segment finalization hardening
+
+The same branch also tightens rolling-segment validity:
+- a video/audio segment is added to the completed queue only if MediaMuxer.stop() succeeds;
+- a segment whose muxer finalization fails is deleted immediately and never becomes leaseable/exportable;
+- segment leases now use AtomicBoolean for thread-safe idempotent close;
+- service teardown catches final-segment close failures so recorder shutdown stays bounded even when storage/muxer finalization fails.
+
+A finalization failure during active video rotation still propagates through the encoder consumer path and triggers recorder teardown rather than continuing on a possibly corrupted rolling set.
