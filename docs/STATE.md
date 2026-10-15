@@ -252,3 +252,18 @@ Current feature branch fixes shutdown correctness and pipeline failure propagati
 - the previous unused RequiresApi import was removed.
 
 The stop path remains bounded: if EOS does not arrive within the grace period, MedPlay forces drain termination rather than hanging the foreground service indefinitely.
+
+
+## Export consistency guards
+
+Current feature branch hardens final clip creation before real-device testing:
+- video and audio segment ranges are validated as strictly ordered and non-overlapping;
+- every selected segment must exist and be non-empty before MediaStore insertion;
+- every video segment must begin with a sync/keyframe sample;
+- critical track format fields are compared across all selected segments so resolution/audio layout changes cannot be silently concatenated;
+- per-track output timestamps must remain strictly increasing during remux;
+- MediaMuxer.stop() failures now fail the export instead of being swallowed;
+- MediaStore publication is checked; an unpublished/failed clip remains pending only until the failure path deletes it;
+- any validation/remux/publication failure deletes the pending MediaStore item and releases segment leases.
+
+The final export still copies compressed samples only; these guards do not introduce decode/re-encode.
