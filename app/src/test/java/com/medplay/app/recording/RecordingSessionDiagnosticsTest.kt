@@ -27,6 +27,8 @@ class RecordingSessionDiagnosticsTest {
                 maxWallOutputGapUs = 50_000,
                 timeSinceLastOutputUs = 10_000,
             ),
+            microphoneWasActive = true,
+            microphoneWasSilenced = true,
         )
 
         val text = diagnostics.toText()
@@ -35,5 +37,7 @@ class RecordingSessionDiagnosticsTest {
         assertTrue(text.contains("resolution=1920x1080"))
         assertTrue(text.contains("encodedSamples=90"))
         assertTrue(text.contains("timestampRegressions=0"))
+        assertTrue(text.contains("microphoneWasActive=true"))
+        assertTrue(text.contains("microphoneWasSilenced=true"))
     }
 }
