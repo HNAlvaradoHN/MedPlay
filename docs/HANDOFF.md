@@ -306,3 +306,8 @@ Video and AAC startup are transactional. Resources created before full publicati
 ## Capture startup failure note
 
 MediaProjection acquisition/registration, profile probing, encoder startup, VirtualDisplay creation and thermal-guard startup are failure-contained. A startup exception must end in bounded cleanup and service stop; secondary cleanup failures must not block projection teardown.
+
+
+## Sustainability verdict note
+
+The persisted last-session diagnostics now include sustainabilityVerdict=GOOD/DEGRADED/UNSUSTAINABLE, derived from encoder health, max thermal status and target FPS. Keep it measurement-only until device traces validate thresholds.
