@@ -660,3 +660,20 @@ MainActivity exposes a **Mis clips / My clips** section. Entries can be refreshe
 This is the storage/library foundation for the planned non-destructive editor. The original MediaStore clip remains the master source.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on-device.
+
+
+## Latest dev-latest: microphone + thermal adaptation + clip library
+
+The current `dev-latest` APK now includes:
+- separate optional player-microphone capture from PR #66;
+- automatic thermal load adaptation from PR #67;
+- in-app `Mis clips / My clips` library from PR #68.
+
+Release evidence:
+- release run `38822693354`: success
+- release target: `a5120b2f030674a94c6701a889bbe7ebd69221e2`
+- release published: `2026-10-15T23:18:44Z`
+- APK size: 2,683,542 bytes
+- current main after restoring the release workflow to manual-only: `cddbf1e7b23ebf2a540e20e784bc135faf6faab8`
+
+Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN for the new microphone contention behavior, thermal profile switching, and in-app library flow.
