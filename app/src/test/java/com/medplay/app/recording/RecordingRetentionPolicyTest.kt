@@ -30,13 +30,13 @@ class RecordingRetentionPolicyTest {
     }
 
     @Test
-    fun neverDropsBelowOneMinute() {
+    fun refusesRetentionWhenOneMinuteCannotFitSafely() {
         val result = RecordingRetentionPolicy.choose(
             videoBitrate = 16_000_000,
             audioBitrate = 128_000,
             usableBytes = 100L * 1024L * 1024L,
         )
 
-        assertEquals(60, result.retentionSeconds)
+        assertEquals(0, result.retentionSeconds)
     }
 }
