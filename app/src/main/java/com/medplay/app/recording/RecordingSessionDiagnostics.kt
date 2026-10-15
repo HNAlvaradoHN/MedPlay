@@ -12,6 +12,16 @@ data class RecordingSessionDiagnostics(
     val durationUs: Long
         get() = (endedMonotonicUs - startedMonotonicUs).coerceAtLeast(0L)
 
+    val sustainabilityVerdict: RecordingSustainabilityEvaluator.Verdict
+        get() = RecordingSustainabilityEvaluator.evaluate(
+            RecordingSustainabilityEvaluator.Input(
+                encoderHealth = encoderHealth,
+                thermalStatus = maxThermalStatus,
+                targetFps = profile.fps,
+                sessionDurationUs = durationUs,
+            )
+        )
+
     fun toText(): String {
         return buildString {
             appendLine("MedPlay recording diagnostics")
@@ -24,6 +34,7 @@ data class RecordingSessionDiagnostics(
             appendLine("retentionSeconds=$retentionSeconds")
             appendLine("audioWasActive=$audioWasActive")
             appendLine("maxThermalStatus=$maxThermalStatus")
+            appendLine("sustainabilityVerdict=$sustainabilityVerdict")
             appendLine("encodedSamples=${encoderHealth.encodedSamples}")
             appendLine("timestampRegressions=${encoderHealth.timestampRegressions}")
             appendLine("maxWallOutputGapUs=${encoderHealth.maxWallOutputGapUs}")
