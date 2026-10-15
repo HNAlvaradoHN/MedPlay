@@ -174,10 +174,14 @@ class HardwareVideoEncoder(
                             try {
                                 val output = currentCodec.getOutputBuffer(index)
                                 if (output != null && info.size > 0) {
-                                    runtimeHealth.onEncodedSample(
-                                        presentationTimeUs = info.presentationTimeUs,
-                                        wallTimeUs = SystemClock.elapsedRealtimeNanos() / 1_000L,
-                                    )
+                                    if (
+                                        (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0
+                                    ) {
+                                        runtimeHealth.onEncodedSample(
+                                            presentationTimeUs = info.presentationTimeUs,
+                                            wallTimeUs = SystemClock.elapsedRealtimeNanos() / 1_000L,
+                                        )
+                                    }
                                     output.position(info.offset)
                                     output.limit(info.offset + info.size)
                                     sampleConsumer.onSample(output.slice(), info)
