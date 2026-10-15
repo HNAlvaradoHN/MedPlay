@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import java.io.File
 import androidx.annotation.RequiresApi
 import com.medplay.app.MainActivity
 
@@ -24,6 +25,7 @@ class CaptureService : Service() {
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var videoEncoder: HardwareVideoEncoder? = null
+    private var rollingWriter: RollingVideoSegmentWriter? = null
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
@@ -71,9 +73,16 @@ class CaptureService : Service() {
             return START_NOT_STICKY
         }
 
-        val encoder = HardwareVideoEncoder(profile)
+        val segmentWriter = RollingVideoSegmentWriter(
+            directory = File(cacheDir, "medplay_rolling_video"),
+        )
+        val encoder = HardwareVideoEncoder(
+            profile = profile,
+            sampleConsumer = segmentWriter,
+        )
         val encoderSurface = runCatching { encoder.start() }.getOrElse {
             encoder.stop()
+            segmentWriter.close()
             stopProjectionAndSelf()
             return START_NOT_STICKY
         }
@@ -92,10 +101,12 @@ class CaptureService : Service() {
 
         if (virtualDisplay == null) {
             encoder.stop()
+            segmentWriter.close()
             stopProjectionAndSelf()
             return START_NOT_STICKY
         }
 
+        rollingWriter = segmentWriter
         videoEncoder = encoder
 
         return START_NOT_STICKY
@@ -124,6 +135,9 @@ class CaptureService : Service() {
 
         videoEncoder?.stop()
         videoEncoder = null
+
+        rollingWriter?.close()
+        rollingWriter = null
     }
 
     private fun startAsProjectionForegroundService() {

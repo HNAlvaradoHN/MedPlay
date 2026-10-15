@@ -93,7 +93,7 @@ This direction is favored because it can preserve quality while reducing CPU wor
 
 ## Next step
 
-Validate the hardware video pipeline in public CI, then add rolling encoded segments and muxing.
+Validate rolling MP4 segments in public CI, then implement retroactive clip selection/remux and MediaStore export.
 
 
 ## Sustainable profile selector implementation
@@ -130,4 +130,18 @@ Performance properties:
 - keyframe interval starts at 2 seconds to support later segment/keyframe-safe clipping;
 - encoder, input Surface and VirtualDisplay have explicit teardown paths.
 
-Encoded output is currently drained but intentionally discarded. The next block will route these already-encoded samples into short rolling segments; no re-encoding will be introduced.
+Hardware video pipeline passed public CI and is merged. Current feature branch routes encoded samples directly into rolling MP4 segments; no video re-encoding is introduced.
+
+
+## Rolling encoded segment buffer
+
+Current feature branch implements video-only rolling MP4 segments:
+- MediaCodec compressed output is written directly to MediaMuxer;
+- segment cuts occur only on encoder keyframes;
+- target segment duration is 2 seconds;
+- timestamps are normalized per segment;
+- default prototype retention is 60 seconds and old completed segments are deleted automatically;
+- files live in app cache, not Gallery, until the user explicitly saves a clip;
+- no raw-frame buffering and no re-encoding are used.
+
+The writer currently performs MediaMuxer writes on the encoder drain thread. Because it writes compressed data rather than raw frames, this is intentionally simple for the first prototype, but real-device measurements must verify that storage latency does not back-pressure the encoder. If it does, move mux writes to a bounded dedicated I/O queue without introducing raw-frame copies.
