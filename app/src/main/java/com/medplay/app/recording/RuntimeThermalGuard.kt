@@ -27,7 +27,6 @@ class RuntimeThermalGuard(
                 status < PowerManager.THERMAL_STATUS_CRITICAL
             ) {
                 dispatch(status, force = true)
-                handler.postDelayed(this, SEVERE_RECHECK_MS)
             }
         }
     }
