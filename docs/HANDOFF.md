@@ -361,3 +361,13 @@ ACTION_START is ignored while MediaProjection is already active; the current ses
 ## Copy diagnostics note
 
 MainActivity can copy the last persisted recording diagnostic summary to the clipboard. The copied text contains only compact session/encoder/thermal metadata, never recorded media payloads. This is the preferred way to paste a real-device session result back into ChatGPT.
+
+
+## Active capture notification note
+
+Once startup completes, the foreground notification reports selected resolution/FPS, actual storage-aware retention seconds and audio/video-only state. Use this together with last-session diagnostics during real-device validation.
+
+
+## Active capture notification note
+
+Once startup completes, the foreground notification reports selected resolution/FPS, actual storage-aware retention seconds and audio/video-only state. Use this together with last-session diagnostics during real-device validation.

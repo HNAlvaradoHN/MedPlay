@@ -462,3 +462,13 @@ CaptureService now rejects a second ACTION_START while a MediaProjection session
 ## Copyable session diagnostics
 
 MainActivity now exposes a **Copy last recording diagnostics** action. It copies only the compact persisted diagnostic text (profile, duration, retention, thermal/encoder-health metrics and sustainability verdict) to the Android clipboard. No video/audio payload, recording file, token or private app data is included. If no completed session exists, the UI reports that instead of copying an empty value.
+
+
+## Active capture status in notification
+
+After a capture session is fully started, the foreground notification now shows the actual selected video resolution/FPS, the storage-aware rolling retention window in seconds, and whether internal audio is active or the session is video-only. This reuses existing session state and adds no polling or per-frame work. It gives real-device tests an immediate way to confirm the profile MedPlay actually selected.
+
+
+## Active capture status in notification
+
+After a capture session is fully started, the foreground notification shows the actual selected video resolution/FPS, the storage-aware rolling retention window in seconds, and whether internal audio is active or the session is video-only. This reuses existing session state and adds no polling or per-frame work. It gives real-device tests an immediate way to confirm the profile MedPlay actually selected.
