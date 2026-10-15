@@ -328,3 +328,16 @@ This branch also fixes a potential A/V timeline error in the Surface-input path:
 - regressions in the mapped PTS are rejected instead of silently producing invalid segment timing.
 
 Unit tests cover both zero-based and large absolute-looking codec PTS domains. Real-device testing is still required to measure residual A/V start offset and long-session drift.
+
+
+## Save-triggered sync-frame rollover
+
+Current feature branch reduces the gap between the user's Clip tap and the end of the saved retroactive clip:
+- before leasing completed segments, MedPlay marks the rolling writer to rotate on the next sync frame;
+- HardwareVideoEncoder requests an immediate sync frame with MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME;
+- clip export runs off the main thread and waits at most 750 ms for a newly completed segment;
+- if the encoder honors the request, the previous active segment is finalized just before the requested keyframe and becomes exportable;
+- if the request is unsupported/ignored or the timeout expires, save falls back to the latest already completed segments;
+- no decoder or re-encode is introduced and recording continues into the new segment.
+
+The wait is deliberately bounded so clip saving cannot stall gameplay or the foreground service.
