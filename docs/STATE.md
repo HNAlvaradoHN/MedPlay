@@ -224,3 +224,16 @@ Current feature branch adds:
 - audio and video use the same selected retention window.
 
 This is deliberately bounded: MedPlay does not blindly allocate five minutes on every device/profile. A high-bitrate profile can receive a shorter window if storage headroom is insufficient.
+
+
+## Encoder hardening and health telemetry
+
+Current feature branch closes two gaps before real-device validation:
+- automatic startup encoder selection now requires COLOR_FormatSurface, matching the actual zero-copy MediaCodec input path;
+- encoder capability reports now show whether Surface input is supported;
+- encoders without Surface input are excluded before profile selection, even if their width/FPS/bitrate metadata otherwise matches;
+- HardwareVideoEncoder now records lightweight runtime health counters using atomics only;
+- tracked signals are encoded-sample count, presentation-timestamp regressions, maximum wall-clock gap between output samples, and time since last encoded output;
+- telemetry is collected without per-frame logging, allocations beyond the existing sample path, or automatic profile restarts.
+
+These metrics are observational for now. They are intentionally not used to trigger resolution/FPS changes until real-device measurements establish trustworthy thresholds.
