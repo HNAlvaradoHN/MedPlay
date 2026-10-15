@@ -117,6 +117,7 @@ class HardwareVideoEncoder(
         return runtimeHealth.snapshot(nowUs)
     }
 
+    @Synchronized
     fun stop() {
         val currentCodec = codec ?: return
         if (stopRequested.compareAndSet(false, true)) {
@@ -137,7 +138,6 @@ class HardwareVideoEncoder(
         runCatching { currentCodec.release() }
         codec = null
         running.set(false)
-        stopRequested.set(false)
     }
 
     private fun drainLoop(currentCodec: MediaCodec) {
@@ -182,7 +182,9 @@ class HardwareVideoEncoder(
                 }
             }
         } catch (error: Throwable) {
-            onFatalError(error)
+            if (!stopRequested.get()) {
+                onFatalError(error)
+            }
         } finally {
             running.set(false)
         }
