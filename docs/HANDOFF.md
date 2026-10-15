@@ -465,3 +465,18 @@ Key behavior:
 Do not claim that ordinary gallery playback mixes both tracks. The later editor phase must preview/mix the two sources and export one final user-controlled soundtrack.
 
 Next evidence step: build/install a validation APK and test one continuous session with game voice-chat OFF -> ON -> OFF, saving a clip that spans the transitions.
+
+
+## Automatic thermal adaptation handoff
+
+The thermal branch upgrades the prior bitrate-only protection:
+- MODERATE remains bitrate-only at 85%.
+- SEVERE uses 70% bitrate and automatically steps to the next lower validated hardware resolution/FPS profile.
+- sustained SEVERE rechecks every 30 seconds and can continue stepping down until the device reaches its validated floor;
+- CRITICAL still stops capture.
+
+Thermal profile changes are implemented as video epochs. The old rolling-video epoch is closed only after the replacement hardware encoder is running and the VirtualDisplay has been resized/rebound. Old epoch files are then removed because final remux cannot safely concatenate different video formats. Audio/microphone buffers stay on their monotonic timeline and continue through the switch.
+
+A save tap during the brief profile switch is intentionally refused rather than racing with writer replacement. Shutdown serializes against an active profile switch. Diagnostics aggregate video encoder health across epochs and record the initial/final profile plus downgrade count.
+
+Do not claim physical thermal improvement yet. The next device test should compare the same game/session duration with and without MedPlay and inspect `maxThermalStatus`, `thermalProfileDowngrades`, encoder health and perceived gameplay smoothness.
