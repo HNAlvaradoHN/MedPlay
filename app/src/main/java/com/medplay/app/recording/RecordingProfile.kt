@@ -6,6 +6,7 @@ data class RecordingProfile(
     val fps: Int,
     val bitrate: Int,
     val codec: VideoCodec,
+    val encoderName: String,
 )
 
 enum class VideoCodec(val mimeType: String) {

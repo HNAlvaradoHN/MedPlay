@@ -88,9 +88,21 @@ This direction is favored because it can preserve quality while reducing CPU wor
 - Identify any thermal/battery/performance adaptation logic.
 - Determine keyframe interval and clip assembly behavior.
 - Validate internal-audio strategy.
-- Validate the initial MedPlay Android scaffold and encoder capability probe in public CI.
+- Validate the sustainable profile selector in public CI.
 - Measure sustained thermals, dropped frames and gameplay impact on real devices.
 
 ## Next step
 
-Implement the original MedPlay capability-based profile selector with sustainable-quality safeguards, then add MediaProjection capture.
+Validate the new sustainable profile selector in public CI, then add MediaProjection capture.
+
+
+## Sustainable profile selector implementation
+
+Initial automatic startup policy now exists in code:
+- automatic startup requires a hardware video encoder;
+- candidate resolution/FPS/bitrate combinations are validated with Android VideoCapabilities before selection;
+- HEVC is preferred where the device reports a valid hardware path;
+- automatic startup intentionally does not jump directly to 1080p60/1440p; higher load modes are reserved for later runtime health promotion;
+- if no validated hardware startup profile exists, automatic recording does not silently fall back to software encoding.
+
+This is only the startup guardrail. Runtime thermal/frame-loss adaptation is still pending and must be implemented before claiming full sustainable-performance protection.
