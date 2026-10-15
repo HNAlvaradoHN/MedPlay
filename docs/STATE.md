@@ -467,3 +467,8 @@ MainActivity now exposes a **Copy last recording diagnostics** action. It copies
 ## Active capture status in notification
 
 After a capture session is fully started, the foreground notification now shows the actual selected video resolution/FPS, the storage-aware rolling retention window in seconds, and whether internal audio is active or the session is video-only. This reuses existing session state and adds no polling or per-frame work. It gives real-device tests an immediate way to confirm the profile MedPlay actually selected.
+
+
+## Active capture status in notification
+
+After a capture session is fully started, the foreground notification shows the actual selected video resolution/FPS, the storage-aware rolling retention window in seconds, and whether internal audio is active or the session is video-only. This reuses existing session state and adds no polling or per-frame work. It gives real-device tests an immediate way to confirm the profile MedPlay actually selected.
