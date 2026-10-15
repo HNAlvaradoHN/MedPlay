@@ -93,7 +93,7 @@ This direction is favored because it can preserve quality while reducing CPU wor
 
 ## Next step
 
-Validate runtime thermal protection in public CI, then add internal audio capture and A/V-segment synchronization.
+Validate internal audio capture/AAC foundation in public CI, then add A/V rolling-segment synchronization and joint export.
 
 
 ## Sustainable profile selector implementation
@@ -164,7 +164,7 @@ Important limitation for this prototype: the currently open rolling segment is n
 
 ## Runtime thermal protection
 
-Current feature branch integrates Android's thermal status API into the active capture service:
+Runtime thermal protection passed public CI and is merged. Current feature branch adds internal playback audio capture/AAC encoding:
 - thermal status is monitored continuously while capture is active;
 - NORMAL/LIGHT keeps the selected startup bitrate;
 - MODERATE requests 85% of the selected bitrate;
@@ -175,3 +175,19 @@ Current feature branch integrates Android's thermal status API into the active c
 - unit tests cover the protection policy.
 
 This is a real APK safeguard, not only documentation. It does not yet prove that bitrate reduction alone is sufficient on every SoC; real-device testing will determine whether severe states should also trigger an encoder restart into a lower resolution/FPS profile. No automatic resolution/FPS restart is added yet because doing so without measurement would create avoidable instability.
+
+
+## Internal audio foundation
+
+Current feature branch adds optional Android playback-audio capture:
+- requests RECORD_AUDIO at runtime, but continues video-only if the user denies it;
+- uses AudioPlaybackCaptureConfiguration tied to the same MediaProjection;
+- matches GAME and MEDIA playback usages;
+- captures 48 kHz stereo PCM16;
+- feeds PCM directly into MediaCodec AAC-LC at 128 kbps;
+- prefers a hardware AAC encoder when available and falls back to another AAC encoder if needed;
+- runs audio capture/encoding on a dedicated thread;
+- records a monotonic capture-start timestamp for later A/V alignment;
+- tears down AudioRecord and MediaCodec with the capture service.
+
+Important limitation: encoded AAC output is currently consumed by a discard sink. Audio is therefore not yet present in saved clips. This branch establishes and validates the capture/encode path first; the next block will place encoded audio into rolling segments aligned to the video timeline and then add the audio track during final remux.
