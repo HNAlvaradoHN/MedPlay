@@ -99,7 +99,12 @@ class CaptureService : Service() {
             return START_NOT_STICKY
         }
         if (mediaProjection != null) {
-            updateCaptureNotification("Capture is already active.")
+            updateCaptureNotification(
+                tr(
+                    "La grabación ya está activa.",
+                    "Capture is already active.",
+                )
+            )
             return START_NOT_STICKY
         }
         if (exportInProgress.get()) {
@@ -138,7 +143,9 @@ class CaptureService : Service() {
         mediaProjection = projection
 
         val profile = runCatching {
-            EncoderCapabilityProbe.chooseSafeStartupProfile()
+            EncoderCapabilityProbe.chooseSafeStartupProfile(
+                RecordingQualityPreference.get(applicationContext)
+            )
         }.getOrNull()
         if (profile == null) {
             stopProjectionAndSelf()
@@ -246,7 +253,12 @@ class CaptureService : Service() {
 
     private fun saveRetroactiveClip(seconds: Int) {
         if (!exportInProgress.compareAndSet(false, true)) {
-            updateCaptureNotification("Clip save already in progress.")
+            updateCaptureNotification(
+                tr(
+                    "Ya se está guardando un clip.",
+                    "Clip save already in progress.",
+                )
+            )
             return
         }
 
