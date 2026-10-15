@@ -1,5 +1,6 @@
 package com.medplay.app.recording
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
@@ -28,6 +30,7 @@ class CaptureService : Service() {
     private var videoEncoder: HardwareVideoEncoder? = null
     private var rollingWriter: RollingVideoSegmentWriter? = null
     private var thermalGuard: RuntimeThermalGuard? = null
+    private var internalAudioCapture: InternalAudioCapture? = null
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
@@ -133,6 +136,8 @@ class CaptureService : Service() {
             }
         }.also { it.start() }
 
+        startInternalAudioIfPermitted(mediaProjection)
+
         return START_NOT_STICKY
     }
 
@@ -154,6 +159,28 @@ class CaptureService : Service() {
         }
     }
 
+    private fun startInternalAudioIfPermitted(projection: MediaProjection?) {
+        if (projection == null) return
+        if (
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val audioCapture = InternalAudioCapture(projection)
+        val started = runCatching {
+            audioCapture.start()
+            true
+        }.getOrDefault(false)
+
+        if (started) {
+            internalAudioCapture = audioCapture
+        } else {
+            audioCapture.stop()
+        }
+    }
+
     override fun onDestroy() {
         releaseVideoPipeline()
         mediaProjection?.unregisterCallback(projectionCallback)
@@ -172,6 +199,9 @@ class CaptureService : Service() {
     }
 
     private fun releaseVideoPipeline() {
+        internalAudioCapture?.stop()
+        internalAudioCapture = null
+
         thermalGuard?.close()
         thermalGuard = null
 
