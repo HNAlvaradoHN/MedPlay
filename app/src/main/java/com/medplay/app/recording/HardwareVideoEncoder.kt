@@ -38,35 +38,49 @@ class HardwareVideoEncoder(
         check(codec == null) { "Encoder already started" }
 
         val createdCodec = MediaCodec.createByCodecName(profile.encoderName)
-        val format = MediaFormat.createVideoFormat(
-            profile.codec.mimeType,
-            profile.width,
-            profile.height,
-        ).apply {
-            setInteger(
-                MediaFormat.KEY_COLOR_FORMAT,
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface,
+        var surface: Surface? = null
+        var codecStarted = false
+
+        try {
+            val format = MediaFormat.createVideoFormat(
+                profile.codec.mimeType,
+                profile.width,
+                profile.height,
+            ).apply {
+                setInteger(
+                    MediaFormat.KEY_COLOR_FORMAT,
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface,
+                )
+                setInteger(MediaFormat.KEY_BIT_RATE, profile.bitrate)
+                setInteger(MediaFormat.KEY_FRAME_RATE, profile.fps)
+                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, I_FRAME_INTERVAL_SECONDS)
+                setInteger(MediaFormat.KEY_PRIORITY, 0)
+            }
+
+            createdCodec.configure(
+                format,
+                null,
+                null,
+                MediaCodec.CONFIGURE_FLAG_ENCODE,
             )
-            setInteger(MediaFormat.KEY_BIT_RATE, profile.bitrate)
-            setInteger(MediaFormat.KEY_FRAME_RATE, profile.fps)
-            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, I_FRAME_INTERVAL_SECONDS)
-            setInteger(MediaFormat.KEY_PRIORITY, 0)
+
+            surface = createdCodec.createInputSurface()
+            val monotonicStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
+            createdCodec.start()
+            codecStarted = true
+            sampleConsumer.onEncoderStarted(monotonicStartUs)
+        } catch (error: Throwable) {
+            runCatching { surface?.release() }
+            if (codecStarted) {
+                runCatching { createdCodec.stop() }
+            }
+            runCatching { createdCodec.release() }
+            throw error
         }
 
-        createdCodec.configure(
-            format,
-            null,
-            null,
-            MediaCodec.CONFIGURE_FLAG_ENCODE,
-        )
-
-        val surface = createdCodec.createInputSurface()
-        val monotonicStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
-        createdCodec.start()
-        sampleConsumer.onEncoderStarted(monotonicStartUs)
-
+        val readySurface = checkNotNull(surface)
         codec = createdCodec
-        inputSurface = surface
+        inputSurface = readySurface
         stopRequested.set(false)
         running.set(true)
 
@@ -78,7 +92,7 @@ class HardwareVideoEncoder(
             drainLoop(createdCodec)
         }
 
-        return surface
+        return readySurface
     }
 
     @Synchronized
