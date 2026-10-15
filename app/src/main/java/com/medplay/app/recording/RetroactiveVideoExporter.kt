@@ -124,12 +124,12 @@ class RetroactiveVideoExporter(
 
             val clipStartUs = videoSegments.first().sourceStartUs
             val clipEndUs = videoSegments.last().sourceEndUs
-            val buffer = ByteBuffer.allocateDirect(COPY_BUFFER_BYTES)
+            var buffer = ByteBuffer.allocateDirect(INITIAL_COPY_BUFFER_BYTES)
             val info = MediaCodec.BufferInfo()
 
             var lastVideoPtsUs = Long.MIN_VALUE
             videoSegments.forEach { segment ->
-                lastVideoPtsUs = copyTrackSegment(
+                val result = copyTrackSegment(
                     filePath = segment.file.absolutePath,
                     mimePrefix = "video/",
                     segmentStartUs = segment.sourceStartUs,
@@ -141,12 +141,14 @@ class RetroactiveVideoExporter(
                     info = info,
                     lastWrittenPtsUs = lastVideoPtsUs,
                 )
+                lastVideoPtsUs = result.lastWrittenPtsUs
+                buffer = result.buffer
             }
 
             if (audioTrack != null) {
                 var lastAudioPtsUs = Long.MIN_VALUE
                 audioSegments.forEach { segment ->
-                    lastAudioPtsUs = copyTrackSegment(
+                    val result = copyTrackSegment(
                         filePath = segment.file.absolutePath,
                         mimePrefix = "audio/",
                         segmentStartUs = segment.sourceStartUs,
@@ -158,6 +160,8 @@ class RetroactiveVideoExporter(
                         info = info,
                         lastWrittenPtsUs = lastAudioPtsUs,
                     )
+                    lastAudioPtsUs = result.lastWrittenPtsUs
+                    buffer = result.buffer
                 }
             }
         } catch (error: Throwable) {
@@ -175,6 +179,11 @@ class RetroactiveVideoExporter(
         }
     }
 
+    private data class CopyResult(
+        val lastWrittenPtsUs: Long,
+        val buffer: ByteBuffer,
+    )
+
     private fun copyTrackSegment(
         filePath: String,
         mimePrefix: String,
@@ -186,9 +195,10 @@ class RetroactiveVideoExporter(
         buffer: ByteBuffer,
         info: MediaCodec.BufferInfo,
         lastWrittenPtsUs: Long,
-    ): Long {
+    ): CopyResult {
         val extractor = MediaExtractor()
         var latestWrittenUs = lastWrittenPtsUs
+        var workingBuffer = buffer
 
         try {
             extractor.setDataSource(filePath)
@@ -196,12 +206,21 @@ class RetroactiveVideoExporter(
             extractor.selectTrack(inputTrack)
 
             while (true) {
-                buffer.clear()
-                val size = extractor.readSampleData(buffer, 0)
-                if (size < 0) break
-                check(size <= buffer.capacity()) {
-                    "Encoded sample exceeds remux buffer"
+                val announcedSize = extractor.sampleSize
+                if (announcedSize < 0L) break
+                check(announcedSize <= MAX_COPY_SAMPLE_BYTES) {
+                    "Encoded sample is unreasonably large: $announcedSize bytes"
                 }
+
+                if (announcedSize > workingBuffer.capacity()) {
+                    workingBuffer = ByteBuffer.allocateDirect(
+                        announcedSize.toInt(),
+                    )
+                }
+
+                workingBuffer.clear()
+                val size = extractor.readSampleData(workingBuffer, 0)
+                if (size < 0) break
 
                 val sampleTimeUs = extractor.sampleTime
                 if (sampleTimeUs < 0) break
@@ -226,7 +245,7 @@ class RetroactiveVideoExporter(
                     outputPtsUs,
                     extractor.sampleFlags,
                 )
-                muxer.writeSampleData(outputTrack, buffer, info)
+                muxer.writeSampleData(outputTrack, workingBuffer, info)
                 latestWrittenUs = outputPtsUs
                 extractor.advance()
             }
@@ -234,7 +253,10 @@ class RetroactiveVideoExporter(
             extractor.release()
         }
 
-        return latestWrittenUs
+        return CopyResult(
+            lastWrittenPtsUs = latestWrittenUs,
+            buffer = workingBuffer,
+        )
     }
 
     private fun validateSegments(
@@ -352,6 +374,7 @@ class RetroactiveVideoExporter(
     }
 
     companion object {
-        private const val COPY_BUFFER_BYTES = 8 * 1024 * 1024
+        private const val INITIAL_COPY_BUFFER_BYTES = 8 * 1024 * 1024
+        private const val MAX_COPY_SAMPLE_BYTES = 64L * 1024L * 1024L
     }
 }
