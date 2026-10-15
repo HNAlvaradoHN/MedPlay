@@ -413,3 +413,14 @@ MedPlay now has an explicit persistent choice for internal playback audio:
 - changing the toggle applies to the next capture session; it does not tear down an already-running audio pipeline.
 
 This provides an intentional video-only mode in addition to the existing automatic video-only fallback when playback capture is denied, unavailable or fails.
+
+
+## Notification capture actions
+
+The foreground-service notification now provides low-overhead recorder controls in addition to the optional floating overlay:
+- **Clip** sends an ACTION_SAVE to the already-running CaptureService;
+- when ACTION_SAVE has no explicit duration, the service reads the current persisted floating-clip duration, so notification and overlay use the same default;
+- **Stop** performs the same owned-resource MediaProjection shutdown path as other recorder stops;
+- direct duration buttons still pass an explicit duration and are unchanged.
+
+These actions add no background polling or per-frame work and provide a fallback save control when overlay permission is not granted.
