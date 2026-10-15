@@ -105,6 +105,13 @@ class RollingAudioSegmentWriter(
     }
 
     @Synchronized
+    fun finalizeActiveSegmentForExport(): Boolean {
+        if (muxer == null) return false
+        finishCurrentSegment()
+        return true
+    }
+
+    @Synchronized
     fun leaseRange(startUs: Long, endUs: Long): SegmentLease? {
         if (completed.isEmpty() || endUs <= startUs) return null
 
