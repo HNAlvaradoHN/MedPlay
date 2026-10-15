@@ -296,3 +296,8 @@ RetroactiveVideoExporter checks MediaExtractor.sampleSize and grows its reusable
 ## Session diagnostics note
 
 MedPlay keeps only the latest compact recording-session summary in internal app storage. It records profile, duration, retention, whether audio was active, maximum Android thermal status, encoded sample count, timestamp regressions and output-gap metrics. It never stores frame/audio payloads in diagnostics. The summary can be viewed from MainActivity without ADB.
+
+
+## Capture startup failure note
+
+MediaProjection acquisition/registration, profile probing, encoder startup, VirtualDisplay creation and thermal-guard startup are now failure-contained. A startup exception must end in bounded cleanup and service stop; secondary cleanup failures must not block projection teardown.
