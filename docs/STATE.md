@@ -353,3 +353,15 @@ Before leasing AAC for a saved clip, MedPlay finalizes the currently open rollin
 ## Adaptive remux sample buffer
 
 Retroactive export inspects MediaExtractor.sampleSize before each compressed-sample read. The reusable direct buffer starts at 8 MiB and grows only when an actual encoded access unit needs more capacity, with a 64 MiB defensive per-sample ceiling. This removes the fixed-buffer failure mode for unusually large keyframes without reserving large memory for normal clips.
+
+
+## Lightweight local session diagnostics
+
+Current feature branch prepares real-device validation without adding per-frame logging:
+- each completed recording session stores one compact text summary in app-internal storage;
+- summary includes active resolution/FPS/bitrate/codec/encoder, selected retention, session duration, whether internal audio was active, maximum Android thermal status observed, encoded sample count, timestamp regressions, maximum wall-clock output gap and time since the final encoded sample;
+- the summary is produced from existing atomic encoder-health counters and thermal callbacks, so no frame payloads or screen/audio content are recorded;
+- only the latest session summary is retained;
+- MainActivity can display the latest summary directly on-device, avoiding ADB/PC for initial validation.
+
+This telemetry is diagnostic only. It does not yet automatically change resolution/FPS because thresholds still require real-device evidence.
