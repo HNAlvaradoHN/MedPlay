@@ -35,6 +35,7 @@ On a real Android device:
 
 - on Android 13+, test once with notification permission granted and once denied;
 - grant MediaProjection consent;
+- confirm the foreground notification shows the selected resolution/FPS, retention window and audio/video-only state;
 - verify Clip/Stop notification actions are visible when notification permission is granted;
 - verify capture still works when notification permission is denied;
 - test with RECORD_AUDIO granted;
