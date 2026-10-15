@@ -541,3 +541,25 @@ The floating Clip overlay is now a custom lightweight glass-style control:
 The glass appearance intentionally avoids cross-window/background blur. A small custom Canvas gradient/highlight is used instead so visual polish does not add meaningful GPU work while a game is running.
 
 Real-device validation remains required. In particular verify that the owner's Android build exposes single-app selection, notifications/vendor overlays are excluded, the floating control itself is excluded from game-only clips, and recording quality remains identical to the previously validated high-motion build.
+
+
+## Session 2 validation APK: game-only capture / glass overlay
+
+A new `dev-latest` validation APK was generated successfully after merging the game-only capture and premium glass floating-control feature.
+
+Release build:
+- feature merge: `77ba165ef7655c58dccf681fb3212c9b97d76ac4`
+- release-trigger merge: `1accba060c2806c9e761eebd5e0876761b34ae32`
+- Manual dev APK release run: `38794076975` — success
+- published `dev-latest`: `2026-10-15T19:28:56Z`
+- APK size: 2,620,938 bytes
+- release assets: `MedPlay-debug.apk` and `MedPlay-debug.sha256`
+- the temporary push trigger was restored to workflow_dispatch-only by PR #60; current main afterward is `09928e9977cc3ffc0d41045d189ed05c6f615bc2`
+
+The APK app code matches the game-only/glass-overlay feature build; the extra release-trigger/restoration commits only changed CI workflow behavior.
+
+Physical validation is still pending for:
+- selecting a real game through Android single-app capture;
+- confirming notifications/vendor overlays and the MedPlay floating button are excluded from the saved game-only clip;
+- confirming bitrate/FPS/audio quality remains equivalent to the previously approved high-motion build;
+- confirming floating control tint, size, opacity and accepted/saved/error feedback on-device.
