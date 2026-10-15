@@ -10,6 +10,8 @@ data class RecordingSessionDiagnostics(
     val encoderHealth: EncoderRuntimeHealth.Snapshot,
     val microphoneWasActive: Boolean = false,
     val microphoneWasSilenced: Boolean = false,
+    val thermalProfileDowngrades: Int = 0,
+    val initialProfile: RecordingProfile? = null,
 ) {
     val durationUs: Long
         get() = (endedMonotonicUs - startedMonotonicUs).coerceAtLeast(0L)
@@ -28,8 +30,12 @@ data class RecordingSessionDiagnostics(
         return buildString {
             appendLine("MedPlay recording diagnostics")
             appendLine("durationUs=$durationUs")
+            val startedProfile = initialProfile ?: profile
             appendLine("resolution=${profile.width}x${profile.height}")
             appendLine("fps=${profile.fps}")
+            appendLine("initialResolution=${startedProfile.width}x${startedProfile.height}")
+            appendLine("initialFps=${startedProfile.fps}")
+            appendLine("thermalProfileDowngrades=$thermalProfileDowngrades")
             appendLine("bitrate=${profile.bitrate}")
             appendLine("codec=${profile.codec.mimeType}")
             appendLine("encoder=${profile.encoderName}")
