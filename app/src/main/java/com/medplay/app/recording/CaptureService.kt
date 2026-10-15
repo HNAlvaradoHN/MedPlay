@@ -338,7 +338,9 @@ class CaptureService : Service() {
         if (floatingClipControl != null) return
 
         val control = FloatingClipControl(applicationContext) {
-            saveRetroactiveClip(DEFAULT_SAVE_SECONDS)
+            saveRetroactiveClip(
+                ClipLengthPreference.get(applicationContext)
+            )
         }
         if (control.show()) {
             floatingClipControl = control
