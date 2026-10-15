@@ -231,3 +231,8 @@ Startup selection now requires hardware-backed, size/rate/bitrate-valid encoders
 ## Encoder EOS / failure handling note
 
 Video shutdown no longer flips the drain loop off before MediaCodec EOS can be consumed. Stop now signals EOS, drains with a bounded timeout, then releases codec resources. Fatal drain or sample-consumer errors propagate back to CaptureService and trigger recorder teardown instead of silently killing the drain thread.
+
+
+## Export consistency guard note
+
+Retroactive export now rejects missing/empty segments, overlapping timelines, non-keyframe video starts, format changes across segments and non-monotonic per-track timestamps. MediaMuxer finalization and MediaStore publication must succeed; otherwise the pending clip is deleted. No validation step decodes or re-encodes media.
