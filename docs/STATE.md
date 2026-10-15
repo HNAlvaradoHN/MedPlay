@@ -604,3 +604,25 @@ Physical validation is still pending for:
 - live glass preview matching the real floating button;
 - Advanced options collapsed by default;
 - previously approved video/audio quality remaining unchanged.
+
+
+## Separate player-microphone capture
+
+Authorized Session 2 work adds an optional player-voice path without changing the validated video encoder or internal game-audio settings.
+
+Implementation:
+- new **Grabar mi voz (pista separada)** setting, default OFF;
+- when enabled and RECORD_AUDIO is granted, CaptureService starts a foreground-service microphone type alongside media projection;
+- MicrophoneVoiceCapture records 48 kHz mono PCM16 and encodes it independently as AAC-LC 96 kbps;
+- the existing internal game-audio path remains 48 kHz stereo AAC-LC 128 kbps and is not mixed or reconfigured;
+- microphone rolling segments use the same monotonic timeline and retention window as video/game audio;
+- final retroactive MP4 exports preserve game audio as the first audio track and player microphone as a second independent AAC track;
+- storage-aware retention includes both audio bitrates when both are enabled;
+- AudioRecord.AudioRecordingCallback + AudioRecordingConfiguration.isClientSilenced detect when Android silences MedPlay because another app wins microphone capture priority;
+- MedPlay keeps its AudioRecord alive while silenced, allowing Android to unsilence it automatically later without restarting the screen recording;
+- a small MedPlay overlay message reports **Micrófono usado por el juego • tu voz no se está grabando** and later **Micrófono disponible • voz reanudada**;
+- diagnostics now persist whether microphone capture was active and whether Android silenced it at least once.
+
+Current limitation: the microphone and game sound are intentionally separate tracks. Common gallery players may play only one selected track. The future editor/mixer will provide simultaneous preview, per-track volume controls and a final mixed MP4 while keeping the original sources intact.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on a real device with game voice chat.

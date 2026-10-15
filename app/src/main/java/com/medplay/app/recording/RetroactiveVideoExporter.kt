@@ -20,11 +20,13 @@ class RetroactiveVideoExporter(
         val durationUs: Long,
         val videoSegmentCount: Int,
         val audioSegmentCount: Int,
+        val microphoneSegmentCount: Int,
     )
 
     fun export(
         videoLease: RollingVideoSegmentWriter.SegmentLease,
         audioLease: RollingAudioSegmentWriter.SegmentLease? = null,
+        microphoneLease: RollingAudioSegmentWriter.SegmentLease? = null,
     ): ExportResult {
         val videoSegments = videoLease.segments
         require(videoSegments.isNotEmpty())
@@ -32,6 +34,7 @@ class RetroactiveVideoExporter(
         validateSegments(
             videoSegments = videoSegments,
             audioSegments = audioLease?.segments.orEmpty(),
+            microphoneSegments = microphoneLease?.segments.orEmpty(),
         )
 
         val displayName = "MedPlay_" + System.currentTimeMillis() + ".mp4"
@@ -53,6 +56,7 @@ class RetroactiveVideoExporter(
                 remux(
                     videoSegments = videoSegments,
                     audioSegments = audioLease?.segments.orEmpty(),
+                    microphoneSegments = microphoneLease?.segments.orEmpty(),
                     outputDescriptor = descriptor.fileDescriptor,
                 )
             } ?: error("Unable to open MediaStore destination")
@@ -73,11 +77,14 @@ class RetroactiveVideoExporter(
                     videoSegments.first().sourceStartUs,
                 videoSegmentCount = videoSegments.size,
                 audioSegmentCount = audioLease?.segments?.size ?: 0,
+                microphoneSegmentCount =
+                    microphoneLease?.segments?.size ?: 0,
             )
         } catch (error: Throwable) {
             resolver.delete(uri, null, null)
             throw error
         } finally {
+            microphoneLease?.close()
             audioLease?.close()
             videoLease.close()
         }
@@ -86,6 +93,7 @@ class RetroactiveVideoExporter(
     private fun remux(
         videoSegments: List<RollingVideoSegmentWriter.Segment>,
         audioSegments: List<RollingAudioSegmentWriter.Segment>,
+        microphoneSegments: List<RollingAudioSegmentWriter.Segment>,
         outputDescriptor: FileDescriptor,
     ) {
         val videoFormat = readTrackFormat(
@@ -107,6 +115,17 @@ class RetroactiveVideoExporter(
                 )
             }
         }
+        val microphoneFormat = microphoneSegments.firstOrNull()?.let {
+            readTrackFormat(it.file.absolutePath, "audio/").also { reference ->
+                validateTrackFormats(
+                    files = microphoneSegments.map { segment ->
+                        segment.file.absolutePath
+                    },
+                    mimePrefix = "audio/",
+                    referenceFormat = reference,
+                )
+            }
+        }
 
         val muxer = MediaMuxer(
             outputDescriptor,
@@ -117,7 +136,11 @@ class RetroactiveVideoExporter(
 
         try {
             val videoTrack = muxer.addTrack(videoFormat)
+            // Keep game audio first so existing players continue to select the
+            // same default soundtrack. The player's microphone is preserved as
+            // a second independent AAC track for MedPlay editing/mixing.
             val audioTrack = audioFormat?.let { muxer.addTrack(it) }
+            val microphoneTrack = microphoneFormat?.let { muxer.addTrack(it) }
 
             muxer.start()
             started = true
@@ -161,6 +184,26 @@ class RetroactiveVideoExporter(
                         lastWrittenPtsUs = lastAudioPtsUs,
                     )
                     lastAudioPtsUs = result.lastWrittenPtsUs
+                    buffer = result.buffer
+                }
+            }
+
+            if (microphoneTrack != null) {
+                var lastMicrophonePtsUs = Long.MIN_VALUE
+                microphoneSegments.forEach { segment ->
+                    val result = copyTrackSegment(
+                        filePath = segment.file.absolutePath,
+                        mimePrefix = "audio/",
+                        segmentStartUs = segment.sourceStartUs,
+                        clipStartUs = clipStartUs,
+                        clipEndUs = clipEndUs,
+                        muxer = muxer,
+                        outputTrack = microphoneTrack,
+                        buffer = buffer,
+                        info = info,
+                        lastWrittenPtsUs = lastMicrophonePtsUs,
+                    )
+                    lastMicrophonePtsUs = result.lastWrittenPtsUs
                     buffer = result.buffer
                 }
             }
@@ -262,6 +305,7 @@ class RetroactiveVideoExporter(
     private fun validateSegments(
         videoSegments: List<RollingVideoSegmentWriter.Segment>,
         audioSegments: List<RollingAudioSegmentWriter.Segment>,
+        microphoneSegments: List<RollingAudioSegmentWriter.Segment>,
     ) {
         videoSegments.forEach {
             check(it.file.isFile && it.file.length() > 0L) {
@@ -285,6 +329,19 @@ class RetroactiveVideoExporter(
             }
             ClipTimelineValidator.validateOrderedNonOverlapping(
                 audioSegments.map {
+                    ClipTimelineValidator.Range(it.sourceStartUs, it.sourceEndUs)
+                }
+            )
+        }
+
+        if (microphoneSegments.isNotEmpty()) {
+            microphoneSegments.forEach {
+                check(it.file.isFile && it.file.length() > 0L) {
+                    "Missing or empty microphone segment: ${it.file.name}"
+                }
+            }
+            ClipTimelineValidator.validateOrderedNonOverlapping(
+                microphoneSegments.map {
                     ClipTimelineValidator.Range(it.sourceStartUs, it.sourceEndUs)
                 }
             )

@@ -8,6 +8,8 @@ data class RecordingSessionDiagnostics(
     val maxThermalStatus: Int,
     val audioWasActive: Boolean,
     val encoderHealth: EncoderRuntimeHealth.Snapshot,
+    val microphoneWasActive: Boolean = false,
+    val microphoneWasSilenced: Boolean = false,
 ) {
     val durationUs: Long
         get() = (endedMonotonicUs - startedMonotonicUs).coerceAtLeast(0L)
@@ -33,6 +35,8 @@ data class RecordingSessionDiagnostics(
             appendLine("encoder=${profile.encoderName}")
             appendLine("retentionSeconds=$retentionSeconds")
             appendLine("audioWasActive=$audioWasActive")
+            appendLine("microphoneWasActive=$microphoneWasActive")
+            appendLine("microphoneWasSilenced=$microphoneWasSilenced")
             appendLine("maxThermalStatus=$maxThermalStatus")
             appendLine("sustainabilityVerdict=$sustainabilityVerdict")
             appendLine("encodedSamples=${encoderHealth.encodedSamples}")

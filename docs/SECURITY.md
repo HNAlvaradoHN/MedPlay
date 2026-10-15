@@ -35,3 +35,12 @@ Design requirements:
 ## Cost rule
 
 No paid/facturable service may be enabled without explicit owner approval.
+
+
+## Player microphone privacy
+
+- Player microphone capture is opt-in and defaults OFF.
+- RECORD_AUDIO must be granted before the microphone foreground capture path is started.
+- Microphone samples remain local and follow the same bounded rolling-retention model as other captured media.
+- MedPlay does not upload microphone audio.
+- If Android silences MedPlay because another app has microphone priority, MedPlay records silence for that interval and surfaces the state to the user rather than attempting to bypass Android capture policy.

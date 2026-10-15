@@ -7,6 +7,7 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Shader
+import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -14,6 +15,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.TextView
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -25,8 +27,12 @@ class FloatingClipControl(
     private val windowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
+    private val handler = Handler(Looper.getMainLooper())
     private var view: GlassClipView? = null
     private var params: WindowManager.LayoutParams? = null
+    private var microphoneStatusView: TextView? = null
+    private var microphoneStatusParams: WindowManager.LayoutParams? = null
+    private var clearMicrophoneStatus: Runnable? = null
 
     fun show(): Boolean {
         if (view != null) return true
@@ -77,6 +83,16 @@ class FloatingClipControl(
                     layout.x = startX + (event.rawX - downX).toInt()
                     layout.y = startY + (event.rawY - downY).toInt()
                     runCatching { windowManager.updateViewLayout(bubble, layout) }
+                    microphoneStatusParams?.let { statusLayout ->
+                        statusLayout.x = layout.x
+                        statusLayout.y = layout.y + layout.height +
+                            (8f * density).toInt()
+                        microphoneStatusView?.let { statusView ->
+                            runCatching {
+                                windowManager.updateViewLayout(statusView, statusLayout)
+                            }
+                        }
+                    }
                     true
                 }
 
@@ -118,9 +134,89 @@ class FloatingClipControl(
         view?.showFailureFeedback()
     }
 
+    fun showMicrophoneBlocked(message: String) {
+        showMicrophoneStatus(message, 4_500L)
+    }
+
+    fun showMicrophoneResumed(message: String) {
+        showMicrophoneStatus(message, 2_500L)
+    }
+
+    private fun showMicrophoneStatus(message: String, durationMs: Long) {
+        val bubbleLayout = params ?: return
+        if (!Settings.canDrawOverlays(context)) return
+
+        clearMicrophoneStatus?.let(handler::removeCallbacks)
+        microphoneStatusView?.let { existing ->
+            runCatching { windowManager.removeView(existing) }
+        }
+        microphoneStatusView = null
+        microphoneStatusParams = null
+
+        val density = context.resources.displayMetrics.density
+        val statusView = TextView(context).apply {
+            text = message
+            textSize = 12f
+            setTextColor(Color.WHITE)
+            maxWidth = (280f * density).toInt()
+            setPadding(
+                (12f * density).toInt(),
+                (8f * density).toInt(),
+                (12f * density).toInt(),
+                (8f * density).toInt(),
+            )
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 14f * density
+                setColor(Color.argb(218, 20, 20, 24))
+            }
+            elevation = 14f * density
+        }
+        val statusLayout = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            android.graphics.PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = bubbleLayout.x
+            y = bubbleLayout.y + bubbleLayout.height + (8f * density).toInt()
+        }
+
+        val shown = runCatching {
+            windowManager.addView(statusView, statusLayout)
+            true
+        }.getOrDefault(false)
+        if (!shown) return
+
+        microphoneStatusView = statusView
+        microphoneStatusParams = statusLayout
+        val clear = Runnable {
+            if (microphoneStatusView === statusView) {
+                runCatching { windowManager.removeView(statusView) }
+                microphoneStatusView = null
+                microphoneStatusParams = null
+            }
+        }
+        clearMicrophoneStatus = clear
+        handler.postDelayed(clear, durationMs)
+    }
+
     override fun close() {
-        val current = view ?: return
-        runCatching { windowManager.removeView(current) }
+        clearMicrophoneStatus?.let(handler::removeCallbacks)
+        clearMicrophoneStatus = null
+        microphoneStatusView?.let { status ->
+            runCatching { windowManager.removeView(status) }
+        }
+        microphoneStatusView = null
+        microphoneStatusParams = null
+
+        view?.let { current ->
+            runCatching { windowManager.removeView(current) }
+        }
         view = null
         params = null
     }

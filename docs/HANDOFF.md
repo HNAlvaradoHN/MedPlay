@@ -447,3 +447,21 @@ Release evidence:
 - current main after restoring manual-only workflow: `e74ecb9a88f1e8978657f56eaaea665bc72593be`
 
 Next step: install this APK and physically validate the UI and capture flow. Do not claim the UX issues fully resolved until that device evidence is received.
+
+
+## Separate microphone voice handoff
+
+The current feature branch/PR adds player voice as a second independent rolling AAC source.
+
+Key behavior:
+- player voice is opt-in and defaults OFF;
+- internal game audio stays unchanged;
+- Android microphone contention is observed through AudioRecord's recording callback;
+- if the game takes microphone priority, MedPlay does not stop video or game audio and does not repeatedly reopen the mic; its active AudioRecord receives silence until Android unsilences it;
+- floating UI reports pause/resume of the player-voice track;
+- retroactive export writes game audio first and microphone voice second;
+- session diagnostics record microphone active/silenced evidence.
+
+Do not claim that ordinary gallery playback mixes both tracks. The later editor phase must preview/mix the two sources and export one final user-controlled soundtrack.
+
+Next evidence step: build/install a validation APK and test one continuous session with game voice-chat OFF -> ON -> OFF, saving a clip that spans the transitions.
