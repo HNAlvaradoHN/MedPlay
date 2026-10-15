@@ -366,3 +366,8 @@ MainActivity can copy the last persisted recording diagnostic summary to the cli
 ## Active capture notification note
 
 Once startup completes, the foreground notification reports selected resolution/FPS, actual storage-aware retention seconds and audio/video-only state. Use this together with last-session diagnostics during real-device validation.
+
+
+## Active capture notification note
+
+Once startup completes, the foreground notification reports selected resolution/FPS, actual storage-aware retention seconds and audio/video-only state. Use this together with last-session diagnostics during real-device validation.
