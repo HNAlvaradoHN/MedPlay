@@ -341,3 +341,8 @@ The foreground notification exposes Clip and Stop. Clip reads the persisted defa
 ## Sustainability verdict note
 
 The persisted last-session diagnostics include sustainabilityVerdict=GOOD/DEGRADED/UNSUSTAINABLE. The evaluator uses encoder-health metrics, maximum thermal status, target FPS and session duration. Zero encoded samples are not allowed to appear healthy. Keep the verdict observational until thresholds are validated on real devices.
+
+
+## Notification permission note
+
+On Android 13+, MainActivity requests POST_NOTIFICATIONS before the audio/MediaProjection flow. Denial must not block capture; it only means the foreground notification and its Clip/Stop actions may be hidden by Android. RECORD_AUDIO remains independently optional.
