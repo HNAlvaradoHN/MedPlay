@@ -110,6 +110,8 @@ Confirmed from JADX/private logs:
 - Medal has tv.medal.model.VideoQualityInfo with fields bitrate, width and height.
 - Bitrate enum values of 5/10/20/50/100 Mbps were observed in editor code, but must not yet be claimed as live-recorder settings.
 - JADX sometimes returns exit code 3 because some classes/methods cannot be fully decompiled, but it still produces useful source and targeted findings.
+- RecorderVideoUiState defaults observed in Medal: CLIPPING mode, 15-second clip length, RES_720, FPS_30.
+- Medal exposes explicit resolution and FPS settings and checks battery-optimization state; this does not prove active thermal throttling logic in its encoder.
 
 ## Architecture direction for MedPlay
 
@@ -150,7 +152,7 @@ The next analysis must determine:
 - thermal/battery/performance adaptation;
 - dropped-frame handling.
 
-Private workflow run #7 was launched specifically to inspect these recorder internals. Check its status/logs before creating another run.
+Private workflow run #7 completed successfully and was reviewed. Do not launch another private run unless a specific unanswered Medal question justifies it. The private workflow is manual-only.
 
 ## Prototype rule
 
@@ -167,8 +169,8 @@ The intended long-term quality strategy is adaptive:
 
 ## Immediate next action for a new chat
 
-1. Inspect Medplay-Lab run #7.
-2. Extract recorder-specific findings only.
-3. Update public sanitized docs if conclusions are verified.
-4. Define original MedPlay quality-profile algorithm.
-5. Then scaffold the Android/Kotlin prototype.
+1. Validate the Android/Kotlin scaffold in public CI.
+2. Build the original capability-based recording profile selector.
+3. Add MediaProjection permission/capture flow.
+4. Add hardware MediaCodec encoding and short rolling segments.
+5. Measure sustained performance on real devices before raising default quality.
