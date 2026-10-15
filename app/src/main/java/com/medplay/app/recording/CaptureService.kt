@@ -191,29 +191,40 @@ class CaptureService : Service() {
         }
 
         val safeSeconds = seconds.coerceIn(MIN_SAVE_SECONDS, MAX_SAVE_SECONDS)
-        val lease = writer.leaseCompleted(safeSeconds * 1_000_000L)
-        if (lease == null) {
-            exportInProgress.set(false)
-            return
-        }
-
-        val videoStartUs = lease.segments.first().sourceStartUs
-        val videoEndUs = lease.segments.last().sourceEndUs
-        val audioLease = rollingAudioWriter?.leaseRange(videoStartUs, videoEndUs)
+        val completionVersion = writer.completionVersion()
+        writer.requestRolloverOnNextSyncFrame()
+        val syncFrameRequested = videoEncoder?.requestSyncFrame() == true
 
         thread(
             start = true,
             isDaemon = true,
             name = "medplay-clip-export",
         ) {
+            var lease: RollingVideoSegmentWriter.SegmentLease? = null
+            var audioLease: RollingAudioSegmentWriter.SegmentLease? = null
+
             try {
+                if (syncFrameRequested) {
+                    writer.awaitCompletionAfter(
+                        version = completionVersion,
+                        timeoutMs = SAVE_ROLLOVER_WAIT_MS,
+                    )
+                }
+
+                lease = writer.leaseCompleted(safeSeconds * 1_000_000L)
+                    ?: return@thread
+
+                val videoStartUs = lease.segments.first().sourceStartUs
+                val videoEndUs = lease.segments.last().sourceEndUs
+                audioLease = rollingAudioWriter?.leaseRange(videoStartUs, videoEndUs)
+
                 RetroactiveVideoExporter(applicationContext).export(
                     videoLease = lease,
                     audioLease = audioLease,
                 )
             } catch (_: Throwable) {
                 audioLease?.close()
-                lease.close()
+                lease?.close()
             } finally {
                 exportInProgress.set(false)
             }
@@ -387,6 +398,7 @@ class CaptureService : Service() {
         private const val DEFAULT_SAVE_SECONDS = 30
         private const val MIN_SAVE_SECONDS = 5
         private const val MAX_SAVE_SECONDS = 300
+        private const val SAVE_ROLLOVER_WAIT_MS = 750L
 
         fun createStartIntent(
             context: Context,
