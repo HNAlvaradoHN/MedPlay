@@ -33,6 +33,7 @@ import com.medplay.app.recording.EncoderCapabilityProbe
 import com.medplay.app.recording.FloatingControlStylePreference
 import com.medplay.app.recording.GlassClipView
 import com.medplay.app.recording.InternalAudioPreference
+import com.medplay.app.recording.MicrophoneVoicePreference
 import com.medplay.app.recording.RecordingQualityPreference
 import kotlin.concurrent.thread
 
@@ -122,6 +123,25 @@ class MainActivity : Activity() {
             setOnCheckedChangeListener { _, enabled ->
                 InternalAudioPreference.setEnabled(this@MainActivity, enabled)
             }
+        }
+
+        val microphoneVoiceToggle = CheckBox(this).apply {
+            text = tr(
+                "Grabar mi voz (pista separada)",
+                "Capture my voice (separate track)",
+            )
+            isChecked = MicrophoneVoicePreference.isEnabled(this@MainActivity)
+            setOnCheckedChangeListener { _, enabled ->
+                MicrophoneVoicePreference.setEnabled(this@MainActivity, enabled)
+            }
+        }
+
+        val microphoneVoiceInfo = TextView(this).apply {
+            text = tr(
+                "Si el juego toma el micrófono para el chat, Android puede pausar solo la pista de tu voz. MedPlay avisará y la reanudará automáticamente cuando vuelva a estar disponible.",
+                "If the game takes the microphone for voice chat, Android may pause only your voice track. MedPlay will notify you and resume it automatically when available again.",
+            )
+            textSize = 12f
         }
 
         val qualityLabel = TextView(this).apply {
@@ -450,6 +470,8 @@ class MainActivity : Activity() {
             addView(captureChoiceInfoView)
 
             addView(internalAudioToggle)
+            addView(microphoneVoiceToggle)
+            addView(microphoneVoiceInfo)
             addView(startButton)
 
             addView(clipLengthLabel)
@@ -687,10 +709,14 @@ class MainActivity : Activity() {
     }
 
     private fun requestCaptureWithOptionalInternalAudio() {
-        if (!InternalAudioPreference.isEnabled(this)) {
+        val needsAudioPermission =
+            InternalAudioPreference.isEnabled(this) ||
+                MicrophoneVoicePreference.isEnabled(this)
+
+        if (!needsAudioPermission) {
             statusView.text = tr(
-                "Audio interno desactivado; se grabará solo video.",
-                "Internal audio disabled; continuing video-only.",
+                "Audio interno y voz desactivados; se grabará solo video.",
+                "Internal audio and voice are disabled; continuing video-only.",
             )
             launchMediaProjectionConsent()
             return
@@ -755,13 +781,13 @@ class MainActivity : Activity() {
                     grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
                 statusView.text = if (granted) {
                     tr(
-                        "Permiso de audio interno concedido.",
-                        "Internal audio permission granted.",
+                        "Permiso de audio concedido.",
+                        "Audio permission granted.",
                     )
                 } else {
                     tr(
-                        "Audio interno no disponible; se grabará solo video.",
-                        "Internal audio unavailable; continuing video-only.",
+                        "Permiso de audio rechazado; el video continuará sin audio interno ni tu voz.",
+                        "Audio permission denied; video will continue without internal audio or your voice.",
                     )
                 }
                 launchMediaProjectionConsent()
