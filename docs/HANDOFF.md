@@ -226,3 +226,8 @@ The overlay is optional and only appears when Android overlay permission is gran
 ## Encoder hardening note
 
 Startup selection now requires hardware-backed, size/rate/bitrate-valid encoders that also advertise COLOR_FormatSurface. The video encoder keeps lightweight health counters for output gaps and timestamp regressions. Do not turn those observations into aggressive automatic resolution/FPS switching until thresholds are validated on real phones.
+
+
+## Encoder EOS / failure handling note
+
+Video shutdown no longer flips the drain loop off before MediaCodec EOS can be consumed. Stop now signals EOS, drains with a bounded timeout, then releases codec resources. Fatal drain or sample-consumer errors propagate back to CaptureService and trigger recorder teardown instead of silently killing the drain thread.

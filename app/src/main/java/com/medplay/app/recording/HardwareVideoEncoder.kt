@@ -13,6 +13,7 @@ import kotlin.concurrent.thread
 class HardwareVideoEncoder(
     private val profile: RecordingProfile,
     private val sampleConsumer: SampleConsumer = SampleConsumer.Discard,
+    private val onFatalError: (Throwable) -> Unit = {},
 ) {
 
     interface SampleConsumer {
@@ -31,6 +32,7 @@ class HardwareVideoEncoder(
     private var inputSurface: Surface? = null
     private var drainThread: Thread? = null
     private val running = AtomicBoolean(false)
+    private val stopRequested = AtomicBoolean(false)
 
     fun start(): Surface {
         check(codec == null) { "Encoder already started" }
@@ -65,6 +67,7 @@ class HardwareVideoEncoder(
 
         codec = createdCodec
         inputSurface = surface
+        stopRequested.set(false)
         running.set(true)
 
         drainThread = thread(
@@ -100,59 +103,81 @@ class HardwareVideoEncoder(
     }
 
     fun stop() {
-        if (!running.getAndSet(false) && codec == null) return
-
-        val currentCodec = codec
-        runCatching { currentCodec?.signalEndOfInputStream() }
+        val currentCodec = codec ?: return
+        if (stopRequested.compareAndSet(false, true)) {
+            runCatching { currentCodec.signalEndOfInputStream() }
+        }
 
         drainThread?.join(DRAIN_JOIN_TIMEOUT_MS)
+        if (drainThread?.isAlive == true) {
+            running.set(false)
+            drainThread?.join(FORCE_DRAIN_JOIN_TIMEOUT_MS)
+        }
         drainThread = null
 
         inputSurface?.release()
         inputSurface = null
 
-        runCatching { currentCodec?.stop() }
-        runCatching { currentCodec?.release() }
+        runCatching { currentCodec.stop() }
+        runCatching { currentCodec.release() }
         codec = null
+        running.set(false)
+        stopRequested.set(false)
     }
 
     private fun drainLoop(currentCodec: MediaCodec) {
         val info = MediaCodec.BufferInfo()
+        var eosSeen = false
 
-        while (running.get()) {
-            when (val index = currentCodec.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT_US)) {
-                MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
-                MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                    sampleConsumer.onOutputFormat(currentCodec.outputFormat)
-                }
-                else -> {
-                    if (index >= 0) {
-                        val output = currentCodec.getOutputBuffer(index)
-                        if (output != null && info.size > 0) {
-                            runtimeHealth.onEncodedSample(
-                                presentationTimeUs = info.presentationTimeUs,
-                                wallTimeUs = SystemClock.elapsedRealtimeNanos() / 1_000L,
-                            )
-                            output.position(info.offset)
-                            output.limit(info.offset + info.size)
-                            sampleConsumer.onSample(output.slice(), info)
+        try {
+            while (running.get() && !eosSeen) {
+                when (val index = currentCodec.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT_US)) {
+                    MediaCodec.INFO_TRY_AGAIN_LATER -> {
+                        if (stopRequested.get()) {
+                            continue
                         }
+                    }
+                    MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        sampleConsumer.onOutputFormat(currentCodec.outputFormat)
+                    }
+                    else -> {
+                        if (index >= 0) {
+                            try {
+                                val output = currentCodec.getOutputBuffer(index)
+                                if (output != null && info.size > 0) {
+                                    runtimeHealth.onEncodedSample(
+                                        presentationTimeUs = info.presentationTimeUs,
+                                        wallTimeUs = SystemClock.elapsedRealtimeNanos() / 1_000L,
+                                    )
+                                    output.position(info.offset)
+                                    output.limit(info.offset + info.size)
+                                    sampleConsumer.onSample(output.slice(), info)
+                                }
 
-                        currentCodec.releaseOutputBuffer(index, false)
-
-                        if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                            running.set(false)
+                                if (
+                                    (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0
+                                ) {
+                                    eosSeen = true
+                                }
+                            } finally {
+                                currentCodec.releaseOutputBuffer(index, false)
+                            }
                         }
                     }
                 }
             }
+        } catch (error: Throwable) {
+            onFatalError(error)
+        } finally {
+            running.set(false)
         }
     }
 
     companion object {
         private const val I_FRAME_INTERVAL_SECONDS = 2
         private const val DEQUEUE_TIMEOUT_US = 10_000L
-        private const val DRAIN_JOIN_TIMEOUT_MS = 1_000L
+        private const val DRAIN_JOIN_TIMEOUT_MS = 1_500L
+        private const val FORCE_DRAIN_JOIN_TIMEOUT_MS = 250L
         private const val MIN_DYNAMIC_BITRATE = 2_000_000
     }
 }

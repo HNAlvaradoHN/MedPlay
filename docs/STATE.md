@@ -237,3 +237,18 @@ Current feature branch closes two gaps before real-device validation:
 - telemetry is collected without per-frame logging, allocations beyond the existing sample path, or automatic profile restarts.
 
 These metrics are observational for now. They are intentionally not used to trigger resolution/FPS changes until real-device measurements establish trustworthy thresholds.
+
+
+## Encoder shutdown and fatal-error hardening
+
+Current feature branch fixes shutdown correctness and pipeline failure propagation:
+- stopping the video encoder now signals end-of-input without immediately terminating the drain loop;
+- the drain thread continues until encoder EOS is observed or a bounded timeout expires;
+- only after that does teardown release the input Surface and MediaCodec;
+- this reduces the risk of truncating the final encoded samples/segment during service shutdown;
+- output buffers are released from a finally block even if the sample consumer throws;
+- fatal drain/consumer exceptions are surfaced to CaptureService;
+- CaptureService posts teardown to the main thread when the video pipeline fails;
+- the previous unused RequiresApi import was removed.
+
+The stop path remains bounded: if EOS does not arrive within the grace period, MedPlay forces drain termination rather than hanging the foreground service indefinitely.
