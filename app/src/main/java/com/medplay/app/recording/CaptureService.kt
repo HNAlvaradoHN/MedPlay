@@ -41,6 +41,8 @@ class CaptureService : Service() {
     private var maxThermalStatus = 0
     private var sessionAudioWasActive = false
     private val exportInProgress = AtomicBoolean(false)
+    private val shutdownStarted = AtomicBoolean(false)
+    private val shutdownResourcesReleased = AtomicBoolean(false)
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
@@ -54,6 +56,10 @@ class CaptureService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (shutdownStarted.get() && intent?.action != ACTION_STOP) {
+            return START_NOT_STICKY
+        }
+
         when (intent?.action) {
             ACTION_START -> return startCapture(intent)
             ACTION_SAVE -> {
@@ -291,6 +297,7 @@ class CaptureService : Service() {
                 lease?.close()
             } finally {
                 exportInProgress.set(false)
+                finishServiceIfShutdownReady()
             }
         }
     }
@@ -358,15 +365,53 @@ class CaptureService : Service() {
     }
 
     override fun onDestroy() {
-        releaseActiveProjectionForShutdown()
+        if (!shutdownStarted.get()) {
+            releaseActiveProjectionForShutdown()
+        }
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun stopProjectionAndSelf() {
-        releaseActiveProjectionForShutdown()
-        stopSelf()
+        if (!shutdownStarted.compareAndSet(false, true)) return
+
+        val projection = mediaProjection
+        mediaProjection = null
+        runCatching { projection?.unregisterCallback(projectionCallback) }
+
+        floatingClipControl?.close()
+        floatingClipControl = null
+
+        thread(
+            start = true,
+            isDaemon = true,
+            name = "medplay-recorder-shutdown",
+        ) {
+            try {
+                releaseVideoPipeline()
+                runCatching { projection?.stop() }
+            } finally {
+                shutdownResourcesReleased.set(true)
+                finishServiceIfShutdownReady()
+            }
+        }
+    }
+
+    private fun finishServiceIfShutdownReady() {
+        if (!shutdownStarted.get()) return
+        if (!shutdownResourcesReleased.get()) return
+        if (exportInProgress.get()) return
+
+        Handler(Looper.getMainLooper()).post {
+            if (
+                shutdownStarted.get() &&
+                shutdownResourcesReleased.get() &&
+                !exportInProgress.get()
+            ) {
+                stopSelf()
+            }
+        }
     }
 
     private fun releaseActiveProjectionForRestart() {
@@ -565,6 +610,12 @@ class CaptureService : Service() {
         fun createShowOverlayIntent(context: Context): Intent {
             return Intent(context, CaptureService::class.java).apply {
                 action = ACTION_SHOW_OVERLAY
+            }
+        }
+
+        fun createStopIntent(context: Context): Intent {
+            return Intent(context, CaptureService::class.java).apply {
+                action = ACTION_STOP
             }
         }
 
