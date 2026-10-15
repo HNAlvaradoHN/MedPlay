@@ -77,6 +77,10 @@ class CaptureService : Service() {
     }
 
     private fun startCapture(intent: Intent): Int {
+        if (exportInProgress.get()) {
+            return START_NOT_STICKY
+        }
+
         startAsProjectionForegroundService()
 
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Int.MIN_VALUE)
@@ -90,8 +94,7 @@ class CaptureService : Service() {
         val manager =
             getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
-        mediaProjection?.unregisterCallback(projectionCallback)
-        mediaProjection?.stop()
+        releaseActiveProjectionForRestart()
 
         mediaProjection = manager.getMediaProjection(resultCode, resultData).also { projection ->
             projection.registerCallback(
@@ -276,20 +279,33 @@ class CaptureService : Service() {
     }
 
     override fun onDestroy() {
-        releaseVideoPipeline()
-        mediaProjection?.unregisterCallback(projectionCallback)
-        mediaProjection?.stop()
-        mediaProjection = null
+        releaseActiveProjectionForShutdown()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun stopProjectionAndSelf() {
-        releaseVideoPipeline()
-        mediaProjection?.unregisterCallback(projectionCallback)
-        mediaProjection = null
+        releaseActiveProjectionForShutdown()
         stopSelf()
+    }
+
+    private fun releaseActiveProjectionForRestart() {
+        val projection = mediaProjection
+        mediaProjection = null
+
+        runCatching { projection?.unregisterCallback(projectionCallback) }
+        releaseVideoPipeline()
+        runCatching { projection?.stop() }
+    }
+
+    private fun releaseActiveProjectionForShutdown() {
+        val projection = mediaProjection
+        mediaProjection = null
+
+        runCatching { projection?.unregisterCallback(projectionCallback) }
+        releaseVideoPipeline()
+        runCatching { projection?.stop() }
     }
 
     private fun releaseVideoPipeline() {
