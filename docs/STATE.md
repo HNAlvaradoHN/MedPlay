@@ -28,7 +28,9 @@ MedPlay session numbering is maintained persistently in this file. Previous Send
 
 ## Current objective
 
-Finish reference analysis of Medal's recorder internals, then scaffold MedPlay as an original native Android/Kotlin app for high-quality retroactive screen recording.
+Validate the merged MedPlay recorder on real Android devices, using the built-in session diagnostics to measure sustained capture quality, thermals, encoder health, gameplay impact, retention behavior and A/V synchronization before increasing default quality.
+
+Reference analysis of Medal remains supporting research only and must not block real-device validation of MedPlay's original implementation.
 
 The owner's highest priority is not simply "maximum settings". The product must target the best sustainable visual quality while minimizing heat, battery cost, dropped frames, gameplay stutter and device stress.
 
@@ -89,11 +91,13 @@ This direction is favored because it can preserve quality while reducing CPU wor
 - Determine keyframe interval and clip assembly behavior.
 - Validate internal-audio strategy.
 - Sustainable profile selector passed public CI and is merged to main.
-- Measure sustained thermals, dropped frames and gameplay impact on real devices.
+- Measure sustained thermals, encoder health, A/V sync, dropped frames and gameplay impact on real devices.
+- Public CI for the active-capture notification passed and the feature is merged to main.
+- No open implementation PR remains; real-device validation is the current blocker before raising default quality.
 
 ## Next step
 
-Validate floating save control and storage-aware 2/3/5-minute retention in public CI, then continue with real-device validation and recorder UX hardening.
+Generate the current development APK from main and perform real-device validation using docs/DEVICE_TESTING.md. Validate floating/notification controls, 15/30/60/120/180/300-second saves where retention permits, internal-audio fallback, long-session A/V sync, gameplay smoothness, thermal behavior and the persisted sustainability diagnostics. Treat real-device findings as the evidence for the next recorder changes.
 
 
 ## Sustainable profile selector implementation
