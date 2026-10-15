@@ -95,6 +95,13 @@ class CaptureService : Service() {
     }
 
     private fun startCapture(intent: Intent): Int {
+        if (shutdownStarted.get()) {
+            return START_NOT_STICKY
+        }
+        if (mediaProjection != null) {
+            updateCaptureNotification("Capture is already active.")
+            return START_NOT_STICKY
+        }
         if (exportInProgress.get()) {
             return START_NOT_STICKY
         }
