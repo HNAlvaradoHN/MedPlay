@@ -297,3 +297,8 @@ A finalization failure during active video rotation still propagates through the
 ## Internal-audio failure fallback
 
 InternalAudioCapture now surfaces fatal worker/consumer exceptions to CaptureService. The service disables and finalizes only the audio path, then continues video capture and retroactive video export. This preserves recording availability when playback capture/AAC fails on a device or source app instead of leaving a dead audio pipeline or unnecessarily stopping video.
+
+
+## Audio fallback recursion fix
+
+A regression introduced while wiring video-only fallback caused disableInternalAudio() to call itself recursively. This branch fixes the fallback so it explicitly stops InternalAudioCapture, clears it, finalizes/closes the rolling audio writer, and clears that reference. Video capture remains active.

@@ -251,3 +251,8 @@ Completed rolling segments are now considered valid only after MediaMuxer.stop()
 ## Audio failure fallback note
 
 A fatal internal-audio worker or AAC consumer failure now disables only audio and leaves the video recorder running. Saved clips then fall back to video-only. This is intentional because playback capture support varies by app/device and should not take down the core recorder.
+
+
+## Audio fallback recursion regression
+
+PR #19 compiled but introduced a recursive disableInternalAudio() implementation. The follow-up fix replaces recursion with explicit audio teardown while preserving video capture. Do not reintroduce self-calling fallback helpers.
