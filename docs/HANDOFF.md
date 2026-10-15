@@ -321,3 +321,8 @@ The floating Clip button reads a persisted default duration (15/30/60/120/180/30
 ## Internal audio toggle note
 
 Internal playback audio can be disabled persistently. When off, MedPlay does not request RECORD_AUDIO and does not start AudioPlaybackCapture/AudioRecord/AAC for the next capture session. The setting is intentionally session-start scoped for now; video-only fallback still applies automatically when audio fails.
+
+
+## Audio-aware retention note
+
+Retention estimation uses AAC bitrate only when internal audio is enabled and RECORD_AUDIO is granted. Video-only sessions budget audio bitrate as zero; safety reserve/caps are unchanged.
