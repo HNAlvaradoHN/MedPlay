@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
+import android.provider.Settings
 import android.os.Bundle
 import android.widget.Button
 import android.widget.LinearLayout
@@ -67,6 +69,45 @@ class MainActivity : Activity() {
             }
         }
 
+        val overlayButton = Button(this).apply {
+            text = "Enable floating clip button"
+            setOnClickListener {
+                if (Settings.canDrawOverlays(this@MainActivity)) {
+                    startService(CaptureService.createShowOverlayIntent(this@MainActivity))
+                    statusView.text = "Floating clip button enabled."
+                } else {
+                    startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:$packageName"),
+                        )
+                    )
+                    statusView.text = "Grant overlay permission, then tap enable again."
+                }
+            }
+        }
+
+        val save120Button = Button(this).apply {
+            text = "Save previous 2 minutes"
+            setOnClickListener {
+                startService(CaptureService.createSaveIntent(this@MainActivity, 120))
+            }
+        }
+
+        val save180Button = Button(this).apply {
+            text = "Save previous 3 minutes"
+            setOnClickListener {
+                startService(CaptureService.createSaveIntent(this@MainActivity, 180))
+            }
+        }
+
+        val save300Button = Button(this).apply {
+            text = "Save previous 5 minutes"
+            setOnClickListener {
+                startService(CaptureService.createSaveIntent(this@MainActivity, 300))
+            }
+        }
+
         val stopButton = Button(this).apply {
             text = "Stop capture service"
             setOnClickListener {
@@ -83,6 +124,10 @@ class MainActivity : Activity() {
             addView(save15Button)
             addView(save30Button)
             addView(save60Button)
+            addView(save120Button)
+            addView(save180Button)
+            addView(save300Button)
+            addView(overlayButton)
             addView(stopButton)
             addView(reportView)
         }

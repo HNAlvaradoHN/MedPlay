@@ -93,7 +93,7 @@ This direction is favored because it can preserve quality while reducing CPU wor
 
 ## Next step
 
-Validate synchronized A/V rolling segments and joint MP4 export in public CI, then add floating save controls and extend retention beyond the 60-second prototype.
+Validate floating save control and storage-aware 2/3/5-minute retention in public CI, then continue with real-device validation and recorder UX hardening.
 
 
 ## Sustainable profile selector implementation
@@ -208,3 +208,19 @@ Current feature branch completes the first audio-in-clip path:
 - if playback capture is unavailable or denied, export remains valid video-only.
 
 This creates one common time base for A/V alignment while keeping audio and video storage independently bounded. Real-device testing must still measure lip/game-audio sync drift over long sessions; if drift appears, future correction should be timestamp-based rather than by resampling or re-encoding unless measurement proves that necessary.
+
+
+## Floating control and extended retention
+
+Current feature branch adds:
+- SYSTEM_ALERT_WINDOW declaration and explicit user-facing overlay permission flow;
+- a draggable floating "Clip" control shown only while capture is active and permission is granted;
+- tapping the control saves the default 30-second retroactive clip without returning to the app;
+- direct presets for 2, 3 and 5 minutes were added to the prototype UI;
+- maximum requested retention is extended to 300 seconds;
+- actual retention is storage-aware and computed from selected video bitrate + AAC bitrate;
+- rolling storage is capped to a 768 MiB budget and keeps a separate 768 MiB free-space reserve;
+- if even the minimum 60-second rolling window cannot fit safely, capture is refused rather than risking low-storage instability;
+- audio and video use the same selected retention window.
+
+This is deliberately bounded: MedPlay does not blindly allocate five minutes on every device/profile. A high-bitrate profile can receive a shorter window if storage headroom is insufficient.

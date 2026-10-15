@@ -18,6 +18,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.StatFs
 import java.io.File
 import kotlin.concurrent.thread
 import androidx.annotation.RequiresApi
@@ -32,6 +33,8 @@ class CaptureService : Service() {
     private var thermalGuard: RuntimeThermalGuard? = null
     private var internalAudioCapture: InternalAudioCapture? = null
     private var rollingAudioWriter: RollingAudioSegmentWriter? = null
+    private var floatingClipControl: FloatingClipControl? = null
+    private var activeRetentionUs: Long = RollingVideoSegmentWriter.DEFAULT_RETENTION_US
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
@@ -49,6 +52,10 @@ class CaptureService : Service() {
             ACTION_START -> return startCapture(intent)
             ACTION_SAVE -> {
                 saveRetroactiveClip(intent.getIntExtra(EXTRA_SAVE_SECONDS, DEFAULT_SAVE_SECONDS))
+                return START_NOT_STICKY
+            }
+            ACTION_SHOW_OVERLAY -> {
+                showFloatingControl()
                 return START_NOT_STICKY
             }
             else -> {
@@ -88,8 +95,20 @@ class CaptureService : Service() {
             return START_NOT_STICKY
         }
 
+        val retention = RecordingRetentionPolicy.choose(
+            videoBitrate = profile.bitrate,
+            audioBitrate = InternalAudioCapture.AAC_BITRATE,
+            usableBytes = StatFs(cacheDir.absolutePath).availableBytes,
+        )
+        if (retention.retentionSeconds == 0) {
+            stopProjectionAndSelf()
+            return START_NOT_STICKY
+        }
+        activeRetentionUs = retention.retentionSeconds * 1_000_000L
+
         val segmentWriter = RollingVideoSegmentWriter(
             directory = File(cacheDir, "medplay_rolling_video"),
+            retentionUs = activeRetentionUs,
         )
         val encoder = HardwareVideoEncoder(
             profile = profile,
@@ -138,6 +157,7 @@ class CaptureService : Service() {
         }.also { it.start() }
 
         startInternalAudioIfPermitted(mediaProjection)
+        showFloatingControl()
 
         return START_NOT_STICKY
     }
@@ -178,6 +198,7 @@ class CaptureService : Service() {
 
         val audioWriter = RollingAudioSegmentWriter(
             directory = File(cacheDir, "medplay_rolling_audio"),
+            retentionUs = activeRetentionUs,
         )
         val audioCapture = InternalAudioCapture(
             mediaProjection = projection,
@@ -194,6 +215,20 @@ class CaptureService : Service() {
         } else {
             audioCapture.stop()
             audioWriter.close()
+        }
+    }
+
+    private fun showFloatingControl() {
+        if (mediaProjection == null) return
+        if (floatingClipControl != null) return
+
+        val control = FloatingClipControl(applicationContext) {
+            saveRetroactiveClip(DEFAULT_SAVE_SECONDS)
+        }
+        if (control.show()) {
+            floatingClipControl = control
+        } else {
+            control.close()
         }
     }
 
@@ -215,6 +250,9 @@ class CaptureService : Service() {
     }
 
     private fun releaseVideoPipeline() {
+        floatingClipControl?.close()
+        floatingClipControl = null
+
         internalAudioCapture?.stop()
         internalAudioCapture = null
 
@@ -282,13 +320,14 @@ class CaptureService : Service() {
 
         private const val ACTION_START = "com.medplay.app.action.START_CAPTURE"
         private const val ACTION_SAVE = "com.medplay.app.action.SAVE_RETROACTIVE"
+        private const val ACTION_SHOW_OVERLAY = "com.medplay.app.action.SHOW_OVERLAY"
         private const val EXTRA_RESULT_CODE = "result_code"
         private const val EXTRA_RESULT_DATA = "result_data"
         private const val EXTRA_SAVE_SECONDS = "save_seconds"
 
         private const val DEFAULT_SAVE_SECONDS = 30
         private const val MIN_SAVE_SECONDS = 5
-        private const val MAX_SAVE_SECONDS = 60
+        private const val MAX_SAVE_SECONDS = 300
 
         fun createStartIntent(
             context: Context,
@@ -309,6 +348,12 @@ class CaptureService : Service() {
             return Intent(context, CaptureService::class.java).apply {
                 action = ACTION_SAVE
                 putExtra(EXTRA_SAVE_SECONDS, seconds)
+            }
+        }
+
+        fun createShowOverlayIntent(context: Context): Intent {
+            return Intent(context, CaptureService::class.java).apply {
+                action = ACTION_SHOW_OVERLAY
             }
         }
     }
