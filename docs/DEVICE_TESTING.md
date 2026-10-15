@@ -145,3 +145,15 @@ automatically raises resolution/FPS beyond the conservative startup policy.
 - Tap repeatedly while a clip is already exporting and confirm the control shows a busy state instead of starting concurrent exports.
 - Change size/tint/opacity while recording, press **Activar botón flotante** again, and confirm the overlay refreshes with the new appearance.
 - In single-app mode, confirm the MedPlay floating control itself is not burned into the game-only recording.
+
+
+## Polished recording UI validation
+
+- Launch MedPlay from a cold start and after changing language; verify the scroll always begins at the real top and no labels are clipped under the app bar.
+- Confirm there is no duplicate MedPlay selector for **Solo juego / Pantalla completa**. On Android 14+ the choice should appear only once in Android's own capture dialog after **Iniciar grabación**.
+- In Android's capture dialog, choose **Una app** for game-only capture and **Pantalla completa** only when whole-device capture is intended.
+- If overlay permission has not been granted, tap **Iniciar grabación**, grant the floating-window permission, return to MedPlay, and verify capture setup continues automatically without a separate "Activar botón flotante" action.
+- Change glass tint, size and transparency and verify the in-app preview updates immediately and matches the actual floating control shown during capture.
+- Confirm the floating control appears automatically when capture starts.
+- Confirm **Detener grabación** and diagnostic controls are hidden under **Opciones avanzadas** by default.
+- Expand/collapse **Opciones avanzadas** and verify Stop / Show diagnostics / Copy diagnostics still work when needed for testing.

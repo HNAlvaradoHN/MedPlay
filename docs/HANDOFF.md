@@ -415,3 +415,17 @@ Release evidence:
 - app source is unchanged between the feature/release/restoration commits; only the GitHub Actions trigger changed.
 
 Next step: install the latest APK and validate Solo juego with a real shooter, including a notification/vendor overlay test and a floating-button save.
+
+
+## Polished recording UI handoff
+
+The current UI cleanup responds directly to physical-device feedback:
+- Android's own capture dialog is now the single place to choose **one app** versus **full screen**; MedPlay no longer duplicates that choice.
+- The floating button is automatic. Missing overlay permission is requested as part of Start capture, then capture setup resumes on return.
+- Tint/size/transparency have an exact live preview because MainActivity and the overlay now share GlassClipView.
+- Stop and diagnostics remain available but are collapsed under Advanced options.
+- Root scroll restoration is disabled and forced to top to prevent the upper settings from reopening partially hidden.
+
+This pass intentionally does not change the visually approved high-motion recording pipeline.
+
+Next physical validation: install the next dev-latest, confirm the screen opens at the top, customize the glass preview, start capture from a device with/without overlay permission, and verify Android presents only its own app-vs-full-screen choice.
