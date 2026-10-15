@@ -326,3 +326,8 @@ Internal playback audio can be disabled persistently. When off, MedPlay does not
 ## Audio-aware retention note
 
 Retention estimation includes AAC bitrate only when internal audio is enabled and RECORD_AUDIO is granted. Video-only sessions budget audio bitrate as zero; storage safety reserves and caps are unchanged.
+
+
+## Notification controls / shutdown note
+
+The foreground notification exposes Clip and Stop. Clip reads the persisted default duration when no explicit duration is supplied. Stop, thermal stops, projection callbacks and fatal video errors enter a one-shot asynchronous shutdown: heavy EOS/resource waits happen off the main thread, and stopSelf() is issued only after recorder resources are released and any active export is finished. onDestroy remains the synchronous fallback for externally forced Service destruction.
