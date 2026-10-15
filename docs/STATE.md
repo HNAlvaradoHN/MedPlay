@@ -328,3 +328,18 @@ This branch also fixes a potential A/V timeline error in the Surface-input path:
 - regressions in the mapped PTS are rejected instead of silently producing invalid segment timing.
 
 Unit tests cover both zero-based and large absolute-looking codec PTS domains. Real-device testing is still required to measure residual A/V start offset and long-session drift.
+
+
+## AAC EOS and shutdown hardening
+
+Stacked follow-up branch hardens InternalAudioCapture teardown:
+- intentional stop is distinguished from fatal worker failure so forced shutdown does not trigger the video-only fallback callback again;
+- AudioRecord.stop() is used to unblock READ_BLOCKING before waiting for the worker;
+- the worker is given a bounded grace period to queue AAC EOS and drain encoded output;
+- EOS draining now waits with a codec dequeue timeout instead of polling only at zero timeout;
+- if the worker does not finish, MediaCodec is stopped once to force unblock, followed by a short bounded join;
+- MediaCodec.stop() is not issued twice on the same shutdown path;
+- output buffers are always released from a finally block even if the encoded-audio consumer fails;
+- negative AudioRecord.read() error codes are surfaced as pipeline failures rather than being converted into silent zero-byte input.
+
+This keeps audio teardown bounded while preserving as much final AAC output as possible and avoids turning an intentional shutdown race into a false runtime failure.
