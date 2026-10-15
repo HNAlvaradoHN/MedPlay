@@ -343,3 +343,8 @@ MedPlay now reduces the gap between the Clip tap and the end of the saved retroa
 ## Video encoder stop race hardening
 
 HardwareVideoEncoder.stop() is now synchronized with dynamic bitrate and sync-frame parameter updates. stopRequested remains set through teardown, and drain-loop exceptions that occur during an intentional stop are not surfaced as new fatal pipeline errors. start() resets stopRequested for a new encoder session. This closes a shutdown race between MediaCodec.setParameters(), EOS signaling and forced drain termination.
+
+
+## Adaptive remux sample buffer
+
+Retroactive export now inspects MediaExtractor.sampleSize before each compressed-sample read. The reusable direct buffer starts at 8 MiB and grows only when an actual encoded access unit requires more capacity, with a 64 MiB defensive per-sample ceiling. This avoids fixed-buffer failures on unusually large keyframes without reserving large memory for normal clips.
