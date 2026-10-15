@@ -19,6 +19,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.StatFs
+import android.os.SystemClock
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
@@ -35,6 +36,10 @@ class CaptureService : Service() {
     private var rollingAudioWriter: RollingAudioSegmentWriter? = null
     private var floatingClipControl: FloatingClipControl? = null
     private var activeRetentionUs: Long = RollingVideoSegmentWriter.DEFAULT_RETENTION_US
+    private var activeProfile: RecordingProfile? = null
+    private var sessionStartedUs = Long.MIN_VALUE
+    private var maxThermalStatus = 0
+    private var sessionAudioWasActive = false
     private val exportInProgress = AtomicBoolean(false)
 
     private val projectionCallback = object : MediaProjection.Callback() {
@@ -161,8 +166,13 @@ class CaptureService : Service() {
 
         rollingWriter = segmentWriter
         videoEncoder = encoder
+        activeProfile = profile
+        sessionStartedUs = SystemClock.elapsedRealtimeNanos() / 1_000L
+        maxThermalStatus = 0
+        sessionAudioWasActive = false
 
-        thermalGuard = RuntimeThermalGuard(applicationContext) { action, _ ->
+        thermalGuard = RuntimeThermalGuard(applicationContext) { action, status ->
+            maxThermalStatus = maxOf(maxThermalStatus, status)
             if (action.stopCapture) {
                 Handler(Looper.getMainLooper()).post {
                     stopProjectionAndSelf()
@@ -265,6 +275,7 @@ class CaptureService : Service() {
         if (started) {
             rollingAudioWriter = audioWriter
             internalAudioCapture = audioCapture
+            sessionAudioWasActive = true
         } else {
             audioCapture.stop()
             runCatching { audioWriter.close() }
@@ -324,6 +335,8 @@ class CaptureService : Service() {
     }
 
     private fun releaseVideoPipeline() {
+        persistSessionDiagnostics()
+
         floatingClipControl?.close()
         floatingClipControl = null
 
@@ -344,6 +357,34 @@ class CaptureService : Service() {
 
         runCatching { rollingWriter?.close() }
         rollingWriter = null
+    }
+
+    private fun persistSessionDiagnostics() {
+        val profile = activeProfile ?: return
+        val startedUs = sessionStartedUs
+        val encoder = videoEncoder ?: return
+        if (startedUs == Long.MIN_VALUE) return
+
+        activeProfile = null
+        sessionStartedUs = Long.MIN_VALUE
+
+        val diagnostics = RecordingSessionDiagnostics(
+            startedMonotonicUs = startedUs,
+            endedMonotonicUs = SystemClock.elapsedRealtimeNanos() / 1_000L,
+            profile = profile,
+            retentionSeconds = (activeRetentionUs / 1_000_000L).toInt(),
+            maxThermalStatus = maxThermalStatus,
+            audioWasActive = sessionAudioWasActive,
+            encoderHealth = encoder.healthSnapshot(),
+        )
+
+        maxThermalStatus = 0
+        sessionAudioWasActive = false
+
+        runCatching {
+            File(filesDir, LAST_SESSION_DIAGNOSTICS_FILE)
+                .writeText(diagnostics.toText())
+        }
     }
 
     private fun startAsProjectionForegroundService() {
@@ -403,6 +444,8 @@ class CaptureService : Service() {
         private const val MIN_SAVE_SECONDS = 5
         private const val MAX_SAVE_SECONDS = 300
         private const val SAVE_ROLLOVER_WAIT_MS = 750L
+        private const val LAST_SESSION_DIAGNOSTICS_FILE =
+            "last_session_diagnostics.txt"
 
         fun createStartIntent(
             context: Context,
@@ -430,6 +473,12 @@ class CaptureService : Service() {
             return Intent(context, CaptureService::class.java).apply {
                 action = ACTION_SHOW_OVERLAY
             }
+        }
+
+        fun readLastSessionDiagnostics(context: Context): String? {
+            val file = File(context.filesDir, LAST_SESSION_DIAGNOSTICS_FILE)
+            if (!file.isFile) return null
+            return runCatching { file.readText() }.getOrNull()
         }
     }
 }
