@@ -88,12 +88,12 @@ This direction is favored because it can preserve quality while reducing CPU wor
 - Identify any thermal/battery/performance adaptation logic.
 - Determine keyframe interval and clip assembly behavior.
 - Validate internal-audio strategy.
-- Validate the sustainable profile selector in public CI.
+- Sustainable profile selector passed public CI and is merged to main.
 - Measure sustained thermals, dropped frames and gameplay impact on real devices.
 
 ## Next step
 
-Validate the new sustainable profile selector in public CI, then add MediaProjection capture.
+Validate the MediaProjection foreground-service foundation in public CI, then connect it to the hardware encoder.
 
 
 ## Sustainable profile selector implementation
@@ -106,3 +106,14 @@ Initial automatic startup policy now exists in code:
 - if no validated hardware startup profile exists, automatic recording does not silently fall back to software encoding.
 
 This is only the startup guardrail. Runtime thermal/frame-loss adaptation is still pending and must be implemented before claiming full sustainable-performance protection.
+
+
+## MediaProjection foundation
+
+Implemented on feature branch:
+- explicit user consent via MediaProjectionManager;
+- foreground service declared with mediaProjection service type;
+- Android foreground-service permissions for media projection;
+- MediaProjection lifetime owned by CaptureService rather than Activity;
+- MediaProjection.Callback registered so revoked/stopped projection tears the service down;
+- no encoder or VirtualDisplay is started yet in this block, keeping capture permission/lifecycle isolated and testable.
