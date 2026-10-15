@@ -27,6 +27,7 @@ class HardwareVideoEncoder(
     }
 
     private var codec: MediaCodec? = null
+    private val runtimeHealth = EncoderRuntimeHealth()
     private var inputSurface: Surface? = null
     private var drainThread: Thread? = null
     private val running = AtomicBoolean(false)
@@ -93,6 +94,11 @@ class HardwareVideoEncoder(
         }.getOrDefault(false)
     }
 
+    fun healthSnapshot(): EncoderRuntimeHealth.Snapshot {
+        val nowUs = SystemClock.elapsedRealtimeNanos() / 1_000L
+        return runtimeHealth.snapshot(nowUs)
+    }
+
     fun stop() {
         if (!running.getAndSet(false) && codec == null) return
 
@@ -123,6 +129,10 @@ class HardwareVideoEncoder(
                     if (index >= 0) {
                         val output = currentCodec.getOutputBuffer(index)
                         if (output != null && info.size > 0) {
+                            runtimeHealth.onEncodedSample(
+                                presentationTimeUs = info.presentationTimeUs,
+                                wallTimeUs = SystemClock.elapsedRealtimeNanos() / 1_000L,
+                            )
                             output.position(info.offset)
                             output.limit(info.offset + info.size)
                             sampleConsumer.onSample(output.slice(), info)

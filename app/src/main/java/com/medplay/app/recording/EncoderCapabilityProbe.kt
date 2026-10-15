@@ -14,6 +14,7 @@ object EncoderCapabilityProbe {
         val widthRange: String,
         val heightRange: String,
         val frameRateRange: String,
+        val surfaceInputSupported: Boolean,
     )
 
     fun inspect(): List<EncoderSummary> {
@@ -30,6 +31,9 @@ object EncoderCapabilityProbe {
                         widthRange = videoCaps.supportedWidths.toString(),
                         heightRange = videoCaps.supportedHeights.toString(),
                         frameRateRange = videoCaps.supportedFrameRates.toString(),
+                        surfaceInputSupported = caps.colorFormats.contains(
+                            MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface,
+                        ),
                     )
                 }
             }
@@ -48,6 +52,10 @@ object EncoderCapabilityProbe {
                 val caps = capabilities(info, codec) ?: return@flatMap emptyList()
                 val videoCaps = caps.videoCapabilities ?: return@flatMap emptyList()
                 val hardware = isHardwareAccelerated(info)
+                val surfaceInputSupported = caps.colorFormats.contains(
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface,
+                )
+                if (!surfaceInputSupported) return@flatMap emptyList()
 
                 targets
                     .asSequence()
@@ -114,6 +122,7 @@ object EncoderCapabilityProbe {
                     appendLine("  width=${encoder.widthRange}")
                     appendLine("  height=${encoder.heightRange}")
                     appendLine("  fps=${encoder.frameRateRange}")
+                    appendLine("  surfaceInput=${encoder.surfaceInputSupported}")
                     appendLine()
                 }
             }
