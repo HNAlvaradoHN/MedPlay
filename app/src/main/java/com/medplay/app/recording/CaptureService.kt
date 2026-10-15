@@ -34,12 +34,17 @@ class CaptureService : Service() {
     private var thermalGuard: RuntimeThermalGuard? = null
     private var internalAudioCapture: InternalAudioCapture? = null
     private var rollingAudioWriter: RollingAudioSegmentWriter? = null
+    private var microphoneVoiceCapture: MicrophoneVoiceCapture? = null
+    private var rollingMicrophoneWriter: RollingAudioSegmentWriter? = null
     private var floatingClipControl: FloatingClipControl? = null
     private var activeRetentionUs: Long = RollingVideoSegmentWriter.DEFAULT_RETENTION_US
     private var activeProfile: RecordingProfile? = null
     private var sessionStartedUs = Long.MIN_VALUE
     private var maxThermalStatus = 0
     private var sessionAudioWasActive = false
+    private var sessionMicrophoneWasActive = false
+    private var sessionMicrophoneWasSilenced = false
+    private var microphoneCurrentlySilenced = false
     private val exportInProgress = AtomicBoolean(false)
     private val shutdownStarted = AtomicBoolean(false)
     private val shutdownResourcesReleased = AtomicBoolean(false)
@@ -113,7 +118,13 @@ class CaptureService : Service() {
             return START_NOT_STICKY
         }
 
-        startAsProjectionForegroundService()
+        val microphoneVoiceRequested =
+            MicrophoneVoicePreference.isEnabled(applicationContext) &&
+                checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
+        startAsProjectionForegroundService(
+            includeMicrophone = microphoneVoiceRequested,
+        )
 
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Int.MIN_VALUE)
         val resultData = intent.getParcelableExtraCompat(EXTRA_RESULT_DATA)
@@ -158,14 +169,20 @@ class CaptureService : Service() {
             InternalAudioPreference.isEnabled(applicationContext) &&
                 checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
+        val microphoneVoiceEnabled =
+            MicrophoneVoicePreference.isEnabled(applicationContext) &&
+                checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
 
         val retention = RecordingRetentionPolicy.choose(
             videoBitrate = profile.bitrate,
-            audioBitrate = if (internalAudioEnabled) {
-                InternalAudioCapture.AAC_BITRATE
-            } else {
-                0
-            },
+            audioBitrate =
+                (if (internalAudioEnabled) InternalAudioCapture.AAC_BITRATE else 0) +
+                    (if (microphoneVoiceEnabled) {
+                        MicrophoneVoiceCapture.AAC_BITRATE
+                    } else {
+                        0
+                    }),
             usableBytes = StatFs(cacheDir.absolutePath).availableBytes,
         )
         if (retention.retentionSeconds == 0) {
@@ -221,6 +238,11 @@ class CaptureService : Service() {
         sessionStartedUs = SystemClock.elapsedRealtimeNanos() / 1_000L
         maxThermalStatus = 0
         sessionAudioWasActive = false
+        sessionMicrophoneWasActive = false
+        sessionMicrophoneWasSilenced = false
+        sessionMicrophoneWasActive = false
+        sessionMicrophoneWasSilenced = false
+        microphoneCurrentlySilenced = false
 
         val startedThermalGuard = runCatching {
             RuntimeThermalGuard(applicationContext) { action, status ->
@@ -245,6 +267,7 @@ class CaptureService : Service() {
         thermalGuard = startedThermalGuard
 
         startInternalAudioIfPermitted(mediaProjection)
+        startMicrophoneVoiceIfPermitted()
         showFloatingControl()
         updateCaptureNotification(
             buildActiveCaptureStatus(profile)
@@ -288,6 +311,7 @@ class CaptureService : Service() {
         ) {
             var lease: RollingVideoSegmentWriter.SegmentLease? = null
             var audioLease: RollingAudioSegmentWriter.SegmentLease? = null
+            var microphoneLease: RollingAudioSegmentWriter.SegmentLease? = null
 
             try {
                 if (syncFrameRequested) {
@@ -319,9 +343,19 @@ class CaptureService : Service() {
                     audioLease = audioWriter.leaseRange(videoStartUs, videoEndUs)
                 }
 
+                val microphoneWriter = rollingMicrophoneWriter
+                if (microphoneWriter != null) {
+                    runCatching {
+                        microphoneWriter.finalizeActiveSegmentForExport()
+                    }
+                    microphoneLease =
+                        microphoneWriter.leaseRange(videoStartUs, videoEndUs)
+                }
+
                 val result = RetroactiveVideoExporter(applicationContext).export(
                     videoLease = lease,
                     audioLease = audioLease,
+                    microphoneLease = microphoneLease,
                 )
                 Handler(Looper.getMainLooper()).post {
                     floatingClipControl?.showSavedFeedback()
@@ -343,6 +377,7 @@ class CaptureService : Service() {
                         )
                     )
                 }
+                microphoneLease?.close()
                 audioLease?.close()
                 lease?.close()
             } finally {
@@ -398,6 +433,89 @@ class CaptureService : Service() {
 
         runCatching { rollingAudioWriter?.close() }
         rollingAudioWriter = null
+    }
+
+    private fun startMicrophoneVoiceIfPermitted() {
+        if (!MicrophoneVoicePreference.isEnabled(applicationContext)) return
+        if (
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val voiceWriter = RollingAudioSegmentWriter(
+            directory = File(cacheDir, "medplay_rolling_microphone"),
+            retentionUs = activeRetentionUs,
+        )
+        val voiceCapture = MicrophoneVoiceCapture(
+            context = applicationContext,
+            consumer = voiceWriter,
+            onSilencedChanged = { silenced ->
+                Handler(Looper.getMainLooper()).post {
+                    handleMicrophoneSilencedChanged(silenced)
+                }
+            },
+            onFatalError = {
+                Handler(Looper.getMainLooper()).post {
+                    disableMicrophoneVoice()
+                }
+            },
+        )
+        val started = runCatching {
+            voiceCapture.start()
+            true
+        }.getOrDefault(false)
+
+        if (started) {
+            rollingMicrophoneWriter = voiceWriter
+            microphoneVoiceCapture = voiceCapture
+            sessionMicrophoneWasActive = true
+        } else {
+            voiceCapture.stop()
+            runCatching { voiceWriter.close() }
+        }
+    }
+
+    private fun handleMicrophoneSilencedChanged(silenced: Boolean) {
+        if (microphoneVoiceCapture == null && !sessionMicrophoneWasActive) return
+        if (microphoneCurrentlySilenced == silenced) return
+
+        microphoneCurrentlySilenced = silenced
+        if (silenced) {
+            sessionMicrophoneWasSilenced = true
+            floatingClipControl?.showMicrophoneBlocked(
+                tr(
+                    "Micrófono usado por el juego • tu voz no se está grabando",
+                    "Microphone used by the game • your voice is not being recorded",
+                )
+            )
+            activeProfile?.let { profile ->
+                updateCaptureNotification(
+                    buildActiveCaptureStatus(profile) +
+                        tr(" • voz pausada", " • voice paused")
+                )
+            }
+        } else {
+            floatingClipControl?.showMicrophoneResumed(
+                tr(
+                    "Micrófono disponible • voz reanudada",
+                    "Microphone available • voice resumed",
+                )
+            )
+            activeProfile?.let { profile ->
+                updateCaptureNotification(buildActiveCaptureStatus(profile))
+            }
+        }
+    }
+
+    private fun disableMicrophoneVoice() {
+        microphoneVoiceCapture?.stop()
+        microphoneVoiceCapture = null
+
+        runCatching { rollingMicrophoneWriter?.close() }
+        rollingMicrophoneWriter = null
+        microphoneCurrentlySilenced = false
     }
 
     private fun showFloatingControl() {
@@ -496,6 +614,13 @@ class CaptureService : Service() {
         runCatching { rollingAudioWriter?.close() }
         rollingAudioWriter = null
 
+        runCatching { microphoneVoiceCapture?.stop() }
+        microphoneVoiceCapture = null
+
+        runCatching { rollingMicrophoneWriter?.close() }
+        rollingMicrophoneWriter = null
+        microphoneCurrentlySilenced = false
+
         runCatching { thermalGuard?.close() }
         thermalGuard = null
 
@@ -526,6 +651,8 @@ class CaptureService : Service() {
             maxThermalStatus = maxThermalStatus,
             audioWasActive = sessionAudioWasActive,
             encoderHealth = encoder.healthSnapshot(),
+            microphoneWasActive = sessionMicrophoneWasActive,
+            microphoneWasSilenced = sessionMicrophoneWasSilenced,
         )
 
         maxThermalStatus = 0
@@ -539,10 +666,15 @@ class CaptureService : Service() {
 
     private fun buildActiveCaptureStatus(profile: RecordingProfile): String {
         val retentionSeconds = activeRetentionUs / 1_000_000L
-        val audioLabel = if (sessionAudioWasActive) {
-            tr("audio", "audio")
-        } else {
-            tr("solo video", "video only")
+        val audioLabel = when {
+            sessionAudioWasActive && sessionMicrophoneWasActive ->
+                tr("audio + voz", "audio + voice")
+            sessionAudioWasActive ->
+                tr("audio", "audio")
+            sessionMicrophoneWasActive ->
+                tr("voz", "voice")
+            else ->
+                tr("solo video", "video only")
         }
         return profile.width.toString() + "x" + profile.height +
             " @ " + profile.fps + " FPS • " + retentionSeconds +
@@ -555,14 +687,22 @@ class CaptureService : Service() {
         manager.notify(NOTIFICATION_ID, buildNotification(text))
     }
 
-    private fun startAsProjectionForegroundService() {
+    private fun startAsProjectionForegroundService(
+        includeMicrophone: Boolean,
+    ) {
         val notification = buildNotification()
 
         if (Build.VERSION.SDK_INT >= 29) {
+            var serviceTypes =
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            if (Build.VERSION.SDK_INT >= 30 && includeMicrophone) {
+                serviceTypes =
+                    serviceTypes or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            }
             startForeground(
                 NOTIFICATION_ID,
                 notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
+                serviceTypes,
             )
         } else {
             startForeground(NOTIFICATION_ID, notification)
