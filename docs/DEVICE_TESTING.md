@@ -16,6 +16,19 @@ real-device capture quality, A/V sync, thermal sustainability or game smoothness
 The workflow intentionally uses GitHub Release assets instead of Actions
 artifacts so MedPlay does not depend on the account's Actions artifact quota.
 
+### Debug-signing caveat
+
+This is a debug build. A fresh GitHub runner may produce an APK signed with a
+different ephemeral debug key from a previous run. Android can then reject an
+in-place update because the installed APK and the new APK have different
+signatures. If that happens during development, uninstall the previous debug
+build before installing the new one; uninstalling clears that app's local
+settings and diagnostics.
+
+Do not commit a private signing key to the public repository as a shortcut.
+Stable development signing can be added later only through an appropriate
+secret-backed workflow.
+
 ## Functional smoke test
 
 On a real Android device:
