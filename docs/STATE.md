@@ -267,3 +267,17 @@ Current feature branch hardens final clip creation before real-device testing:
 - any validation/remux/publication failure deletes the pending MediaStore item and releases segment leases.
 
 The final export still copies compressed samples only; these guards do not introduce decode/re-encode.
+
+
+## Serialized clip export and inactive-action cleanup
+
+Current feature branch reduces avoidable I/O/thermal load and tightens service lifecycle:
+- only one retroactive clip export may run at a time;
+- repeated save taps while an export is active are ignored instead of spawning concurrent remux threads;
+- the export-in-progress flag is always cleared in a finally block;
+- if there is no completed video window to lease, the export slot is immediately released;
+- ACTION_SAVE received without an active rolling writer no longer starts/keeps an otherwise idle service alive;
+- ACTION_SHOW_OVERLAY received without an active MediaProjection also stops the transient service instance;
+- the actual remux path remains off the main thread and still performs compressed-sample copy only.
+
+This deliberately favors stable gameplay and low I/O contention over allowing multiple simultaneous saves.
