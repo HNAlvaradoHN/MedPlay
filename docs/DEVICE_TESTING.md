@@ -105,3 +105,14 @@ or materially worse battery load.
 
 Real-device evidence from multiple device classes is required before MedPlay
 automatically raises resolution/FPS beyond the conservative startup policy.
+
+
+## Settings/UI validation
+
+- switch between Español and English and verify visible app controls update;
+- choose each quality mode shown by the device and verify the active notification reports the requested resolution/FPS;
+- confirm unsupported quality modes are not shown;
+- leave quality on Automatic and record the recommended profile shown by the UI;
+- choose one Clip duration, then verify the in-app Save clip button, floating Clip control and notification Clip action all use that same duration;
+- verify there are no duplicate duration controls that can disagree with one another;
+- keep codec/bitrate automatic during this phase; do not infer sustainability from codec capability metadata alone.
