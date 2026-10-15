@@ -401,3 +401,17 @@ The active feature branch adds two user-requested improvements without changing 
 Do not add mandatory video post-processing or expensive real-time blur to the overlay. The recording-quality pipeline should remain the same as the already approved high-motion build.
 
 Next evidence step after CI/merge: generate dev-latest and physically test single-app selection with a real game, trigger notifications/vendor sidebars over the game, save a clip, and confirm only game content is present while image/audio quality remains unchanged.
+
+
+## Latest dev-latest for physical validation
+
+The current `dev-latest` APK includes the game-only capture and premium glass floating Clip control from PR #58.
+
+Release evidence:
+- release run `38794076975`: success
+- release target `1accba060c2806c9e761eebd5e0876761b34ae32`
+- feature content originates from merge `77ba165ef7655c58dccf681fb3212c9b97d76ac4`
+- current main after restoring the release workflow to manual-only: `09928e9977cc3ffc0d41045d189ed05c6f615bc2`
+- app source is unchanged between the feature/release/restoration commits; only the GitHub Actions trigger changed.
+
+Next step: install the latest APK and validate Solo juego with a real shooter, including a notification/vendor overlay test and a floating-button save.
