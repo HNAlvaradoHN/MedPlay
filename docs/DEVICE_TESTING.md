@@ -157,3 +157,20 @@ automatically raises resolution/FPS beyond the conservative startup policy.
 - Confirm the floating control appears automatically when capture starts.
 - Confirm **Detener grabación** and diagnostic controls are hidden under **Opciones avanzadas** by default.
 - Expand/collapse **Opciones avanzadas** and verify Stop / Show diagnostics / Copy diagnostics still work when needed for testing.
+
+
+## Separate microphone voice capture
+
+Use a real game with voice chat to validate the optional **Grabar mi voz (pista separada)** path.
+
+1. Leave **Grabar audio interno** enabled and enable **Grabar mi voz (pista separada)**.
+2. Start a game with its voice-chat microphone OFF. Save a clip after speaking for at least 10 seconds.
+3. Confirm game playback audio remains present and that the MP4 contains a second AAC audio track for the player's microphone.
+4. Turn the game's voice-chat microphone ON while MedPlay is still recording.
+5. If Android gives the game microphone priority, confirm MedPlay shows the small overlay message that the player's voice track is paused. Video and internal game audio must continue uninterrupted.
+6. Turn the game's voice-chat microphone OFF again. Confirm MedPlay reports that the microphone is available and the voice track resumes without restarting screen capture.
+7. Save another clip spanning all three phases (voice available -> game owns mic -> voice available). The microphone track should contain a silent interval only for the period Android silenced MedPlay, while the game-audio track remains continuous.
+8. Stop the session and inspect diagnostics for `microphoneWasActive=true` and, when contention occurred, `microphoneWasSilenced=true`.
+9. Repeat once with **Grabar mi voz** disabled and confirm behavior/quality matches the previously validated recorder.
+
+Important: this phase preserves game audio and microphone as independent AAC tracks. A standard gallery player may select only one audio track for playback. Mixing, per-track volume preview and final single-track MP4 export belong to the planned MedPlay editor phase and are not claimed complete here.
