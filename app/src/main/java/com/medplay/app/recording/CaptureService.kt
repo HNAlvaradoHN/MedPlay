@@ -17,6 +17,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import java.io.File
+import kotlin.concurrent.thread
 import androidx.annotation.RequiresApi
 import com.medplay.app.MainActivity
 
@@ -39,11 +40,20 @@ class CaptureService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action != ACTION_START) {
-            stopSelf()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_START -> return startCapture(intent)
+            ACTION_SAVE -> {
+                saveRetroactiveClip(intent.getIntExtra(EXTRA_SAVE_SECONDS, DEFAULT_SAVE_SECONDS))
+                return START_NOT_STICKY
+            }
+            else -> {
+                stopSelf()
+                return START_NOT_STICKY
+            }
         }
+    }
 
+    private fun startCapture(intent: Intent): Int {
         startAsProjectionForegroundService()
 
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Int.MIN_VALUE)
@@ -110,6 +120,24 @@ class CaptureService : Service() {
         videoEncoder = encoder
 
         return START_NOT_STICKY
+    }
+
+    private fun saveRetroactiveClip(seconds: Int) {
+        val writer = rollingWriter ?: return
+        val safeSeconds = seconds.coerceIn(MIN_SAVE_SECONDS, MAX_SAVE_SECONDS)
+        val lease = writer.leaseCompleted(safeSeconds * 1_000_000L) ?: return
+
+        thread(
+            start = true,
+            isDaemon = true,
+            name = "medplay-clip-export",
+        ) {
+            runCatching {
+                RetroactiveVideoExporter(applicationContext).export(lease)
+            }.onFailure {
+                lease.close()
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -187,8 +215,14 @@ class CaptureService : Service() {
         private const val NOTIFICATION_ID = 1001
 
         private const val ACTION_START = "com.medplay.app.action.START_CAPTURE"
+        private const val ACTION_SAVE = "com.medplay.app.action.SAVE_RETROACTIVE"
         private const val EXTRA_RESULT_CODE = "result_code"
         private const val EXTRA_RESULT_DATA = "result_data"
+        private const val EXTRA_SAVE_SECONDS = "save_seconds"
+
+        private const val DEFAULT_SAVE_SECONDS = 30
+        private const val MIN_SAVE_SECONDS = 5
+        private const val MAX_SAVE_SECONDS = 60
 
         fun createStartIntent(
             context: Context,
@@ -199,6 +233,16 @@ class CaptureService : Service() {
                 action = ACTION_START
                 putExtra(EXTRA_RESULT_CODE, resultCode)
                 putExtra(EXTRA_RESULT_DATA, resultData)
+            }
+        }
+
+        fun createSaveIntent(
+            context: Context,
+            seconds: Int,
+        ): Intent {
+            return Intent(context, CaptureService::class.java).apply {
+                action = ACTION_SAVE
+                putExtra(EXTRA_SAVE_SECONDS, seconds)
             }
         }
     }
