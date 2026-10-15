@@ -281,3 +281,8 @@ A clip save requests a sync frame and asks RollingVideoSegmentWriter to cut on t
 ## Video stop race note
 
 HardwareVideoEncoder.stop() now shares the same synchronization boundary as updateBitrate() and requestSyncFrame(). Keep stopRequested true until teardown completes so drain errors caused by intentional shutdown are suppressed; start() resets the flag.
+
+
+## Sustainability measurement note
+
+RecordingSustainabilityEvaluator converts existing encoder health plus thermal status into GOOD / DEGRADED / UNSUSTAINABLE. CaptureService keeps the worst session verdict but does not yet use it to restart at lower resolution/FPS. Preserve this measurement-first boundary until real-device traces validate thresholds and profile transitions.
