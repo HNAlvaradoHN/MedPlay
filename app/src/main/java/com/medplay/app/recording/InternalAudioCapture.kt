@@ -146,14 +146,14 @@ class InternalAudioCapture(
         runCatching { record?.stop() }
         audioWorker?.join(STOP_JOIN_TIMEOUT_MS)
 
+        var codecStoppedForcibly = false
         if (audioWorker?.isAlive == true) {
             runCatching { encoder?.stop() }
+            codecStoppedForcibly = true
             audioWorker.join(FORCE_STOP_JOIN_TIMEOUT_MS)
         }
 
-        worker = null
-
-        if (audioWorker?.isAlive != true) {
+        if (!codecStoppedForcibly) {
             runCatching { encoder?.stop() }
         }
         runCatching { encoder?.release() }
@@ -161,7 +161,11 @@ class InternalAudioCapture(
 
         runCatching { record?.release() }
         audioRecord = null
-        stopping.set(false)
+
+        if (audioWorker?.isAlive == true) {
+            audioWorker.join(FORCE_STOP_JOIN_TIMEOUT_MS)
+        }
+        worker = null
     }
 
     private fun runLoop(
@@ -241,22 +245,25 @@ class InternalAudioCapture(
                 else -> {
                     if (index < 0) return reachedEos
 
-                    val output = encoder.getOutputBuffer(index)
-                    if (
-                        output != null &&
-                        info.size > 0 &&
-                        (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0
-                    ) {
-                        output.position(info.offset)
-                        output.limit(info.offset + info.size)
-                        consumer.onSample(output.slice(), info)
+                    try {
+                        val output = encoder.getOutputBuffer(index)
+                        if (
+                            output != null &&
+                            info.size > 0 &&
+                            (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0
+                        ) {
+                            output.position(info.offset)
+                            output.limit(info.offset + info.size)
+                            consumer.onSample(output.slice(), info)
+                        }
+
+                        if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                            reachedEos = true
+                        }
+                    } finally {
+                        encoder.releaseOutputBuffer(index, false)
                     }
 
-                    if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                        reachedEos = true
-                    }
-
-                    encoder.releaseOutputBuffer(index, false)
                     if (reachedEos) return true
                 }
             }
