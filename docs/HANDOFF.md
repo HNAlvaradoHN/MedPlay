@@ -276,3 +276,8 @@ InternalAudioCapture now unblocks AudioRecord before teardown, gives its worker 
 ## Save-triggered rollover note
 
 A clip save requests a sync frame and asks RollingVideoSegmentWriter to cut on that next keyframe. The export worker waits up to 750 ms for completion, then falls back to the latest completed set if needed. This reduces end-of-clip lag without reading an active segment or re-encoding.
+
+
+## Remux buffer sizing note
+
+RetroactiveVideoExporter now checks MediaExtractor.sampleSize before each compressed-sample read. It reuses an 8 MiB direct buffer and grows it only when a larger access unit appears, with a 64 MiB defensive per-sample ceiling. Do not return to a fixed-size assumption for encoded keyframes.
