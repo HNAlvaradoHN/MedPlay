@@ -39,6 +39,9 @@ class RollingVideoSegmentWriter(
     private var currentStartUs = Long.MIN_VALUE
     private var currentEndUs = Long.MIN_VALUE
     private var sequence = 0L
+    private var rolloverRequested = false
+    private val completionMonitor = Object()
+    private var completionVersion = 0L
 
     init {
         require(retentionUs >= targetSegmentUs)
@@ -77,8 +80,12 @@ class RollingVideoSegmentWriter(
         } else if (
             isSyncFrame &&
             currentStartUs != Long.MIN_VALUE &&
-            absolutePtsUs - currentStartUs >= targetSegmentUs
+            (
+                rolloverRequested ||
+                    absolutePtsUs - currentStartUs >= targetSegmentUs
+            )
         ) {
+            rolloverRequested = false
             finishCurrentSegment()
             openSegment(absolutePtsUs)
         }
@@ -106,6 +113,41 @@ class RollingVideoSegmentWriter(
         override fun close() {
             if (!released.compareAndSet(false, true)) return
             releaser()
+        }
+    }
+
+    @Synchronized
+    fun requestRolloverOnNextSyncFrame() {
+        rolloverRequested = true
+    }
+
+    fun completionVersion(): Long {
+        return synchronized(completionMonitor) { completionVersion }
+    }
+
+    fun awaitCompletionAfter(
+        version: Long,
+        timeoutMs: Long,
+    ): Boolean {
+        require(timeoutMs >= 0L)
+
+        synchronized(completionMonitor) {
+            if (completionVersion > version) return true
+            if (timeoutMs == 0L) return false
+
+            val deadlineNs = System.nanoTime() + timeoutMs * 1_000_000L
+            var remainingMs = timeoutMs
+
+            while (completionVersion <= version && remainingMs > 0L) {
+                completionMonitor.wait(remainingMs)
+                val remainingNs = deadlineNs - System.nanoTime()
+                remainingMs = if (remainingNs <= 0L) {
+                    0L
+                } else {
+                    (remainingNs + 999_999L) / 1_000_000L
+                }
+            }
+            return completionVersion > version
         }
     }
 
@@ -184,6 +226,10 @@ class RollingVideoSegmentWriter(
         if (file != null && startUs != Long.MIN_VALUE && endUs >= startUs) {
             completed.addLast(Segment(file, startUs, endUs))
             latestCompletedEndUs = endUs
+            synchronized(completionMonitor) {
+                completionVersion += 1L
+                completionMonitor.notifyAll()
+            }
             trimRetention(endUs)
         } else {
             file?.delete()
