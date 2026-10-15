@@ -156,6 +156,8 @@ Private workflow run #7 completed successfully and was reviewed. Do not launch a
 
 ## Prototype rule
 
+Performance/thermal quality is a release criterion: a visually better setting that causes meaningful gameplay stutter, sustained overheating, excessive battery load, encoder instability or repeated dropped frames is not considered better.
+
 Do not start by forcing 1440p/60/100 Mbps universally.
 
 The first MedPlay prototype should detect hardware codec capabilities and use conservative, sustainable defaults. Higher profiles can be exposed only when the device can actually sustain them.
@@ -169,8 +171,8 @@ The intended long-term quality strategy is adaptive:
 
 ## Immediate next action for a new chat
 
-1. Validate the Android/Kotlin scaffold in public CI.
-2. Build the original capability-based recording profile selector.
+1. The Android/Kotlin scaffold has passed public CI and is merged to main.
+2. Build the original capability-based recording profile selector with explicit sustainable-load safeguards.
 3. Add MediaProjection permission/capture flow.
 4. Add hardware MediaCodec encoding and short rolling segments.
 5. Measure sustained performance on real devices before raising default quality.

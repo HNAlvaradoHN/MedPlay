@@ -93,3 +93,22 @@ Expected benefits:
 - simpler retroactive retention.
 
 This is an original MedPlay design decision; Medal's proprietary implementation must not be copied.
+
+
+## DEC-010 — Performance regressions are product defects
+
+Status: OWNER_DECISION
+
+Recording quality improvements must not be accepted if they materially degrade gameplay responsiveness, sustained thermals, battery behavior, or encoder stability on the target device class.
+
+Required engineering behavior:
+- prefer zero-copy or minimum-copy paths where Android APIs allow;
+- prefer surface-input hardware MediaCodec encoders;
+- never re-encode saved retroactive clips by default;
+- validate resolution/FPS/codec combinations against device capabilities;
+- use conservative defaults and expose higher modes only when sustainable;
+- measure dropped frames, encode latency, thermal state, memory and storage pressure during real-device tests;
+- degrade quality gracefully before the OS/device is forced into severe thermal throttling;
+- avoid background work unrelated to active capture while recording.
+
+This decision is a release criterion, not an optional optimization task.
