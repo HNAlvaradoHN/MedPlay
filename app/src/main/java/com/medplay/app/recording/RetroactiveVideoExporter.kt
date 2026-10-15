@@ -17,6 +17,7 @@ class RetroactiveVideoExporter(
 
     data class ExportResult(
         val uri: Uri,
+        val displayName: String,
         val durationUs: Long,
         val videoSegmentCount: Int,
         val audioSegmentCount: Int,
@@ -73,6 +74,7 @@ class RetroactiveVideoExporter(
 
             return ExportResult(
                 uri = uri,
+                displayName = displayName,
                 durationUs = videoSegments.last().sourceEndUs -
                     videoSegments.first().sourceStartUs,
                 videoSegmentCount = videoSegments.size,
