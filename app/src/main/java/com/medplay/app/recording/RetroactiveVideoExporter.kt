@@ -306,19 +306,23 @@ class RetroactiveVideoExporter(
     ) {
         companion object {
             fun from(format: MediaFormat): TrackFormatSignature {
+                fun intOrNull(key: String): Int? {
+                    return if (format.containsKey(key)) {
+                        format.getInteger(key)
+                    } else {
+                        null
+                    }
+                }
+
                 return TrackFormatSignature(
                     mime = format.getString(MediaFormat.KEY_MIME).orEmpty(),
-                    width = format.intOrNull(MediaFormat.KEY_WIDTH),
-                    height = format.intOrNull(MediaFormat.KEY_HEIGHT),
-                    sampleRate = format.intOrNull(MediaFormat.KEY_SAMPLE_RATE),
-                    channelCount = format.intOrNull(MediaFormat.KEY_CHANNEL_COUNT),
+                    width = intOrNull(MediaFormat.KEY_WIDTH),
+                    height = intOrNull(MediaFormat.KEY_HEIGHT),
+                    sampleRate = intOrNull(MediaFormat.KEY_SAMPLE_RATE),
+                    channelCount = intOrNull(MediaFormat.KEY_CHANNEL_COUNT),
                 )
             }
         }
-    }
-
-    private fun MediaFormat.intOrNull(key: String): Int? {
-        return if (containsKey(key)) getInteger(key) else null
     }
 
     private fun readTrackFormat(
