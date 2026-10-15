@@ -168,6 +168,9 @@ class HardwareVideoEncoder(
     }
 
     @Synchronized
+    fun captureSurface(): Surface? = inputSurface
+
+    @Synchronized
     fun stop() {
         val currentCodec = codec ?: return
         if (stopRequested.compareAndSet(false, true)) {
