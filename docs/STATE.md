@@ -442,3 +442,8 @@ RecordingSessionDiagnostics now derives and persists a measurement-only GOOD / D
 - total session duration.
 
 A session with no encoded samples is never reported as GOOD. Zero samples for two seconds or more is UNSUSTAINABLE; a very short zero-sample session is DEGRADED. Current thresholds are deliberately conservative and unit-tested. The verdict does not yet change resolution/FPS automatically; real-device sessions must validate thresholds first.
+
+
+## Android 13+ notification permission flow
+
+MedPlay already declares POST_NOTIFICATIONS and now requests it at runtime on Android 13+ before starting the capture-consent flow. Denial does not block MediaProjection or video recording; the app continues and explains that notification controls may be hidden. Internal-audio permission remains an independent optional step. This keeps recorder functionality available while making the foreground notification's Clip/Stop controls visible when the user grants notification permission.
