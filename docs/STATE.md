@@ -401,3 +401,15 @@ The floating Clip control duration is now configurable and persistent:
 - MainActivity is wrapped in a ScrollView so all prototype controls remain reachable on smaller displays.
 
 The setting changes only the requested export window. Actual available history still depends on the storage-aware rolling retention policy.
+
+
+## Persistent internal-audio toggle
+
+MedPlay now has an explicit persistent choice for internal playback audio:
+- internal audio defaults to enabled;
+- the choice is stored locally in SharedPreferences;
+- when disabled, MainActivity skips the RECORD_AUDIO permission request and proceeds directly to MediaProjection consent;
+- CaptureService re-checks the preference before creating AudioPlaybackCapture, AudioRecord or the AAC encoder, so disabled audio consumes no audio-capture/encode resources;
+- changing the toggle applies to the next capture session; it does not tear down an already-running audio pipeline.
+
+This provides an intentional video-only mode in addition to the existing automatic video-only fallback when playback capture is denied, unavailable or fails.
