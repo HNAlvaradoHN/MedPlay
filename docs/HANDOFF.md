@@ -346,3 +346,8 @@ The persisted last-session diagnostics include sustainabilityVerdict=GOOD/DEGRAD
 ## Notification permission note
 
 On Android 13+, MainActivity requests POST_NOTIFICATIONS before the audio/MediaProjection flow. Denial must not block capture; it only means the foreground notification and its Clip/Stop actions may be hidden by Android. RECORD_AUDIO remains independently optional.
+
+
+## Encoder-health sample note
+
+HardwareVideoEncoder no longer feeds BUFFER_FLAG_CODEC_CONFIG buffers into EncoderRuntimeHealth. Codec-config output still reaches the sample consumer; only health counters/gap/timestamp metrics exclude it.
