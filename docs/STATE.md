@@ -580,3 +580,27 @@ The main UI is now simplified:
 - removed the now-unused CaptureScopePreference.
 
 No encoder, bitrate, FPS, codec, thermal or export-quality behavior changed in this UI pass.
+
+
+## Session 2 validation APK: polished recording UI
+
+A new `dev-latest` APK was generated successfully after merging PR #62 (polished recording UI / live glass preview).
+
+Release evidence:
+- feature merge: `a342659570e63180f550c275bf7a2c85c5bce85e`
+- temporary release-trigger merge: `ddee563b8928f4fb20ae349ae761141f06552c4c`
+- Manual dev APK release run: `38810905282` — success
+- published `dev-latest`: `2026-10-15T21:35:44Z`
+- APK size: 2,618,626 bytes
+- assets: `MedPlay-debug.apk` and `MedPlay-debug.sha256`
+- the temporary push trigger was restored to workflow_dispatch-only by PR #64; current main afterward is `e74ecb9a88f1e8978657f56eaaea665bc72593be`
+
+The app source in the release corresponds to the polished UI feature; the release-trigger/restoration commits changed CI workflow behavior only.
+
+Physical validation is still pending for:
+- opening from a cold start with the UI truly at the top and no clipped labels;
+- Android showing the single app-vs-full-screen chooser only once;
+- overlay permission continuing into capture automatically;
+- live glass preview matching the real floating button;
+- Advanced options collapsed by default;
+- previously approved video/audio quality remaining unchanged.
