@@ -489,3 +489,17 @@ The clip-library branch adds `ClipLibrary`, a lightweight private JSON metadata 
 The library intentionally stores enough metadata for the next editor phase: source URI, duration, game-audio presence and microphone-track presence. External deletion is detected by attempting to reopen the URI and stale entries are removed.
 
 Next editor work should treat this MediaStore URI as an immutable master source and persist edit instructions separately rather than overwriting the original clip.
+
+
+## Latest validation APK handoff
+
+`dev-latest` was regenerated after the microphone, automatic thermal adaptation and in-app clip library work.
+
+Evidence:
+- workflow run `38822693354`: success
+- release target `a5120b2f030674a94c6701a889bbe7ebd69221e2`
+- published `2026-10-15T23:18:44Z`
+- `MedPlay-debug.apk` size 2,683,542 bytes
+- release workflow restored to manual-only afterward; main restoration merge `cddbf1e7b23ebf2a540e20e784bc135faf6faab8`.
+
+Recommended physical test sequence: play a sustained session with voice capture enabled, toggle the game's voice-chat microphone OFF -> ON -> OFF, save clips, verify `Mis clips`, and inspect diagnostics for thermal status/profile downgrade evidence.
