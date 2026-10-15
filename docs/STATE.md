@@ -447,3 +447,8 @@ A session with no encoded samples is never reported as GOOD. Zero samples for tw
 ## Android 13+ notification permission flow
 
 MedPlay already declares POST_NOTIFICATIONS and now requests it at runtime on Android 13+ before starting the capture-consent flow. Denial does not block MediaProjection or video recording; the app continues and explains that notification controls may be hidden. Internal-audio permission remains an independent optional step. This keeps recorder functionality available while making the foreground notification's Clip/Stop controls visible when the user grants notification permission.
+
+
+## Encoder-health media-sample filtering
+
+EncoderRuntimeHealth now observes only non-empty encoded media access units. MediaCodec BUFFER_FLAG_CODEC_CONFIG output is still delivered to the existing sample consumer path, but it is excluded from encodedSamples, timestamp-regression and wall-gap telemetry. This keeps session sustainability diagnostics from treating codec configuration bytes as a video frame/sample.
