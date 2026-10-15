@@ -236,3 +236,8 @@ Video shutdown no longer flips the drain loop off before MediaCodec EOS can be c
 ## Export consistency guard note
 
 Retroactive export now rejects missing/empty segments, overlapping timelines, non-keyframe video starts, format changes across segments and non-monotonic per-track timestamps. MediaMuxer finalization and MediaStore publication must succeed; otherwise the pending clip is deleted. No validation step decodes or re-encodes media.
+
+
+## Serialized export note
+
+MedPlay now allows only one retroactive remux/export at a time. Extra taps during an active export are ignored to avoid duplicated MediaExtractor/MediaMuxer I/O, temporary lease growth and avoidable heat. SAVE/overlay actions received while capture is inactive no longer leave a started service hanging around.
