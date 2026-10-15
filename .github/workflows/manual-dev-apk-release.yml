@@ -6,6 +6,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: medplay-dev-apk-release
+  cancel-in-progress: false
+
 jobs:
   build-and-release:
     runs-on: ubuntu-24.04
@@ -51,6 +55,7 @@ jobs:
         shell: bash
         run: |
           gh release delete dev-latest --cleanup-tag --yes || true
+          git push origin :refs/tags/dev-latest || true
           gh release create dev-latest \
             MedPlay-debug.apk \
             MedPlay-debug.sha256 \
