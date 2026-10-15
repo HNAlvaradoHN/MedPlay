@@ -429,3 +429,21 @@ The current UI cleanup responds directly to physical-device feedback:
 This pass intentionally does not change the visually approved high-motion recording pipeline.
 
 Next physical validation: install the next dev-latest, confirm the screen opens at the top, customize the glass preview, start capture from a device with/without overlay permission, and verify Android presents only its own app-vs-full-screen choice.
+
+
+## Latest dev-latest: polished recording UI
+
+The current `dev-latest` APK contains PR #62:
+- no duplicate MedPlay capture-scope selector;
+- live floating-button glass preview;
+- automatic floating-button permission/start flow;
+- Stop and diagnostics under collapsed Advanced options;
+- root ScrollView forced to the true top.
+
+Release evidence:
+- release run `38810905282`: success
+- release target: `ddee563b8928f4fb20ae349ae761141f06552c4c`
+- feature source merge: `a342659570e63180f550c275bf7a2c85c5bce85e`
+- current main after restoring manual-only workflow: `e74ecb9a88f1e8978657f56eaaea665bc72593be`
+
+Next step: install this APK and physically validate the UI and capture flow. Do not claim the UX issues fully resolved until that device evidence is received.
