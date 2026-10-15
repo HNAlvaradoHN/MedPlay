@@ -391,6 +391,7 @@ class CaptureService : Service() {
                     audioLease = audioLease,
                     microphoneLease = microphoneLease,
                 )
+                ClipLibrary.recordExport(applicationContext, result)
                 Handler(Looper.getMainLooper()).post {
                     floatingClipControl?.showSavedFeedback()
                     val durationSeconds = result.durationUs / 1_000_000L
