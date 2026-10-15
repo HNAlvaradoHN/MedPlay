@@ -7,6 +7,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionConfig
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
@@ -19,12 +20,15 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import com.medplay.app.recording.AppLanguagePreference
+import com.medplay.app.recording.CaptureScopePreference
 import com.medplay.app.recording.CaptureService
 import com.medplay.app.recording.ClipLengthPreference
 import com.medplay.app.recording.EncoderCapabilityProbe
+import com.medplay.app.recording.FloatingControlStylePreference
 import com.medplay.app.recording.InternalAudioPreference
 import com.medplay.app.recording.RecordingQualityPreference
 import kotlin.concurrent.thread
@@ -91,6 +95,63 @@ class MainActivity : Activity() {
 
                 override fun onNothingSelected(parent: AdapterView<*>?) = Unit
             }
+        }
+
+        val captureScopeLabel = TextView(this).apply {
+            text = tr("Qué grabar", "What to capture")
+            textSize = 14f
+        }
+
+        val captureScopeOptions = if (Build.VERSION.SDK_INT >= 34) {
+            listOf(
+                CaptureScopePreference.Mode.APP_ONLY,
+                CaptureScopePreference.Mode.FULL_SCREEN,
+            )
+        } else {
+            listOf(CaptureScopePreference.Mode.FULL_SCREEN)
+        }
+        val captureScopeSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(
+                this@MainActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                captureScopeOptions.map(::captureScopeLabel),
+            )
+            val stored = CaptureScopePreference.get(this@MainActivity)
+            setSelection(
+                captureScopeOptions.indexOf(stored)
+                    .takeIf { it >= 0 }
+                    ?: 0
+            )
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: android.view.View?,
+                    position: Int,
+                    id: Long,
+                ) {
+                    CaptureScopePreference.set(
+                        this@MainActivity,
+                        captureScopeOptions[position],
+                    )
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+        }
+
+        val captureScopeInfoView = TextView(this).apply {
+            text = if (Build.VERSION.SDK_INT >= 34) {
+                tr(
+                    "Solo juego es recomendado: Android te pedirá elegir la app del juego y excluirá notificaciones y otros elementos del sistema.",
+                    "Game only is recommended: Android will ask you to choose the game app and excludes notifications and other system UI.",
+                )
+            } else {
+                tr(
+                    "Este Android no admite captura de una sola app; se usará pantalla completa.",
+                    "This Android version does not support single-app capture; full screen will be used.",
+                )
+            }
+            textSize = 13f
         }
 
         val internalAudioToggle = CheckBox(this).apply {
@@ -174,6 +235,129 @@ class MainActivity : Activity() {
                     "Saving the previous ${durationLabel(seconds)}...",
                 )
             }
+        }
+
+        val floatingStyleLabel = TextView(this).apply {
+            text = tr("Botón flotante", "Floating button")
+            textSize = 14f
+        }
+
+        val floatingTintOptions = FloatingControlStylePreference.Tint.entries
+        val floatingTintSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(
+                this@MainActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                floatingTintOptions.map(::floatingTintLabel),
+            )
+            val style = FloatingControlStylePreference.get(this@MainActivity)
+            setSelection(
+                floatingTintOptions.indexOf(style.tint).coerceAtLeast(0)
+            )
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: android.view.View?,
+                    position: Int,
+                    id: Long,
+                ) {
+                    FloatingControlStylePreference.setTint(
+                        this@MainActivity,
+                        floatingTintOptions[position],
+                    )
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+        }
+
+        val initialFloatingStyle =
+            FloatingControlStylePreference.get(this@MainActivity)
+
+        val floatingSizeLabel = TextView(this).apply {
+            text = tr(
+                "Tamaño: ${initialFloatingStyle.sizeDp}",
+                "Size: ${initialFloatingStyle.sizeDp}",
+            )
+            textSize = 13f
+        }
+        val floatingSizeSeekBar = SeekBar(this).apply {
+            max = FloatingControlStylePreference.MAX_SIZE_DP -
+                FloatingControlStylePreference.MIN_SIZE_DP
+            progress = initialFloatingStyle.sizeDp -
+                FloatingControlStylePreference.MIN_SIZE_DP
+            setOnSeekBarChangeListener(
+                object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(
+                        seekBar: SeekBar?,
+                        progress: Int,
+                        fromUser: Boolean,
+                    ) {
+                        val value =
+                            FloatingControlStylePreference.MIN_SIZE_DP + progress
+                        floatingSizeLabel.text = tr(
+                            "Tamaño: $value",
+                            "Size: $value",
+                        )
+                        if (fromUser) {
+                            FloatingControlStylePreference.setSizeDp(
+                                this@MainActivity,
+                                value,
+                            )
+                        }
+                    }
+
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+                }
+            )
+        }
+
+        val floatingOpacityLabel = TextView(this).apply {
+            text = tr(
+                "Transparencia: ${initialFloatingStyle.opacityPercent}%",
+                "Opacity: ${initialFloatingStyle.opacityPercent}%",
+            )
+            textSize = 13f
+        }
+        val floatingOpacitySeekBar = SeekBar(this).apply {
+            max = FloatingControlStylePreference.MAX_OPACITY_PERCENT -
+                FloatingControlStylePreference.MIN_OPACITY_PERCENT
+            progress = initialFloatingStyle.opacityPercent -
+                FloatingControlStylePreference.MIN_OPACITY_PERCENT
+            setOnSeekBarChangeListener(
+                object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(
+                        seekBar: SeekBar?,
+                        progress: Int,
+                        fromUser: Boolean,
+                    ) {
+                        val value =
+                            FloatingControlStylePreference.MIN_OPACITY_PERCENT +
+                                progress
+                        floatingOpacityLabel.text = tr(
+                            "Transparencia: $value%",
+                            "Opacity: $value%",
+                        )
+                        if (fromUser) {
+                            FloatingControlStylePreference.setOpacityPercent(
+                                this@MainActivity,
+                                value,
+                            )
+                        }
+                    }
+
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+                }
+            )
+        }
+
+        val floatingStyleHint = TextView(this).apply {
+            text = tr(
+                "Estilo glass translúcido. Los cambios se aplican al activar o reactivar el botón.",
+                "Translucent glass style. Changes apply when the button is enabled or refreshed.",
+            )
+            textSize = 12f
         }
 
         val overlayButton = Button(this).apply {
@@ -272,6 +456,10 @@ class MainActivity : Activity() {
             addView(qualitySpinner)
             addView(qualityInfoView)
 
+            addView(captureScopeLabel)
+            addView(captureScopeSpinner)
+            addView(captureScopeInfoView)
+
             addView(internalAudioToggle)
             addView(startButton)
 
@@ -279,6 +467,13 @@ class MainActivity : Activity() {
             addView(clipLengthSpinner)
             addView(saveClipButton)
 
+            addView(floatingStyleLabel)
+            addView(floatingTintSpinner)
+            addView(floatingSizeLabel)
+            addView(floatingSizeSeekBar)
+            addView(floatingOpacityLabel)
+            addView(floatingOpacitySeekBar)
+            addView(floatingStyleHint)
             addView(overlayButton)
             addView(stopButton)
             addView(diagnosticsButton)
@@ -399,6 +594,32 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun captureScopeLabel(mode: CaptureScopePreference.Mode): String {
+        return when (mode) {
+            CaptureScopePreference.Mode.APP_ONLY ->
+                tr("Solo juego (recomendado)", "Game only (recommended)")
+            CaptureScopePreference.Mode.FULL_SCREEN ->
+                tr("Pantalla completa", "Full screen")
+        }
+    }
+
+    private fun floatingTintLabel(
+        tint: FloatingControlStylePreference.Tint,
+    ): String {
+        return when (tint) {
+            FloatingControlStylePreference.Tint.ICE ->
+                tr("Cristal hielo", "Ice glass")
+            FloatingControlStylePreference.Tint.SKY ->
+                tr("Cristal azul", "Sky glass")
+            FloatingControlStylePreference.Tint.VIOLET ->
+                tr("Cristal violeta", "Violet glass")
+            FloatingControlStylePreference.Tint.EMERALD ->
+                tr("Cristal esmeralda", "Emerald glass")
+            FloatingControlStylePreference.Tint.AMBER ->
+                tr("Cristal ámbar", "Amber glass")
+        }
+    }
+
     private fun qualityLabel(mode: RecordingQualityPreference.Mode): String {
         return when (mode) {
             RecordingQualityPreference.Mode.AUTO ->
@@ -476,8 +697,20 @@ class MainActivity : Activity() {
     }
 
     private fun launchMediaProjectionConsent() {
+        val captureIntent = if (Build.VERSION.SDK_INT >= 34) {
+            val config = when (CaptureScopePreference.get(this)) {
+                CaptureScopePreference.Mode.APP_ONLY ->
+                    MediaProjectionConfig.createConfigForUserChoice()
+                CaptureScopePreference.Mode.FULL_SCREEN ->
+                    MediaProjectionConfig.createConfigForDefaultDisplay()
+            }
+            mediaProjectionManager.createScreenCaptureIntent(config)
+        } else {
+            mediaProjectionManager.createScreenCaptureIntent()
+        }
+
         startActivityForResult(
-            mediaProjectionManager.createScreenCaptureIntent(),
+            captureIntent,
             REQUEST_MEDIA_PROJECTION,
         )
     }

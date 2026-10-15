@@ -389,3 +389,15 @@ The current quality branch responds to real shooter/gyroscope testing where 1080
 MainActivity also handles system bars and display cutouts on every edge so the language/status/quality controls are not hidden by Android 15 edge-to-edge layout.
 
 Do not add mandatory post-processing or sharpening to the normal save path: that would require decode/re-encode, increase heat/battery use and cannot restore detail already lost by the encoder. The next evidence step is a real-device shooter/gyro comparison using the updated APK and copied diagnostics.
+
+
+## Game-only capture / premium overlay handoff
+
+The active feature branch adds two user-requested improvements without changing the high-motion encoder tuning that was visually approved on-device.
+
+1. **Solo juego (recomendado)** uses Android 14+ app-screen sharing via MediaProjection user-choice configuration. The system chooser must be used to select the game. Only the selected app is intended to be shared, excluding notifications and UI outside that app. Full-screen remains available as an alternative, and older Android versions fall back to full-screen.
+2. The floating Clip control is now a custom glass-style rewind control with persisted tint, opacity and size settings. It provides immediate accepted feedback and later success/failure feedback from the actual export path. Duplicate save requests show busy feedback.
+
+Do not add mandatory video post-processing or expensive real-time blur to the overlay. The recording-quality pipeline should remain the same as the already approved high-motion build.
+
+Next evidence step after CI/merge: generate dev-latest and physically test single-app selection with a real game, trigger notifications/vendor sidebars over the game, save a clip, and confirm only game content is present while image/audio quality remains unchanged.

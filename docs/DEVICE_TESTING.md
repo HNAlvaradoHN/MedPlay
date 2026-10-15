@@ -129,3 +129,19 @@ automatically raises resolution/FPS beyond the conservative startup policy.
 - confirm Moderate/Severe thermal states still reduce bitrate and that cooling restores the full selected bitrate;
 - record the actual retention window after the higher-bitrate profile is selected, since the storage-aware buffer may shorten at high quality;
 - confirm save remains remux-only: no post-recording sharpening/color pass is required for the normal clip path.
+
+
+## Single-app capture and premium floating control
+
+- On Android 14 QPR2 or newer, leave **Solo juego (recomendado)** selected and start capture.
+- In the Android capture chooser, select the actual game app rather than the entire screen.
+- While recording, trigger a notification, open system UI, and show any vendor/sidebar overlay that is not part of the game. Confirm those elements are absent from the saved clip.
+- Confirm UI that belongs to the game itself still appears; single-app capture does not remove content rendered by the selected game.
+- Repeat once with **Pantalla completa** and confirm legacy whole-display capture remains available where Android permits it.
+- Verify game-only capture preserves the same selected codec, resolution, FPS and bitrate profile as full-screen capture; this feature must not lower recording quality.
+- Test the floating control in each glass tint. Verify it remains translucent rather than becoming an opaque flat-color disk.
+- Test minimum/default/maximum button sizes and low/default/high opacity settings.
+- Drag the button, then tap it during gameplay. A tap must provide immediate animated acknowledgement; a completed export must show a check confirmation; a failed export must show failure feedback.
+- Tap repeatedly while a clip is already exporting and confirm the control shows a busy state instead of starting concurrent exports.
+- Change size/tint/opacity while recording, press **Activar botón flotante** again, and confirm the overlay refreshes with the new appearance.
+- In single-app mode, confirm the MedPlay floating control itself is not burned into the game-only recording.

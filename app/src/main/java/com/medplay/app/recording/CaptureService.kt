@@ -80,6 +80,8 @@ class CaptureService : Service() {
                     stopSelf(startId)
                     return START_NOT_STICKY
                 }
+                floatingClipControl?.close()
+                floatingClipControl = null
                 showFloatingControl()
                 return START_NOT_STICKY
             }
@@ -251,7 +253,7 @@ class CaptureService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun saveRetroactiveClip(seconds: Int) {
+    private fun saveRetroactiveClip(seconds: Int): Boolean {
         if (!exportInProgress.compareAndSet(false, true)) {
             updateCaptureNotification(
                 tr(
@@ -259,13 +261,13 @@ class CaptureService : Service() {
                     "Clip save already in progress.",
                 )
             )
-            return
+            return false
         }
 
         val writer = rollingWriter
         if (writer == null) {
             exportInProgress.set(false)
-            return
+            return false
         }
 
         val safeSeconds = seconds.coerceIn(MIN_SAVE_SECONDS, MAX_SAVE_SECONDS)
@@ -298,6 +300,7 @@ class CaptureService : Service() {
                 lease = writer.leaseCompleted(safeSeconds * 1_000_000L)
                 if (lease == null) {
                     Handler(Looper.getMainLooper()).post {
+                        floatingClipControl?.showFailureFeedback()
                         updateCaptureNotification(
                             tr(
                                 "Todavía no hay suficiente grabación acumulada.",
@@ -321,6 +324,7 @@ class CaptureService : Service() {
                     audioLease = audioLease,
                 )
                 Handler(Looper.getMainLooper()).post {
+                    floatingClipControl?.showSavedFeedback()
                     val durationSeconds = result.durationUs / 1_000_000L
                     updateCaptureNotification(
                         tr(
@@ -331,6 +335,7 @@ class CaptureService : Service() {
                 }
             } catch (_: Throwable) {
                 Handler(Looper.getMainLooper()).post {
+                    floatingClipControl?.showFailureFeedback()
                     updateCaptureNotification(
                         tr(
                             "No se pudo guardar el clip. La grabación continúa.",
@@ -345,6 +350,8 @@ class CaptureService : Service() {
                 finishServiceIfShutdownReady()
             }
         }
+
+        return true
     }
 
     private fun startInternalAudioIfPermitted(projection: MediaProjection?) {

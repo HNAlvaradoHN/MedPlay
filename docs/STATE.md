@@ -518,3 +518,26 @@ Current feature work addresses real-device feedback from shooter/gyro capture:
 - The normal save path remains compressed-sample remux with no decode/re-encode. No sharpening/color postprocess was added because it would consume extra power and cannot recover detail already destroyed during capture.
 
 Real-device validation is required before declaring the new high-motion targets sustainable. In particular, verify 1080p60 quality, gameplay smoothness, thermal behavior, storage-aware retention and long-session stability on the owner's shooter workload.
+
+
+## Game-only capture and premium floating control
+
+Current feature work adds privacy-focused single-app capture without changing the recording-quality pipeline:
+- Android 14+ defaults MedPlay to **Solo juego (recomendado)**. The system capture chooser is configured for user choice so the user can select the game app; Android app-screen sharing excludes status/navigation bars, notifications, and other content outside the selected app.
+- **Pantalla completa** remains an explicit alternative using the default-display projection configuration where the platform permits it.
+- Android versions below API 34 fall back to full-screen capture.
+- The encoder profile, codec, FPS, bitrate, thermal policy, rolling segments, internal-audio path and remux-only export are unchanged by capture scope.
+- MainActivity is marked resizable to align with Android app-screen-sharing guidance.
+
+The floating Clip overlay is now a custom lightweight glass-style control:
+- circular translucent gradient rather than a flat system button;
+- double-rewind icon to communicate retroactive clipping;
+- immediate press/accepted animation;
+- completed-save check feedback, busy feedback for duplicate export attempts, and failure feedback;
+- persisted size, opacity and tint preferences;
+- presets: ice, sky, violet, emerald and amber;
+- style refresh is available by activating the floating button again while capture is active.
+
+The glass appearance intentionally avoids cross-window/background blur. A small custom Canvas gradient/highlight is used instead so visual polish does not add meaningful GPU work while a game is running.
+
+Real-device validation remains required. In particular verify that the owner's Android build exposes single-app selection, notifications/vendor overlays are excluded, the floating control itself is excluded from game-only clips, and recording quality remains identical to the previously validated high-motion build.
