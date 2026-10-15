@@ -100,6 +100,10 @@ class CaptureService : Service() {
             audioBitrate = InternalAudioCapture.AAC_BITRATE,
             usableBytes = StatFs(cacheDir.absolutePath).availableBytes,
         )
+        if (retention.retentionSeconds == 0) {
+            stopProjectionAndSelf()
+            return START_NOT_STICKY
+        }
         activeRetentionUs = retention.retentionSeconds * 1_000_000L
 
         val segmentWriter = RollingVideoSegmentWriter(
@@ -215,6 +219,7 @@ class CaptureService : Service() {
     }
 
     private fun showFloatingControl() {
+        if (mediaProjection == null) return
         if (floatingClipControl != null) return
 
         val control = FloatingClipControl(applicationContext) {
