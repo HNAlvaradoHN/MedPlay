@@ -8,10 +8,10 @@ visibility: public
 
 ## Session registry
 
-last_session_number: 1
-active_session: 1
+last_session_number: 2
+active_session: 2
 
-This is MedPlay's first official session. Previous SendGram numbering/content in this repository is not part of MedPlay's session history.
+MedPlay session numbering is maintained persistently in this file. Previous SendGram numbering/content in this repository is not part of MedPlay's session history.
 
 ## Verified project state
 
