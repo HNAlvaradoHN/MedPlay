@@ -480,3 +480,12 @@ Thermal profile changes are implemented as video epochs. The old rolling-video e
 A save tap during the brief profile switch is intentionally refused rather than racing with writer replacement. Shutdown serializes against an active profile switch. Diagnostics aggregate video encoder health across epochs and record the initial/final profile plus downgrade count.
 
 Do not claim physical thermal improvement yet. The next device test should compare the same game/session duration with and without MedPlay and inspect `maxThermalStatus`, `thermalProfileDowngrades`, encoder health and perceived gameplay smoothness.
+
+
+## In-app clip library handoff
+
+The clip-library branch adds `ClipLibrary`, a lightweight private JSON metadata index. Exported videos stay only in MediaStore/Gallery; no second video copy is created. After a successful retroactive export, CaptureService records the result URI and metadata. MainActivity lists those entries under **Mis clips** and opens the existing MP4 through ACTION_VIEW with temporary URI read permission.
+
+The library intentionally stores enough metadata for the next editor phase: source URI, duration, game-audio presence and microphone-track presence. External deletion is detected by attempting to reopen the URI and stale entries are removed.
+
+Next editor work should treat this MediaStore URI as an immutable master source and persist edit instructions separately rather than overwriting the original clip.
