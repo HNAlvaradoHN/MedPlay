@@ -286,3 +286,8 @@ HardwareVideoEncoder.stop() now shares the same synchronization boundary as upda
 ## Save-aligned AAC rollover note
 
 Before audio leasing, RollingAudioSegmentWriter finalizes its active AAC segment under synchronization. The next AAC sample opens a fresh segment automatically, keeping audio close to the video save boundary without restarting the audio codec.
+
+
+## Remux buffer sizing note
+
+RetroactiveVideoExporter checks MediaExtractor.sampleSize and grows its reusable direct buffer only when a compressed access unit exceeds the 8 MiB baseline, capped defensively at 64 MiB per sample.
