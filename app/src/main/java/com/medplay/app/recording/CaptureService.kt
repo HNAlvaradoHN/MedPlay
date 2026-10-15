@@ -99,7 +99,12 @@ class CaptureService : Service() {
             return START_NOT_STICKY
         }
         if (mediaProjection != null) {
-            updateCaptureNotification("Capture is already active.")
+            updateCaptureNotification(
+                tr(
+                    "La grabación ya está activa.",
+                    "Capture is already active.",
+                )
+            )
             return START_NOT_STICKY
         }
         if (exportInProgress.get()) {
@@ -138,7 +143,9 @@ class CaptureService : Service() {
         mediaProjection = projection
 
         val profile = runCatching {
-            EncoderCapabilityProbe.chooseSafeStartupProfile()
+            EncoderCapabilityProbe.chooseSafeStartupProfile(
+                RecordingQualityPreference.get(applicationContext)
+            )
         }.getOrNull()
         if (profile == null) {
             stopProjectionAndSelf()
@@ -246,7 +253,12 @@ class CaptureService : Service() {
 
     private fun saveRetroactiveClip(seconds: Int) {
         if (!exportInProgress.compareAndSet(false, true)) {
-            updateCaptureNotification("Clip save already in progress.")
+            updateCaptureNotification(
+                tr(
+                    "Ya se está guardando un clip.",
+                    "Clip save already in progress.",
+                )
+            )
             return
         }
 
@@ -257,7 +269,12 @@ class CaptureService : Service() {
         }
 
         val safeSeconds = seconds.coerceIn(MIN_SAVE_SECONDS, MAX_SAVE_SECONDS)
-        updateCaptureNotification("Saving previous $safeSeconds seconds...")
+        updateCaptureNotification(
+            tr(
+                "Guardando los últimos " + safeSeconds + " segundos...",
+                "Saving previous " + safeSeconds + " seconds...",
+            )
+        )
         val completionVersion = writer.completionVersion()
         writer.requestRolloverOnNextSyncFrame()
         val syncFrameRequested = videoEncoder?.requestSyncFrame() == true
@@ -282,7 +299,10 @@ class CaptureService : Service() {
                 if (lease == null) {
                     Handler(Looper.getMainLooper()).post {
                         updateCaptureNotification(
-                            "Not enough completed recording data yet."
+                            tr(
+                                "Todavía no hay suficiente grabación acumulada.",
+                                "Not enough completed recording data yet.",
+                            )
                         )
                     }
                     return@thread
@@ -303,13 +323,19 @@ class CaptureService : Service() {
                 Handler(Looper.getMainLooper()).post {
                     val durationSeconds = result.durationUs / 1_000_000L
                     updateCaptureNotification(
-                        "Clip saved (${durationSeconds}s). Recording continues."
+                        tr(
+                            "Clip guardado (" + durationSeconds + "s). La grabación continúa.",
+                            "Clip saved (" + durationSeconds + "s). Recording continues.",
+                        )
                     )
                 }
             } catch (_: Throwable) {
                 Handler(Looper.getMainLooper()).post {
                     updateCaptureNotification(
-                        "Clip save failed. Recording continues."
+                        tr(
+                            "No se pudo guardar el clip. La grabación continúa.",
+                            "Clip save failed. Recording continues.",
+                        )
                     )
                 }
                 audioLease?.close()
@@ -507,12 +533,13 @@ class CaptureService : Service() {
     private fun buildActiveCaptureStatus(profile: RecordingProfile): String {
         val retentionSeconds = activeRetentionUs / 1_000_000L
         val audioLabel = if (sessionAudioWasActive) {
-            "audio"
+            tr("audio", "audio")
         } else {
-            "video only"
+            tr("solo video", "video only")
         }
-        return "${profile.width}x${profile.height} @ ${profile.fps} • " +
-            "${retentionSeconds}s • $audioLabel"
+        return profile.width.toString() + "x" + profile.height +
+            " @ " + profile.fps + " FPS • " + retentionSeconds +
+            "s • " + audioLabel
     }
 
     private fun updateCaptureNotification(text: String) {
@@ -536,7 +563,10 @@ class CaptureService : Service() {
     }
 
     private fun buildNotification(
-        contentText: String = "Screen capture is active.",
+        contentText: String = tr(
+            "Grabación de pantalla activa.",
+            "Screen capture is active.",
+        ),
     ): Notification {
         val openIntent = PendingIntent.getActivity(
             this,
@@ -577,7 +607,7 @@ class CaptureService : Service() {
             .addAction(
                 Notification.Action.Builder(
                     null,
-                    "Stop",
+                    tr("Detener", "Stop"),
                     stopIntent,
                 ).build()
             )
@@ -585,12 +615,16 @@ class CaptureService : Service() {
             .build()
     }
 
+    private fun tr(spanish: String, english: String): String {
+        return AppLanguagePreference.text(applicationContext, spanish, english)
+    }
+
     private fun createNotificationChannel() {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                "MedPlay capture",
+                tr("Captura de MedPlay", "MedPlay capture"),
                 NotificationManager.IMPORTANCE_LOW,
             )
         )

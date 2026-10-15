@@ -486,3 +486,20 @@ After a capture session is fully started, the foreground notification shows the 
 - The release workflow was temporarily enabled for one push only because the available GitHub connector cannot dispatch `workflow_dispatch` directly.
 - After successful APK publication, the workflow was restored to manual-only and that restoration passed Android CI.
 - Real-device validation is now the active blocker; CI does not substitute for physical capture, thermal, gameplay or A/V-sync testing.
+
+
+## Simplified clip controls, language and recording quality
+
+The prototype UI has been simplified after real-device usability feedback:
+- the six separate save-duration buttons were removed;
+- one persisted **Clip duration** selector now controls the in-app Save clip button, floating Clip control and notification Clip action;
+- supported durations remain 15 s, 30 s, 60 s, 2 min, 3 min and 5 min;
+- the app now has a persistent **Español / English** selector, with Spanish as the default for a fresh install;
+- MainActivity user-facing controls/status messages are localized and capture-notification text/actions follow the selected language;
+- recording quality now exposes **Automatic (recommended)** plus validated manual modes among 720p30, 720p60 and 1080p30;
+- only manual modes reported as supported by the device's hardware Surface-input encoders are shown;
+- a stale/unsupported saved manual mode falls back to Automatic instead of failing capture startup;
+- HEVC is preferred over AVC for the same validated manual resolution/FPS where available;
+- codec and bitrate remain profile-managed automatically rather than exposing unsafe arbitrary values.
+
+1080p60 is intentionally not exposed yet. Capability metadata alone does not prove sustained gaming/thermal stability; higher-load profiles require real-device evidence first.
