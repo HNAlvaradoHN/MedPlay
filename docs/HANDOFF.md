@@ -173,8 +173,8 @@ The intended long-term quality strategy is adaptive:
 
 1. The Android/Kotlin scaffold has passed public CI and is merged to main.
 2. Sustainable startup profile selector passed public CI and is merged.
-3. MediaProjection consent + foreground-service lifecycle is implemented on the current feature branch; validate CI before merge.
-4. After merge, connect the selected hardware MediaCodec encoder and VirtualDisplay, then add short rolling segments.
+3. MediaProjection consent + foreground-service lifecycle passed CI and is merged.
+4. Current feature branch connects VirtualDisplay directly to a surface-input hardware MediaCodec encoder. Validate CI, merge, then route encoded samples into short rolling segments.
 5. Measure sustained performance on real devices before raising default quality.
 
 
@@ -186,3 +186,8 @@ The current selector refuses automatic software encoding, validates each target 
 ## MediaProjection implementation note
 
 The projection token/lifecycle belongs to a dedicated foreground CaptureService. The Activity only requests explicit Android user consent and hands the result to the service. This separation is intentional so rotation/UI lifecycle does not own the recorder and so later encoder/segment work can remain inside the long-running service.
+
+
+## Hardware encoder pipeline note
+
+The capture path now targets zero CPU frame conversion: MediaProjection creates a VirtualDisplay whose Surface is owned by the selected hardware MediaCodec encoder. Output is drained continuously. Do not insert ImageReader/Bitmap/YUV conversion into the normal recording path unless a future feature has a compelling measured reason, because that would add memory bandwidth, CPU/GPU work and heat.
