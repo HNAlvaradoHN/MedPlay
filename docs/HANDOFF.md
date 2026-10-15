@@ -12,7 +12,7 @@ Required reading:
 7. docs/DECISIONS.md
 8. Current GitHub Actions state in HNAlvaradoHN/MedPlay and private HNAlvaradoHN/Medplay-Lab
 
-The active official session is **Ing. MedPlay ⏯️ #1**. Do not invent a new session number unless project state is intentionally advanced.
+The active official session is **Ing. MedPlay ⏯️ #2**. Session numbering is persisted in docs/STATE.md; do not invent or reuse a number from model memory.
 
 ## Owner's actual priority
 
@@ -171,12 +171,11 @@ The intended long-term quality strategy is adaptive:
 
 ## Immediate next action for a new chat
 
-1. The Android/Kotlin scaffold has passed public CI and is merged to main.
-2. Sustainable startup profile selector passed public CI and is merged.
-3. MediaProjection consent + foreground-service lifecycle passed CI and is merged.
-4. Video/audio capture, synchronized retroactive export and thermal protection are merged. Current branch adds a draggable floating clip control plus storage-aware retention up to 5 minutes.
-5. Measure sustained performance on real devices before raising default quality.
-
+1. Treat main as the source of truth; the capture pipeline, retroactive A/V export, thermal guard, floating controls, notification controls, diagnostics and active-profile notification are merged.
+2. Generate the current development APK from main using the manual dev release workflow.
+3. Follow docs/DEVICE_TESTING.md on a real Android device, including notification permission, RECORD_AUDIO fallback, overlay control, all supported clip durations and a sustained 20–30 minute game session.
+4. Copy the last-session diagnostics after testing and use those measurements to decide the next recorder change.
+5. Do not raise default resolution/FPS/bitrate or add aggressive automatic profile switching without real-device evidence.
 
 ## Implemented startup safety policy
 
