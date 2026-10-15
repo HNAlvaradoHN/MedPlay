@@ -433,24 +433,24 @@ class CaptureService : Service() {
     }
 
     private fun releaseVideoPipeline() {
-        persistSessionDiagnostics()
+        runCatching { persistSessionDiagnostics() }
 
-        floatingClipControl?.close()
+        runCatching { floatingClipControl?.close() }
         floatingClipControl = null
 
-        internalAudioCapture?.stop()
+        runCatching { internalAudioCapture?.stop() }
         internalAudioCapture = null
 
         runCatching { rollingAudioWriter?.close() }
         rollingAudioWriter = null
 
-        thermalGuard?.close()
+        runCatching { thermalGuard?.close() }
         thermalGuard = null
 
-        virtualDisplay?.release()
+        runCatching { virtualDisplay?.release() }
         virtualDisplay = null
 
-        videoEncoder?.stop()
+        runCatching { videoEncoder?.stop() }
         videoEncoder = null
 
         runCatching { rollingWriter?.close() }
