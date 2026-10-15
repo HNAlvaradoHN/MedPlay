@@ -338,3 +338,16 @@ InternalAudioCapture teardown now distinguishes intentional stop from fatal fail
 ## Save-triggered sync-frame rollover
 
 MedPlay now reduces the gap between the Clip tap and the end of the saved retroactive clip by marking the rolling writer to rotate on the next sync frame, requesting MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, and waiting off the main thread for at most 750 ms for that newly completed segment. If the encoder ignores the request or the timeout expires, export falls back to the latest completed segments. No active MP4 is read and no media is re-encoded.
+
+
+## Save-aligned AAC rollover
+
+Current feature branch aligns the audio save boundary with the already-improved video save boundary:
+- immediately before leasing AAC for export, MedPlay finalizes the currently open rolling audio segment;
+- RollingAudioSegmentWriter serializes that finalization against incoming encoded AAC samples;
+- the next AAC sample automatically opens a new rolling audio segment, so continuous recording resumes without restarting AudioRecord or MediaCodec;
+- the newly finalized audio segment can be leased for the same video sourceStartUs/sourceEndUs interval;
+- this prevents the final clip from having video close to the tap while audio trails behind by up to the normal 2-second audio rotation interval;
+- no audio decode, resample or re-encode is introduced.
+
+A small AAC-frame granularity difference at the final boundary is still expected and must be measured on-device.
