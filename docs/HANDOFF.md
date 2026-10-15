@@ -174,7 +174,7 @@ The intended long-term quality strategy is adaptive:
 1. The Android/Kotlin scaffold has passed public CI and is merged to main.
 2. Sustainable startup profile selector passed public CI and is merged.
 3. MediaProjection consent + foreground-service lifecycle passed CI and is merged.
-4. Hardware pipeline and rolling segments passed CI and are merged. Current branch implements 15/30/60-second video-only retroactive remux/export to MediaStore; validate CI, merge, then add audio and runtime health monitoring.
+4. Video capture, rolling segments and 15/30/60-second remux/export passed CI and are merged. Current branch adds Android thermal monitoring with dynamic bitrate reduction and critical-stop protection; validate CI, merge, then add internal audio.
 5. Measure sustained performance on real devices before raising default quality.
 
 
@@ -201,3 +201,8 @@ Video segments are cut only on sync frames and are written from already-compress
 ## Retroactive export implementation note
 
 The exporter never decodes or re-encodes video. It leases completed rolling segments, concatenates compressed video samples with MediaExtractor/MediaMuxer, and publishes the final MP4 to Movies/MedPlay through MediaStore. The active segment is intentionally excluded because it is still open for writing; current saves can therefore trail the button press by up to approximately one 2-second segment.
+
+
+## Runtime thermal guard note
+
+MedPlay now reacts to Android thermal status while recording. Moderate/severe heat lowers encoder bitrate dynamically; critical-or-worse thermal state stops capture. This is deliberately conservative. Resolution/FPS restarts are deferred until real-device measurements show they are needed and can be performed without destabilizing the recorder.
