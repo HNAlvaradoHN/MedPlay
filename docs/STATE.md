@@ -348,3 +348,8 @@ HardwareVideoEncoder.stop() is now synchronized with dynamic bitrate and sync-fr
 ## Save-aligned AAC rollover
 
 Before leasing AAC for a saved clip, MedPlay finalizes the currently open rolling audio segment under synchronization. The next encoded AAC sample automatically opens a new segment, so capture continues without restarting AudioRecord or MediaCodec. This keeps the final audio boundary close to the video boundary instead of trailing by the normal 2-second audio rotation interval. No decode, resample or re-encode is introduced.
+
+
+## Adaptive remux sample buffer
+
+Retroactive export inspects MediaExtractor.sampleSize before each compressed-sample read. The reusable direct buffer starts at 8 MiB and grows only when an actual encoded access unit needs more capacity, with a 64 MiB defensive per-sample ceiling. This removes the fixed-buffer failure mode for unusually large keyframes without reserving large memory for normal clips.
