@@ -14,17 +14,20 @@ class ThermalProtectionPolicyTest {
 
         assertEquals(100, action.bitratePercent)
         assertFalse(action.stopCapture)
+        assertFalse(action.requestProfileStepDown)
     }
 
     @Test
-    fun reducesBitrateAtModerateAndSevereStates() {
+    fun reducesBitrateAtModerateAndStepsProfileAtSevere() {
         val moderate = ThermalProtectionPolicy.actionFor(PowerManager.THERMAL_STATUS_MODERATE)
         val severe = ThermalProtectionPolicy.actionFor(PowerManager.THERMAL_STATUS_SEVERE)
 
         assertEquals(85, moderate.bitratePercent)
         assertEquals(70, severe.bitratePercent)
         assertFalse(moderate.stopCapture)
+        assertFalse(moderate.requestProfileStepDown)
         assertFalse(severe.stopCapture)
+        assertTrue(severe.requestProfileStepDown)
     }
 
     @Test
@@ -32,5 +35,6 @@ class ThermalProtectionPolicyTest {
         val action = ThermalProtectionPolicy.actionFor(PowerManager.THERMAL_STATUS_CRITICAL)
 
         assertTrue(action.stopCapture)
+        assertFalse(action.requestProfileStepDown)
     }
 }
