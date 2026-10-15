@@ -370,3 +370,8 @@ This telemetry is diagnostic only. It does not yet automatically change resoluti
 ## Transactional encoder startup cleanup
 
 Video and AAC startup now clean locally owned resources if initialization fails before those resources are published to the recorder service. HardwareVideoEncoder releases any created input Surface and MediaCodec after configure/createInputSurface/start/initial-callback failure. InternalAudioCapture stops/releases any partially started AudioRecord and AAC MediaCodec after initialization/configure/start/recording/callback failure. This prevents leaked codec/audio resources after a failed recording start.
+
+
+## Capture startup failure containment
+
+CaptureService startup contains failures from MediaProjection acquisition/callback registration, codec profile probing, video encoder startup, VirtualDisplay creation and thermal-guard startup. Each failure path performs bounded cleanup and stops the service instead of allowing a partially initialized recorder to escape through an exception. Secondary cleanup failures cannot prevent MediaProjection teardown.
