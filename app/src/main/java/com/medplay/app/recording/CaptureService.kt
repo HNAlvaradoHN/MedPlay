@@ -254,7 +254,11 @@ class CaptureService : Service() {
     }
 
     private fun disableInternalAudio() {
-        disableInternalAudio()
+        internalAudioCapture?.stop()
+        internalAudioCapture = null
+
+        runCatching { rollingAudioWriter?.close() }
+        rollingAudioWriter = null
     }
 
     private fun showFloatingControl() {
