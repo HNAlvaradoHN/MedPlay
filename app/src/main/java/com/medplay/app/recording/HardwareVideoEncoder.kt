@@ -97,6 +97,21 @@ class HardwareVideoEncoder(
         }.getOrDefault(false)
     }
 
+    @Synchronized
+    fun requestSyncFrame(): Boolean {
+        val currentCodec = codec ?: return false
+        if (!running.get() || stopRequested.get()) return false
+
+        return runCatching {
+            currentCodec.setParameters(
+                Bundle().apply {
+                    putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
+                }
+            )
+            true
+        }.getOrDefault(false)
+    }
+
     fun healthSnapshot(): EncoderRuntimeHealth.Snapshot {
         val nowUs = SystemClock.elapsedRealtimeNanos() / 1_000L
         return runtimeHealth.snapshot(nowUs)
