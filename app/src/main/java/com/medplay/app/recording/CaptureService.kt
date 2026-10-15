@@ -101,14 +101,25 @@ class CaptureService : Service() {
 
         releaseActiveProjectionForRestart()
 
-        mediaProjection = manager.getMediaProjection(resultCode, resultData).also { projection ->
-            projection.registerCallback(
-                projectionCallback,
-                Handler(Looper.getMainLooper()),
-            )
+        var createdProjection: MediaProjection? = null
+        val projection = runCatching {
+            manager.getMediaProjection(resultCode, resultData).also { newProjection ->
+                createdProjection = newProjection
+                newProjection.registerCallback(
+                    projectionCallback,
+                    Handler(Looper.getMainLooper()),
+                )
+            }
+        }.getOrElse {
+            runCatching { createdProjection?.stop() }
+            stopSelf()
+            return START_NOT_STICKY
         }
+        mediaProjection = projection
 
-        val profile = EncoderCapabilityProbe.chooseSafeStartupProfile()
+        val profile = runCatching {
+            EncoderCapabilityProbe.chooseSafeStartupProfile()
+        }.getOrNull()
         if (profile == null) {
             stopProjectionAndSelf()
             return START_NOT_STICKY
@@ -139,27 +150,29 @@ class CaptureService : Service() {
             },
         )
         val encoderSurface = runCatching { encoder.start() }.getOrElse {
-            encoder.stop()
-            segmentWriter.close()
+            runCatching { encoder.stop() }
+            runCatching { segmentWriter.close() }
             stopProjectionAndSelf()
             return START_NOT_STICKY
         }
 
         val densityDpi = resources.displayMetrics.densityDpi
-        virtualDisplay = mediaProjection?.createVirtualDisplay(
-            "MedPlayCapture",
-            profile.width,
-            profile.height,
-            densityDpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            encoderSurface,
-            null,
-            null,
-        )
+        virtualDisplay = runCatching {
+            mediaProjection?.createVirtualDisplay(
+                "MedPlayCapture",
+                profile.width,
+                profile.height,
+                densityDpi,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                encoderSurface,
+                null,
+                null,
+            )
+        }.getOrNull()
 
         if (virtualDisplay == null) {
-            encoder.stop()
-            segmentWriter.close()
+            runCatching { encoder.stop() }
+            runCatching { segmentWriter.close() }
             stopProjectionAndSelf()
             return START_NOT_STICKY
         }
@@ -171,19 +184,27 @@ class CaptureService : Service() {
         maxThermalStatus = 0
         sessionAudioWasActive = false
 
-        thermalGuard = RuntimeThermalGuard(applicationContext) { action, status ->
-            maxThermalStatus = maxOf(maxThermalStatus, status)
-            if (action.stopCapture) {
-                Handler(Looper.getMainLooper()).post {
-                    stopProjectionAndSelf()
+        val startedThermalGuard = runCatching {
+            RuntimeThermalGuard(applicationContext) { action, status ->
+                maxThermalStatus = maxOf(maxThermalStatus, status)
+                if (action.stopCapture) {
+                    Handler(Looper.getMainLooper()).post {
+                        stopProjectionAndSelf()
+                    }
+                } else {
+                    val targetBitrate = (
+                        profile.bitrate.toLong() * action.bitratePercent / 100L
+                    ).toInt()
+                    encoder.updateBitrate(targetBitrate)
                 }
-            } else {
-                val targetBitrate = (
-                    profile.bitrate.toLong() * action.bitratePercent / 100L
-                ).toInt()
-                encoder.updateBitrate(targetBitrate)
-            }
-        }.also { it.start() }
+            }.also { it.start() }
+        }.getOrNull()
+
+        if (startedThermalGuard == null) {
+            stopProjectionAndSelf()
+            return START_NOT_STICKY
+        }
+        thermalGuard = startedThermalGuard
 
         startInternalAudioIfPermitted(mediaProjection)
         showFloatingControl()
