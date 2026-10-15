@@ -55,6 +55,21 @@ class RecordingQualityPreferenceTest {
         assertEquals(60, profile?.fps)
     }
 
+
+    @Test
+    fun exposes1440p60OnlyWhenHardwareValidated() {
+        val modes = RecordingQualityPreference.supportedModes(
+            listOf(
+                supported(VideoCodec.HEVC, 2560, 1440, 60, 60_000_000),
+                supported(VideoCodec.HEVC, 1920, 1080, 60, 40_000_000),
+            )
+        )
+
+        assertTrue(RecordingQualityPreference.Mode.P1440_60 in modes)
+        assertTrue(RecordingQualityPreference.Mode.P1080_60 in modes)
+        assertTrue(RecordingQualityPreference.Mode.P1440_30 !in modes)
+    }
+
     @Test
     fun unsupportedManualModeFallsBackToAuto() {
         val supported = listOf(
