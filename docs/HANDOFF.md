@@ -281,3 +281,8 @@ A clip save requests a sync frame and asks RollingVideoSegmentWriter to cut on t
 ## Video stop race note
 
 HardwareVideoEncoder.stop() now shares the same synchronization boundary as updateBitrate() and requestSyncFrame(). Keep stopRequested true until teardown completes so drain errors caused by intentional shutdown are suppressed; start() resets the flag.
+
+
+## Remux buffer sizing note
+
+RetroactiveVideoExporter checks MediaExtractor.sampleSize and grows its reusable direct buffer only when a compressed access unit exceeds the 8 MiB baseline, capped defensively at 64 MiB per sample.
