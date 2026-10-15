@@ -343,3 +343,8 @@ MedPlay now reduces the gap between the Clip tap and the end of the saved retroa
 ## Video encoder stop race hardening
 
 HardwareVideoEncoder.stop() is now synchronized with dynamic bitrate and sync-frame parameter updates. stopRequested remains set through teardown, and drain-loop exceptions that occur during an intentional stop are not surfaced as new fatal pipeline errors. start() resets stopRequested for a new encoder session. This closes a shutdown race between MediaCodec.setParameters(), EOS signaling and forced drain termination.
+
+
+## Session sustainability classification
+
+MedPlay now has a lightweight RecordingSustainabilityEvaluator that classifies encoder/thermal health as GOOD, DEGRADED or UNSUSTAINABLE. It reuses EncoderRuntimeHealth counters rather than adding per-frame logging. Current signals are timestamp regressions, maximum encoder-output wall gap, current output stall duration, target FPS and Android thermal status. CaptureService retains the worst verdict reached during the active session and samples again during teardown. This is measurement-only for resolution/FPS decisions: it does not yet restart or downgrade the active profile automatically. RuntimeThermalGuard still performs its existing bitrate protection and critical-stop behavior.
