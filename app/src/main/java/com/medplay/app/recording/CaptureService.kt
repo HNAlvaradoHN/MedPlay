@@ -237,6 +237,9 @@ class CaptureService : Service() {
 
         startInternalAudioIfPermitted(mediaProjection)
         showFloatingControl()
+        updateCaptureNotification(
+            buildActiveCaptureStatus(profile)
+        )
 
         return START_NOT_STICKY
     }
@@ -499,6 +502,17 @@ class CaptureService : Service() {
             File(filesDir, LAST_SESSION_DIAGNOSTICS_FILE)
                 .writeText(diagnostics.toText())
         }
+    }
+
+    private fun buildActiveCaptureStatus(profile: RecordingProfile): String {
+        val retentionSeconds = activeRetentionUs / 1_000_000L
+        val audioLabel = if (sessionAudioWasActive) {
+            "audio"
+        } else {
+            "video only"
+        }
+        return "${profile.width}x${profile.height} @ ${profile.fps} • " +
+            "${retentionSeconds}s • $audioLabel"
     }
 
     private fun updateCaptureNotification(text: String) {
