@@ -93,7 +93,7 @@ This direction is favored because it can preserve quality while reducing CPU wor
 
 ## Next step
 
-Validate retroactive clip selection/remux/MediaStore export in public CI, then add audio and runtime health monitoring.
+Validate runtime thermal protection in public CI, then add internal audio capture and A/V-segment synchronization.
 
 
 ## Sustainable profile selector implementation
@@ -149,7 +149,7 @@ The writer currently performs MediaMuxer writes on the encoder drain thread. Bec
 
 ## Retroactive video export
 
-Current feature branch adds the first end-to-end save path:
+Retroactive video export passed public CI and is merged. Current feature branch adds runtime thermal protection:
 - UI buttons request the previous 15, 30 or 60 seconds;
 - only completed keyframe-aligned rolling segments are selected;
 - selected segments are leased so retention cleanup cannot delete them mid-export;
@@ -160,3 +160,18 @@ Current feature branch adds the first end-to-end save path:
 - export runs off the service main thread.
 
 Important limitation for this prototype: the currently open rolling segment is not exported until it is completed on the next keyframe boundary. That keeps the save path safe and avoids reading an MP4 while MediaMuxer is still writing it. With the current 2-second keyframe/segment target, the saved clip may end roughly up to one segment behind the exact button press. A later refinement can request an immediate sync frame/segment rollover before export if real-device testing shows the extra complexity is worthwhile.
+
+
+## Runtime thermal protection
+
+Current feature branch integrates Android's thermal status API into the active capture service:
+- thermal status is monitored continuously while capture is active;
+- NORMAL/LIGHT keeps the selected startup bitrate;
+- MODERATE requests 85% of the selected bitrate;
+- SEVERE requests 70%;
+- CRITICAL or worse stops capture rather than continuing to stress the device;
+- bitrate changes use MediaCodec.setParameters and do not restart the encoder;
+- the thermal listener is removed on recorder teardown;
+- unit tests cover the protection policy.
+
+This is a real APK safeguard, not only documentation. It does not yet prove that bitrate reduction alone is sufficient on every SoC; real-device testing will determine whether severe states should also trigger an encoder restart into a lower resolution/FPS profile. No automatic resolution/FPS restart is added yet because doing so without measurement would create avoidable instability.

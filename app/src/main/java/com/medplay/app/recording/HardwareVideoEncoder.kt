@@ -3,6 +3,7 @@ package com.medplay.app.recording
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
+import android.os.Bundle
 import android.view.Surface
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
@@ -72,6 +73,22 @@ class HardwareVideoEncoder(
         return surface
     }
 
+    @Synchronized
+    fun updateBitrate(targetBitrate: Int): Boolean {
+        val currentCodec = codec ?: return false
+        if (!running.get()) return false
+
+        val safeBitrate = targetBitrate.coerceIn(MIN_DYNAMIC_BITRATE, profile.bitrate)
+        return runCatching {
+            currentCodec.setParameters(
+                Bundle().apply {
+                    putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, safeBitrate)
+                }
+            )
+            true
+        }.getOrDefault(false)
+    }
+
     fun stop() {
         if (!running.getAndSet(false) && codec == null) return
 
@@ -122,5 +139,6 @@ class HardwareVideoEncoder(
         private const val I_FRAME_INTERVAL_SECONDS = 2
         private const val DEQUEUE_TIMEOUT_US = 10_000L
         private const val DRAIN_JOIN_TIMEOUT_MS = 1_000L
+        private const val MIN_DYNAMIC_BITRATE = 2_000_000
     }
 }

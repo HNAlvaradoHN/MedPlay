@@ -27,6 +27,7 @@ class CaptureService : Service() {
     private var virtualDisplay: VirtualDisplay? = null
     private var videoEncoder: HardwareVideoEncoder? = null
     private var rollingWriter: RollingVideoSegmentWriter? = null
+    private var thermalGuard: RuntimeThermalGuard? = null
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
@@ -119,6 +120,19 @@ class CaptureService : Service() {
         rollingWriter = segmentWriter
         videoEncoder = encoder
 
+        thermalGuard = RuntimeThermalGuard(applicationContext) { action, _ ->
+            if (action.stopCapture) {
+                Handler(Looper.getMainLooper()).post {
+                    stopProjectionAndSelf()
+                }
+            } else {
+                val targetBitrate = (
+                    profile.bitrate.toLong() * action.bitratePercent / 100L
+                ).toInt()
+                encoder.updateBitrate(targetBitrate)
+            }
+        }.also { it.start() }
+
         return START_NOT_STICKY
     }
 
@@ -158,6 +172,9 @@ class CaptureService : Service() {
     }
 
     private fun releaseVideoPipeline() {
+        thermalGuard?.close()
+        thermalGuard = null
+
         virtualDisplay?.release()
         virtualDisplay = null
 
