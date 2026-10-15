@@ -20,6 +20,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.StatFs
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 import com.medplay.app.MainActivity
 
@@ -34,6 +35,7 @@ class CaptureService : Service() {
     private var rollingAudioWriter: RollingAudioSegmentWriter? = null
     private var floatingClipControl: FloatingClipControl? = null
     private var activeRetentionUs: Long = RollingVideoSegmentWriter.DEFAULT_RETENTION_US
+    private val exportInProgress = AtomicBoolean(false)
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
@@ -50,10 +52,20 @@ class CaptureService : Service() {
         when (intent?.action) {
             ACTION_START -> return startCapture(intent)
             ACTION_SAVE -> {
-                saveRetroactiveClip(intent.getIntExtra(EXTRA_SAVE_SECONDS, DEFAULT_SAVE_SECONDS))
+                if (rollingWriter == null) {
+                    if (mediaProjection == null) stopSelf(startId)
+                    return START_NOT_STICKY
+                }
+                saveRetroactiveClip(
+                    intent.getIntExtra(EXTRA_SAVE_SECONDS, DEFAULT_SAVE_SECONDS)
+                )
                 return START_NOT_STICKY
             }
             ACTION_SHOW_OVERLAY -> {
+                if (mediaProjection == null) {
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
                 showFloatingControl()
                 return START_NOT_STICKY
             }
@@ -167,9 +179,21 @@ class CaptureService : Service() {
     }
 
     private fun saveRetroactiveClip(seconds: Int) {
-        val writer = rollingWriter ?: return
+        if (!exportInProgress.compareAndSet(false, true)) return
+
+        val writer = rollingWriter
+        if (writer == null) {
+            exportInProgress.set(false)
+            return
+        }
+
         val safeSeconds = seconds.coerceIn(MIN_SAVE_SECONDS, MAX_SAVE_SECONDS)
-        val lease = writer.leaseCompleted(safeSeconds * 1_000_000L) ?: return
+        val lease = writer.leaseCompleted(safeSeconds * 1_000_000L)
+        if (lease == null) {
+            exportInProgress.set(false)
+            return
+        }
+
         val videoStartUs = lease.segments.first().sourceStartUs
         val videoEndUs = lease.segments.last().sourceEndUs
         val audioLease = rollingAudioWriter?.leaseRange(videoStartUs, videoEndUs)
@@ -179,14 +203,16 @@ class CaptureService : Service() {
             isDaemon = true,
             name = "medplay-clip-export",
         ) {
-            runCatching {
+            try {
                 RetroactiveVideoExporter(applicationContext).export(
                     videoLease = lease,
                     audioLease = audioLease,
                 )
-            }.onFailure {
+            } catch (_: Throwable) {
                 audioLease?.close()
                 lease.close()
+            } finally {
+                exportInProgress.set(false)
             }
         }
     }
