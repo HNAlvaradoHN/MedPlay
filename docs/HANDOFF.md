@@ -256,3 +256,8 @@ A fatal internal-audio worker or AAC consumer failure now disables only audio an
 ## Audio fallback recursion regression
 
 PR #19 compiled but introduced a recursive disableInternalAudio() implementation. The follow-up fix replaces recursion with explicit audio teardown while preserving video capture. Do not reintroduce self-calling fallback helpers.
+
+
+## MediaProjection lifecycle restart note
+
+Capture replacement now releases the entire old projection-owned pipeline before creating a new MediaProjection. Explicit shutdown also unregisters the callback and calls MediaProjection.stop(). A restart is ignored while a retroactive export is active so newly initialized rolling directories cannot invalidate files still leased by that export.
