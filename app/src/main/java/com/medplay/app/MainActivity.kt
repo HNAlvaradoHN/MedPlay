@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.WindowInsets
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -285,11 +286,38 @@ class MainActivity : Activity() {
             addView(reportView)
         }
 
-        setContentView(
-            ScrollView(this).apply {
-                addView(content)
+        val rootScrollView = ScrollView(this).apply {
+            isFillViewport = true
+            clipToPadding = false
+            addView(content)
+            setOnApplyWindowInsetsListener { view, insets ->
+                val topInset: Int
+                val bottomInset: Int
+                if (Build.VERSION.SDK_INT >= 30) {
+                    val safeInsets = insets.getInsets(
+                        WindowInsets.Type.systemBars() or
+                            WindowInsets.Type.displayCutout()
+                    )
+                    topInset = safeInsets.top
+                    bottomInset = safeInsets.bottom
+                } else {
+                    @Suppress("DEPRECATION")
+                    topInset = maxOf(
+                        insets.systemWindowInsetTop,
+                        insets.displayCutout?.safeInsetTop ?: 0,
+                    )
+                    @Suppress("DEPRECATION")
+                    bottomInset = maxOf(
+                        insets.systemWindowInsetBottom,
+                        insets.displayCutout?.safeInsetBottom ?: 0,
+                    )
+                }
+                view.setPadding(0, topInset, 0, bottomInset)
+                insets
             }
-        )
+        }
+        setContentView(rootScrollView)
+        rootScrollView.requestApplyInsets()
 
         thread(name = "medplay-codec-probe") {
             val supportedModes = runCatching {
@@ -346,9 +374,11 @@ class MainActivity : Activity() {
                 } else {
                     tr(
                         "Automático recomendado: ${autoProfile.width}x${autoProfile.height}, " +
-                            "${autoProfile.fps} FPS, ${autoProfile.codec.name}.",
+                            "${autoProfile.fps} FPS, ${autoProfile.codec.name}, " +
+                            "${autoProfile.bitrate / 1_000_000} Mbps.",
                         "Recommended automatic mode: ${autoProfile.width}x${autoProfile.height}, " +
-                            "${autoProfile.fps} FPS, ${autoProfile.codec.name}.",
+                            "${autoProfile.fps} FPS, ${autoProfile.codec.name}, " +
+                            "${autoProfile.bitrate / 1_000_000} Mbps.",
                     )
                 }
             }
@@ -362,6 +392,9 @@ class MainActivity : Activity() {
             RecordingQualityPreference.Mode.P720_30 -> "720p • 30 FPS"
             RecordingQualityPreference.Mode.P720_60 -> "720p • 60 FPS"
             RecordingQualityPreference.Mode.P1080_30 -> "1080p • 30 FPS"
+            RecordingQualityPreference.Mode.P1080_60 -> "1080p • 60 FPS"
+            RecordingQualityPreference.Mode.P1440_30 -> "1440p • 30 FPS"
+            RecordingQualityPreference.Mode.P1440_60 -> "1440p • 60 FPS"
         }
     }
 
