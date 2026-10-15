@@ -216,7 +216,11 @@ class CaptureService : Service() {
 
                 val videoStartUs = lease.segments.first().sourceStartUs
                 val videoEndUs = lease.segments.last().sourceEndUs
-                audioLease = rollingAudioWriter?.leaseRange(videoStartUs, videoEndUs)
+                val audioWriter = rollingAudioWriter
+                if (audioWriter != null) {
+                    runCatching { audioWriter.finalizeActiveSegmentForExport() }
+                    audioLease = audioWriter.leaseRange(videoStartUs, videoEndUs)
+                }
 
                 RetroactiveVideoExporter(applicationContext).export(
                     videoLease = lease,
