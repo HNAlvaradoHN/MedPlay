@@ -597,6 +597,8 @@ class CaptureService : Service() {
 
             try {
                 val supported = EncoderCapabilityProbe.supportedStartupProfiles()
+                if (shutdownStarted.get()) return@thread
+
                 val nextProfile =
                     AdaptiveRecordingProfilePolicy.nextLowerProfile(
                         current = currentProfile,
@@ -618,6 +620,7 @@ class CaptureService : Service() {
                     },
                 )
                 val replacementSurface = replacementEncoder.start()
+                if (shutdownStarted.get()) return@thread
 
                 display.setSurface(null)
                 display.resize(
@@ -749,7 +752,6 @@ class CaptureService : Service() {
 
     private fun stopProjectionAndSelf() {
         if (!shutdownStarted.compareAndSet(false, true)) return
-        profileSwitchInProgress.set(false)
 
         val projection = mediaProjection
         mediaProjection = null
@@ -764,12 +766,24 @@ class CaptureService : Service() {
             name = "medplay-recorder-shutdown",
         ) {
             try {
+                awaitProfileSwitchCompletion()
                 releaseVideoPipeline()
                 runCatching { projection?.stop() }
             } finally {
                 shutdownResourcesReleased.set(true)
                 finishServiceIfShutdownReady()
             }
+        }
+    }
+
+    private fun awaitProfileSwitchCompletion() {
+        val deadlineNs =
+            System.nanoTime() + PROFILE_SWITCH_SHUTDOWN_WAIT_MS * 1_000_000L
+        while (
+            profileSwitchInProgress.get() &&
+            System.nanoTime() < deadlineNs
+        ) {
+            Thread.sleep(PROFILE_SWITCH_POLL_MS)
         }
     }
 
@@ -1001,6 +1015,8 @@ class CaptureService : Service() {
         private const val MIN_SAVE_SECONDS = 5
         private const val MAX_SAVE_SECONDS = 300
         private const val SAVE_ROLLOVER_WAIT_MS = 750L
+        private const val PROFILE_SWITCH_SHUTDOWN_WAIT_MS = 3_000L
+        private const val PROFILE_SWITCH_POLL_MS = 25L
         private const val LAST_SESSION_DIAGNOSTICS_FILE =
             "last_session_diagnostics.txt"
 
