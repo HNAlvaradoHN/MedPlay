@@ -413,3 +413,8 @@ MedPlay now has an explicit persistent choice for internal playback audio:
 - changing the toggle applies to the next capture session; it does not tear down an already-running audio pipeline.
 
 This provides an intentional video-only mode in addition to the existing automatic video-only fallback when playback capture is denied, unavailable or fails.
+
+
+## Audio-aware retention budgeting
+
+Rolling-retention storage estimation now uses the intended audio mode. If internal audio is disabled or RECORD_AUDIO is not granted, the retention policy budgets zero AAC bitrate instead of reserving 128 kbps for an audio stream that will not exist. The same free-space reserve and rolling-storage ceiling remain in force.
