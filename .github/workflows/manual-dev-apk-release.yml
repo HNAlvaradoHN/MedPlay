@@ -2,6 +2,11 @@ name: Manual dev APK release
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/manual-dev-apk-release.yml"
 
 permissions:
   contents: write
