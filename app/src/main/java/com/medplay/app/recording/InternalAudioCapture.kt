@@ -71,49 +71,71 @@ class InternalAudioCapture(
         )
         check(minBuffer > 0) { "AudioRecord buffer size unavailable" }
 
-        val record = AudioRecord.Builder()
-            .setAudioFormat(audioFormat)
-            .setBufferSizeInBytes(maxOf(minBuffer, PCM_BUFFER_BYTES))
-            .setAudioPlaybackCaptureConfig(captureConfig)
-            .build()
+        var record: AudioRecord? = null
+        var encoder: MediaCodec? = null
+        var encoderStarted = false
 
-        check(record.state == AudioRecord.STATE_INITIALIZED) {
-            "Playback AudioRecord failed to initialize"
-        }
+        try {
+            record = AudioRecord.Builder()
+                .setAudioFormat(audioFormat)
+                .setBufferSizeInBytes(maxOf(minBuffer, PCM_BUFFER_BYTES))
+                .setAudioPlaybackCaptureConfig(captureConfig)
+                .build()
 
-        val codecInfo = selectAacEncoder()
-            ?: error("No AAC encoder available")
+            check(record.state == AudioRecord.STATE_INITIALIZED) {
+                "Playback AudioRecord failed to initialize"
+            }
 
-        val encoder = MediaCodec.createByCodecName(codecInfo.name)
-        val encoderFormat = MediaFormat.createAudioFormat(
-            MediaFormat.MIMETYPE_AUDIO_AAC,
-            SAMPLE_RATE,
-            CHANNEL_COUNT,
-        ).apply {
-            setInteger(
-                MediaFormat.KEY_AAC_PROFILE,
-                MediaCodecInfo.CodecProfileLevel.AACObjectLC,
+            val codecInfo = selectAacEncoder()
+                ?: error("No AAC encoder available")
+
+            encoder = MediaCodec.createByCodecName(codecInfo.name)
+            val encoderFormat = MediaFormat.createAudioFormat(
+                MediaFormat.MIMETYPE_AUDIO_AAC,
+                SAMPLE_RATE,
+                CHANNEL_COUNT,
+            ).apply {
+                setInteger(
+                    MediaFormat.KEY_AAC_PROFILE,
+                    MediaCodecInfo.CodecProfileLevel.AACObjectLC,
+                )
+                setInteger(MediaFormat.KEY_BIT_RATE, AAC_BITRATE)
+                setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, PCM_BUFFER_BYTES)
+            }
+
+            encoder.configure(
+                encoderFormat,
+                null,
+                null,
+                MediaCodec.CONFIGURE_FLAG_ENCODE,
             )
-            setInteger(MediaFormat.KEY_BIT_RATE, AAC_BITRATE)
-            setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, PCM_BUFFER_BYTES)
+            encoder.start()
+            encoderStarted = true
+            record.startRecording()
+
+            val monotonicStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
+            consumer.onCaptureStarted(monotonicStartUs, SAMPLE_RATE, CHANNEL_COUNT)
+        } catch (error: Throwable) {
+            runCatching {
+                if (record?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                    record?.stop()
+                }
+            }
+            if (encoderStarted) {
+                runCatching { encoder?.stop() }
+            }
+            runCatching { encoder?.release() }
+            runCatching { record?.release() }
+            throw error
         }
 
-        encoder.configure(
-            encoderFormat,
-            null,
-            null,
-            MediaCodec.CONFIGURE_FLAG_ENCODE,
-        )
-        encoder.start()
-        record.startRecording()
+        val readyRecord = checkNotNull(record)
+        val readyEncoder = checkNotNull(encoder)
 
-        audioRecord = record
-        codec = encoder
+        audioRecord = readyRecord
+        codec = readyEncoder
         stopping.set(false)
         running.set(true)
-
-        val monotonicStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
-        consumer.onCaptureStarted(monotonicStartUs, SAMPLE_RATE, CHANNEL_COUNT)
 
         worker = thread(
             start = true,
@@ -121,7 +143,7 @@ class InternalAudioCapture(
             name = "medplay-internal-audio",
         ) {
             try {
-                runLoop(record, encoder)
+                runLoop(readyRecord, readyEncoder)
             } catch (error: Throwable) {
                 if (!stopping.get()) {
                     onFatalError(error)
