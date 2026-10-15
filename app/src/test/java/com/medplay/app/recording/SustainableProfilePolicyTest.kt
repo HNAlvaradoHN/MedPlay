@@ -7,10 +7,11 @@ import org.junit.Test
 class SustainableProfilePolicyTest {
 
     @Test
-    fun prefers1080p30HevcHardwareWhenAvailable() {
+    fun prefers1080p60HevcForHighMotionWhenAvailable() {
         val supported = listOf(
-            p(VideoCodec.AVC, 1920, 1080, 30, 16_000_000),
-            p(VideoCodec.HEVC, 1920, 1080, 30, 12_000_000),
+            p(VideoCodec.AVC, 1920, 1080, 60, 55_000_000),
+            p(VideoCodec.HEVC, 1920, 1080, 60, 40_000_000),
+            p(VideoCodec.HEVC, 1920, 1080, 30, 24_000_000),
         )
 
         val chosen = SustainableProfilePolicy.chooseStartupProfile(supported)
@@ -18,15 +19,15 @@ class SustainableProfilePolicyTest {
         assertEquals(VideoCodec.HEVC, chosen?.codec)
         assertEquals(1920, chosen?.width)
         assertEquals(1080, chosen?.height)
-        assertEquals(30, chosen?.fps)
-        assertEquals(12_000_000, chosen?.bitrate)
+        assertEquals(60, chosen?.fps)
+        assertEquals(40_000_000, chosen?.bitrate)
     }
 
     @Test
     fun neverSelectsSoftwareEncoderForAutomaticStartup() {
         val supported = listOf(
-            p(VideoCodec.HEVC, 1920, 1080, 30, 12_000_000, hardware = false),
-            p(VideoCodec.AVC, 1280, 720, 30, 10_000_000, hardware = true),
+            p(VideoCodec.HEVC, 1920, 1080, 30, 24_000_000, hardware = false),
+            p(VideoCodec.AVC, 1280, 720, 30, 18_000_000, hardware = true),
         )
 
         val chosen = SustainableProfilePolicy.chooseStartupProfile(supported)
@@ -39,7 +40,7 @@ class SustainableProfilePolicyTest {
     @Test
     fun returnsNullWhenOnlySoftwareEncodingExists() {
         val supported = listOf(
-            p(VideoCodec.AVC, 1280, 720, 30, 10_000_000, hardware = false),
+            p(VideoCodec.AVC, 1280, 720, 30, 18_000_000, hardware = false),
         )
 
         assertNull(SustainableProfilePolicy.chooseStartupProfile(supported))
