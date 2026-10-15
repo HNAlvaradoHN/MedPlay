@@ -267,3 +267,33 @@ Current feature branch hardens final clip creation before real-device testing:
 - any validation/remux/publication failure deletes the pending MediaStore item and releases segment leases.
 
 The final export still copies compressed samples only; these guards do not introduce decode/re-encode.
+
+
+## Serialized clip export and inactive-action cleanup
+
+Current feature branch reduces avoidable I/O/thermal load and tightens service lifecycle:
+- only one retroactive clip export may run at a time;
+- repeated save taps while an export is active are ignored instead of spawning concurrent remux threads;
+- the export-in-progress flag is always cleared in a finally block;
+- if there is no completed video window to lease, the export slot is immediately released;
+- ACTION_SAVE received without an active rolling writer no longer starts/keeps an otherwise idle service alive;
+- ACTION_SHOW_OVERLAY received without an active MediaProjection also stops the transient service instance;
+- the actual remux path remains off the main thread and still performs compressed-sample copy only.
+
+This deliberately favors stable gameplay and low I/O contention over allowing multiple simultaneous saves.
+
+
+## Segment finalization hardening
+
+The same branch also tightens rolling-segment validity:
+- a video/audio segment is added to the completed queue only if MediaMuxer.stop() succeeds;
+- a segment whose muxer finalization fails is deleted immediately and never becomes leaseable/exportable;
+- segment leases now use AtomicBoolean for thread-safe idempotent close;
+- service teardown catches final-segment close failures so recorder shutdown stays bounded even when storage/muxer finalization fails.
+
+A finalization failure during active video rotation still propagates through the encoder consumer path and triggers recorder teardown rather than continuing on a possibly corrupted rolling set.
+
+
+## Internal-audio failure fallback
+
+InternalAudioCapture now surfaces fatal worker/consumer exceptions to CaptureService. The service disables and finalizes only the audio path, then continues video capture and retroactive video export. This preserves recording availability when playback capture/AAC fails on a device or source app instead of leaving a dead audio pipeline or unnecessarily stopping video.
