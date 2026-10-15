@@ -388,3 +388,16 @@ The foreground-service notification now reports clip-save state without adding p
 - notification updates are ignored once MediaProjection is no longer active, preventing a late export thread from recreating stale recorder notifications after shutdown.
 
 Notification updates happen only on save events and do not alter encoder, segment cadence or remux strategy.
+
+
+## Persistent floating clip duration
+
+The floating Clip control duration is now configurable and persistent:
+- supported defaults are 15 s, 30 s, 60 s, 2 min, 3 min and 5 min;
+- the selected value is stored locally in SharedPreferences;
+- invalid/stale stored values fall back to 30 seconds;
+- the floating control reads the preference at tap time, so changing it does not require restarting capture;
+- direct save-now buttons remain independent of the floating default;
+- MainActivity is wrapped in a ScrollView so all prototype controls remain reachable on smaller displays.
+
+The setting changes only the requested export window. Actual available history still depends on the storage-aware rolling retention policy.
