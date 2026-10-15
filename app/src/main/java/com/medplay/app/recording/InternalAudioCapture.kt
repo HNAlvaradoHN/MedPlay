@@ -47,6 +47,7 @@ class InternalAudioCapture(
     private var codec: MediaCodec? = null
     private var worker: Thread? = null
     private val running = AtomicBoolean(false)
+    private val stopping = AtomicBoolean(false)
 
     fun start() {
         check(!running.get()) { "Internal audio capture already started" }
@@ -108,6 +109,7 @@ class InternalAudioCapture(
 
         audioRecord = record
         codec = encoder
+        stopping.set(false)
         running.set(true)
 
         val monotonicStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
@@ -121,29 +123,45 @@ class InternalAudioCapture(
             try {
                 runLoop(record, encoder)
             } catch (error: Throwable) {
-                onFatalError(error)
+                if (!stopping.get()) {
+                    onFatalError(error)
+                }
             } finally {
                 running.set(false)
             }
         }
     }
 
+    @Synchronized
     fun stop() {
-        if (!running.getAndSet(false) && audioRecord == null && codec == null) return
+        if (audioRecord == null && codec == null) return
+
+        stopping.set(true)
+        running.set(false)
 
         val record = audioRecord
         val encoder = codec
+        val audioWorker = worker
 
         runCatching { record?.stop() }
-        worker?.join(STOP_JOIN_TIMEOUT_MS)
+        audioWorker?.join(STOP_JOIN_TIMEOUT_MS)
+
+        if (audioWorker?.isAlive == true) {
+            runCatching { encoder?.stop() }
+            audioWorker.join(FORCE_STOP_JOIN_TIMEOUT_MS)
+        }
+
         worker = null
 
-        runCatching { encoder?.stop() }
+        if (audioWorker?.isAlive != true) {
+            runCatching { encoder?.stop() }
+        }
         runCatching { encoder?.release() }
         codec = null
 
         runCatching { record?.release() }
         audioRecord = null
+        stopping.set(false)
     }
 
     private fun runLoop(
@@ -165,7 +183,9 @@ class InternalAudioCapture(
                         AudioRecord.READ_BLOCKING,
                     )
 
-                    if (bytesRead > 0) {
+                    if (bytesRead < 0) {
+                        error("AudioRecord read failed: $bytesRead")
+                    } else if (bytesRead > 0) {
                         val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
                         encoder.queueInputBuffer(
                             inputIndex,
@@ -176,8 +196,12 @@ class InternalAudioCapture(
                         )
                         totalFramesSubmitted += bytesRead / BYTES_PER_FRAME
                     } else {
-                        encoder.queueInputBuffer(inputIndex, 0, 0, 0L, 0)
+                        val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
+                        encoder.queueInputBuffer(inputIndex, 0, 0, ptsUs, 0)
                     }
+                } else {
+                    val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
+                    encoder.queueInputBuffer(inputIndex, 0, 0, ptsUs, 0)
                 }
             }
 
@@ -197,18 +221,19 @@ class InternalAudioCapture(
         }
 
         repeat(EOS_DRAIN_ATTEMPTS) {
-            if (drainEncoder(encoder, outputInfo)) return
+            if (drainEncoder(encoder, outputInfo, DEQUEUE_TIMEOUT_US)) return
         }
     }
 
     private fun drainEncoder(
         encoder: MediaCodec,
         info: MediaCodec.BufferInfo,
+        timeoutUs: Long = 0L,
     ): Boolean {
         var reachedEos = false
 
         while (true) {
-            when (val index = encoder.dequeueOutputBuffer(info, 0)) {
+            when (val index = encoder.dequeueOutputBuffer(info, timeoutUs)) {
                 MediaCodec.INFO_TRY_AGAIN_LATER -> return reachedEos
                 MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                     consumer.onOutputFormat(encoder.outputFormat)
@@ -264,7 +289,8 @@ class InternalAudioCapture(
         private const val BYTES_PER_FRAME = CHANNEL_COUNT * BYTES_PER_SAMPLE
         private const val PCM_BUFFER_BYTES = 16_384
         private const val DEQUEUE_TIMEOUT_US = 10_000L
-        private const val STOP_JOIN_TIMEOUT_MS = 1_000L
+        private const val STOP_JOIN_TIMEOUT_MS = 1_500L
+        private const val FORCE_STOP_JOIN_TIMEOUT_MS = 250L
         private const val EOS_DRAIN_ATTEMPTS = 20
     }
 }
