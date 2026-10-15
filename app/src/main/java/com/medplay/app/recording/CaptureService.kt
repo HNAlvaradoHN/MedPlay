@@ -125,9 +125,18 @@ class CaptureService : Service() {
             return START_NOT_STICKY
         }
 
+        val internalAudioEnabled =
+            InternalAudioPreference.isEnabled(applicationContext) &&
+                checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
+
         val retention = RecordingRetentionPolicy.choose(
             videoBitrate = profile.bitrate,
-            audioBitrate = InternalAudioCapture.AAC_BITRATE,
+            audioBitrate = if (internalAudioEnabled) {
+                InternalAudioCapture.AAC_BITRATE
+            } else {
+                0
+            },
             usableBytes = StatFs(cacheDir.absolutePath).availableBytes,
         )
         if (retention.retentionSeconds == 0) {
