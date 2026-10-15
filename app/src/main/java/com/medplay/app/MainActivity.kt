@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Spinner
@@ -19,6 +20,7 @@ import android.widget.TextView
 import com.medplay.app.recording.CaptureService
 import com.medplay.app.recording.ClipLengthPreference
 import com.medplay.app.recording.EncoderCapabilityProbe
+import com.medplay.app.recording.InternalAudioPreference
 import kotlin.concurrent.thread
 
 class MainActivity : Activity() {
@@ -41,6 +43,14 @@ class MainActivity : Activity() {
         reportView = TextView(this).apply {
             text = "Detecting hardware video encoders..."
             textSize = 14f
+        }
+
+        val internalAudioToggle = CheckBox(this).apply {
+            text = "Capture internal audio"
+            isChecked = InternalAudioPreference.isEnabled(this@MainActivity)
+            setOnCheckedChangeListener { _, enabled ->
+                InternalAudioPreference.setEnabled(this@MainActivity, enabled)
+            }
         }
 
         val startButton = Button(this).apply {
@@ -172,6 +182,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 32, 32, 32)
             addView(statusView)
+            addView(internalAudioToggle)
             addView(startButton)
             addView(save15Button)
             addView(save30Button)
@@ -206,6 +217,12 @@ class MainActivity : Activity() {
     }
 
     private fun requestCaptureWithOptionalInternalAudio() {
+        if (!InternalAudioPreference.isEnabled(this)) {
+            statusView.text = "Internal audio disabled; continuing video-only."
+            launchMediaProjectionConsent()
+            return
+        }
+
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             launchMediaProjectionConsent()
             return
