@@ -302,3 +302,29 @@ InternalAudioCapture now surfaces fatal worker/consumer exceptions to CaptureSer
 ## Audio fallback recursion fix
 
 A regression introduced while wiring video-only fallback caused disableInternalAudio() to call itself recursively. This branch fixes the fallback so it explicitly stops InternalAudioCapture, clears it, finalizes/closes the rolling audio writer, and clears that reference. Video capture remains active.
+
+
+## MediaProjection lifecycle restart hardening
+
+Current feature branch closes a session-replacement/resource-ownership gap:
+- a new ACTION_START first refuses to replace the active capture while a clip export is in progress, avoiding deletion/reinitialization of rolling files that may still be leased;
+- restarting capture now explicitly unregisters the old MediaProjection callback;
+- the existing floating control, audio path, thermal guard, VirtualDisplay, video encoder and rolling writers are released before the new projection session is created;
+- the old MediaProjection token is explicitly stopped after its owned pipeline is released;
+- explicit shutdown now also stops the MediaProjection token rather than only clearing the field;
+- onDestroy uses the same owned-resource shutdown path, making repeated teardown idempotent/bounded.
+
+This prevents an old encoder/VirtualDisplay from surviving a capture restart and avoids leaving a projection token alive after thermal/error/manual shutdown.
+
+
+## Video PTS normalization
+
+This branch also fixes a potential A/V timeline error in the Surface-input path:
+- codec output presentationTimeUs is no longer assumed to start at zero;
+- the first observed video PTS becomes the origin of the codec's local timeline;
+- later video samples use only the delta from that first PTS;
+- that delta is anchored once to MedPlay's monotonic session start;
+- this avoids double-offsetting timestamps when Surface/codec PTS already resembles a monotonic clock;
+- regressions in the mapped PTS are rejected instead of silently producing invalid segment timing.
+
+Unit tests cover both zero-based and large absolute-looking codec PTS domains. Real-device testing is still required to measure residual A/V start offset and long-session drift.

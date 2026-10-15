@@ -31,7 +31,8 @@ class RollingVideoSegmentWriter(
     private var latestCompletedEndUs = Long.MIN_VALUE
 
     private var outputFormat: MediaFormat? = null
-    private var encoderMonotonicStartUs = Long.MIN_VALUE
+    private val presentationTimeline = MonotonicPresentationTimeline()
+    private var timelineStarted = false
     private var muxer: MediaMuxer? = null
     private var trackIndex = -1
     private var currentFile: File? = null
@@ -49,7 +50,8 @@ class RollingVideoSegmentWriter(
 
     @Synchronized
     override fun onEncoderStarted(monotonicStartUs: Long) {
-        encoderMonotonicStartUs = monotonicStartUs
+        presentationTimeline.start(monotonicStartUs)
+        timelineStarted = true
     }
 
     @Synchronized
@@ -63,9 +65,9 @@ class RollingVideoSegmentWriter(
         if (info.size <= 0) return
         if ((info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) return
 
-        if (encoderMonotonicStartUs == Long.MIN_VALUE) return
+        if (!timelineStarted) return
 
-        val absolutePtsUs = encoderMonotonicStartUs + info.presentationTimeUs
+        val absolutePtsUs = presentationTimeline.map(info.presentationTimeUs)
         val isSyncFrame = (info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
         val activeMuxer = muxer
 
