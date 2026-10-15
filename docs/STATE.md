@@ -292,3 +292,8 @@ The same branch also tightens rolling-segment validity:
 - service teardown catches final-segment close failures so recorder shutdown stays bounded even when storage/muxer finalization fails.
 
 A finalization failure during active video rotation still propagates through the encoder consumer path and triggers recorder teardown rather than continuing on a possibly corrupted rolling set.
+
+
+## Internal-audio failure fallback
+
+InternalAudioCapture now surfaces fatal worker/consumer exceptions to CaptureService. The service disables and finalizes only the audio path, then continues video capture and retroactive video export. This preserves recording availability when playback capture/AAC fails on a device or source app instead of leaving a dead audio pipeline or unnecessarily stopping video.
