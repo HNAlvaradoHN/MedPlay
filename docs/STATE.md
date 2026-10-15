@@ -375,3 +375,8 @@ Video and AAC startup now clean locally owned resources if initialization fails 
 ## Capture startup failure containment
 
 CaptureService startup contains failures from MediaProjection acquisition/callback registration, codec profile probing, video encoder startup, VirtualDisplay creation and thermal-guard startup. Each failure path performs bounded cleanup and stops the service instead of allowing a partially initialized recorder to escape through an exception. Secondary cleanup failures cannot prevent MediaProjection teardown.
+
+
+## Session sustainability verdict
+
+RecordingSessionDiagnostics now derives and persists a GOOD / DEGRADED / UNSUSTAINABLE verdict from the existing EncoderRuntimeHealth snapshot, maximum Android thermal status and target FPS. The evaluator adds no per-frame logging and does not yet change resolution/FPS automatically. Current thresholds are deliberately conservative and unit-tested; real-device sessions must validate them before they control profile selection.
