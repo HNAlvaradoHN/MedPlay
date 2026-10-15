@@ -311,3 +311,8 @@ MediaProjection acquisition/registration, profile probing, encoder startup, Virt
 ## Clip-save feedback note
 
 Clip-save progress/outcome is surfaced through the existing foreground-service notification only on save events. This adds no per-frame logging or media processing. A late export completion must not recreate a notification after MediaProjection has already shut down, and export failure must not stop the active recorder.
+
+
+## Floating clip duration note
+
+The floating Clip button reads a persisted default duration (15/30/60/120/180/300 s) at tap time. Invalid values fall back to 30 s. This changes only the requested save window; storage-aware rolling retention determines how much history is actually available.
