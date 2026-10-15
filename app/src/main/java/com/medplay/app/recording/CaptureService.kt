@@ -213,7 +213,10 @@ class CaptureService : Service() {
     }
 
     private fun saveRetroactiveClip(seconds: Int) {
-        if (!exportInProgress.compareAndSet(false, true)) return
+        if (!exportInProgress.compareAndSet(false, true)) {
+            updateCaptureNotification("Clip save already in progress.")
+            return
+        }
 
         val writer = rollingWriter
         if (writer == null) {
@@ -222,6 +225,7 @@ class CaptureService : Service() {
         }
 
         val safeSeconds = seconds.coerceIn(MIN_SAVE_SECONDS, MAX_SAVE_SECONDS)
+        updateCaptureNotification("Saving previous $safeSeconds seconds...")
         val completionVersion = writer.completionVersion()
         writer.requestRolloverOnNextSyncFrame()
         val syncFrameRequested = videoEncoder?.requestSyncFrame() == true
@@ -243,7 +247,14 @@ class CaptureService : Service() {
                 }
 
                 lease = writer.leaseCompleted(safeSeconds * 1_000_000L)
-                    ?: return@thread
+                if (lease == null) {
+                    Handler(Looper.getMainLooper()).post {
+                        updateCaptureNotification(
+                            "Not enough completed recording data yet."
+                        )
+                    }
+                    return@thread
+                }
 
                 val videoStartUs = lease.segments.first().sourceStartUs
                 val videoEndUs = lease.segments.last().sourceEndUs
@@ -253,11 +264,22 @@ class CaptureService : Service() {
                     audioLease = audioWriter.leaseRange(videoStartUs, videoEndUs)
                 }
 
-                RetroactiveVideoExporter(applicationContext).export(
+                val result = RetroactiveVideoExporter(applicationContext).export(
                     videoLease = lease,
                     audioLease = audioLease,
                 )
+                Handler(Looper.getMainLooper()).post {
+                    val durationSeconds = result.durationUs / 1_000_000L
+                    updateCaptureNotification(
+                        "Clip saved (${durationSeconds}s). Recording continues."
+                    )
+                }
             } catch (_: Throwable) {
+                Handler(Looper.getMainLooper()).post {
+                    updateCaptureNotification(
+                        "Clip save failed. Recording continues."
+                    )
+                }
                 audioLease?.close()
                 lease?.close()
             } finally {
@@ -408,6 +430,11 @@ class CaptureService : Service() {
         }
     }
 
+    private fun updateCaptureNotification(text: String) {
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(NOTIFICATION_ID, buildNotification(text))
+    }
+
     private fun startAsProjectionForegroundService() {
         val notification = buildNotification()
 
@@ -422,7 +449,9 @@ class CaptureService : Service() {
         }
     }
 
-    private fun buildNotification(): Notification {
+    private fun buildNotification(
+        contentText: String = "Screen capture is active.",
+    ): Notification {
         val openIntent = PendingIntent.getActivity(
             this,
             0,
@@ -432,7 +461,7 @@ class CaptureService : Service() {
 
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("MedPlay")
-            .setContentText("Screen capture is active.")
+            .setContentText(contentText)
             .setSmallIcon(android.R.drawable.presence_video_online)
             .setContentIntent(openIntent)
             .setOngoing(true)
