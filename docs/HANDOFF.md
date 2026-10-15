@@ -172,7 +172,12 @@ The intended long-term quality strategy is adaptive:
 ## Immediate next action for a new chat
 
 1. The Android/Kotlin scaffold has passed public CI and is merged to main.
-2. Build the original capability-based recording profile selector with explicit sustainable-load safeguards.
-3. Add MediaProjection permission/capture flow.
+2. Sustainable startup profile selector implemented; verify public CI before merge.
+3. Add MediaProjection permission/capture flow after merge.
 4. Add hardware MediaCodec encoding and short rolling segments.
 5. Measure sustained performance on real devices before raising default quality.
+
+
+## Implemented startup safety policy
+
+The current selector refuses automatic software encoding, validates each target with the device's MediaCodec VideoCapabilities, and starts below the most aggressive 60 FPS/high-resolution combinations. This is deliberate: codec capability metadata proves support, not long-term thermal sustainability. Runtime health monitoring will later promote or reduce load based on actual behavior.
