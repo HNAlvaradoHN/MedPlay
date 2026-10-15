@@ -88,8 +88,19 @@ object EncoderCapabilityProbe {
         }
     }
 
-    fun chooseSafeStartupProfile(): RecordingProfile? {
-        return SustainableProfilePolicy.chooseStartupProfile(supportedStartupProfiles())
+    fun chooseSafeStartupProfile(
+        mode: RecordingQualityPreference.Mode = RecordingQualityPreference.Mode.AUTO,
+    ): RecordingProfile? {
+        return RecordingQualityPreference.choose(
+            mode = mode,
+            supported = supportedStartupProfiles(),
+        )
+    }
+
+    fun supportedQualityModes(): List<RecordingQualityPreference.Mode> {
+        return RecordingQualityPreference.supportedModes(
+            supportedStartupProfiles()
+        )
     }
 
     fun buildTextReport(): String {
