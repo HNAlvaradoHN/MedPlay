@@ -286,7 +286,7 @@ class CaptureService : Service() {
         internalAudioCapture?.stop()
         internalAudioCapture = null
 
-        rollingAudioWriter?.close()
+        runCatching { rollingAudioWriter?.close() }
         rollingAudioWriter = null
 
         thermalGuard?.close()
@@ -298,7 +298,7 @@ class CaptureService : Service() {
         videoEncoder?.stop()
         videoEncoder = null
 
-        rollingWriter?.close()
+        runCatching { rollingWriter?.close() }
         rollingWriter = null
     }
 
