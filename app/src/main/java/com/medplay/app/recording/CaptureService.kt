@@ -290,6 +290,7 @@ class CaptureService : Service() {
 
     private fun startInternalAudioIfPermitted(projection: MediaProjection?) {
         if (projection == null) return
+        if (!InternalAudioPreference.isEnabled(applicationContext)) return
         if (
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
             PackageManager.PERMISSION_GRANTED
