@@ -210,7 +210,7 @@ MedPlay now reacts to Android thermal status while recording. Moderate/severe he
 
 ## Internal audio implementation note
 
-The current branch captures only playback audio that Android and the source app permit. RECORD_AUDIO denial does not block video recording. Audio is encoded to AAC-LC on a dedicated thread and hardware encoding is preferred when available. Encoded audio is intentionally not yet written into the final clip; do not claim saved clips have audio until the A/V segment synchronization/export block is complete.
+The current branch captures only playback audio that Android and the source app permit. RECORD_AUDIO denial does not block video recording. Audio is encoded to AAC-LC on a dedicated thread and hardware encoding is preferred when available. Encoded playback audio is now written into rolling AAC segments and included in the final MP4 when Android/source-app playback capture allows it. Video-only remains the fallback when audio is disabled, denied or unavailable.
 
 
 ## A/V synchronization implementation note
@@ -336,3 +336,8 @@ The foreground notification exposes Clip and Stop. Clip reads the persisted defa
 ## Notification controls / shutdown note
 
 The foreground notification exposes Clip and Stop. Clip reads the persisted default duration when no explicit duration is supplied. Stop, thermal stops, projection callbacks and fatal video errors enter a one-shot asynchronous shutdown; heavy EOS/resource waits occur off the main thread, and stopSelf() waits for both recorder-resource release and any active export.
+
+
+## Sustainability verdict note
+
+The persisted last-session diagnostics include sustainabilityVerdict=GOOD/DEGRADED/UNSUSTAINABLE. The evaluator uses encoder-health metrics, maximum thermal status, target FPS and session duration. Zero encoded samples are not allowed to appear healthy. Keep the verdict observational until thresholds are validated on real devices.
