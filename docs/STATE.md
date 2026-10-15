@@ -343,3 +343,8 @@ MedPlay now reduces the gap between the Clip tap and the end of the saved retroa
 ## Video encoder stop race hardening
 
 HardwareVideoEncoder.stop() is now synchronized with dynamic bitrate and sync-frame parameter updates. stopRequested remains set through teardown, and drain-loop exceptions that occur during an intentional stop are not surfaced as new fatal pipeline errors. start() resets stopRequested for a new encoder session. This closes a shutdown race between MediaCodec.setParameters(), EOS signaling and forced drain termination.
+
+
+## Save-aligned AAC rollover
+
+Before leasing AAC for a saved clip, MedPlay finalizes the currently open rolling audio segment under synchronization. The next encoded AAC sample automatically opens a new segment, so capture continues without restarting AudioRecord or MediaCodec. This keeps the final audio boundary close to the video boundary instead of trailing by the normal 2-second audio rotation interval. No decode, resample or re-encode is introduced.
