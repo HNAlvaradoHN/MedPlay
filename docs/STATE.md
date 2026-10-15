@@ -190,7 +190,7 @@ Internal playback-audio capture/AAC foundation passed public CI and is merged. C
 - records a monotonic capture-start timestamp for later A/V alignment;
 - tears down AudioRecord and MediaCodec with the capture service.
 
-Important limitation: encoded AAC output is currently consumed by a discard sink. Audio is therefore not yet present in saved clips. This branch establishes and validates the capture/encode path first; the next block will place encoded audio into rolling segments aligned to the video timeline and then add the audio track during final remux.
+Playback audio is now written into rolling AAC segments and included in the final MP4 when Android/source-app playback capture is available. Video-only export remains the fallback when audio is disabled, denied or unavailable.
 
 
 ## Synchronized A/V rolling export
@@ -428,3 +428,17 @@ MedPlay exposes low-overhead Clip and Stop actions in the foreground-service not
 ## Notification controls and asynchronous recorder shutdown
 
 MedPlay exposes low-overhead Clip and Stop actions in the foreground-service notification. Clip without an explicit duration reads the persisted ClipLengthPreference; Stop uses the recorder-owned shutdown path. Normal, thermal and fatal shutdown no longer waits for audio/video EOS on the main thread: shutdown is admitted once, new recorder actions are rejected, the overlay is removed immediately, and recorder resources are released on a dedicated shutdown thread. Resource-release failures are isolated so cleanup continues, and service destruction waits until capture resources are released and any already-running clip export has finished.
+
+
+## Session sustainability verdict
+
+RecordingSessionDiagnostics now derives and persists a measurement-only GOOD / DEGRADED / UNSUSTAINABLE verdict from:
+- current target FPS;
+- encoder sample count;
+- timestamp regressions;
+- maximum wall-clock encoder-output gap;
+- time since the last encoded output;
+- maximum Android thermal status;
+- total session duration.
+
+A session with no encoded samples is never reported as GOOD. Zero samples for two seconds or more is UNSUSTAINABLE; a very short zero-sample session is DEGRADED. Current thresholds are deliberately conservative and unit-tested. The verdict does not yet change resolution/FPS automatically; real-device sessions must validate thresholds first.
