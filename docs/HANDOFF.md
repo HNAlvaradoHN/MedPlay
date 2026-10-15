@@ -291,3 +291,8 @@ Before audio leasing, RollingAudioSegmentWriter finalizes its active AAC segment
 ## Remux buffer sizing note
 
 RetroactiveVideoExporter checks MediaExtractor.sampleSize and grows its reusable direct buffer only when a compressed access unit exceeds the 8 MiB baseline, capped defensively at 64 MiB per sample.
+
+
+## Session diagnostics note
+
+MedPlay keeps only the latest compact recording-session summary in internal app storage. It records profile, duration, retention, whether audio was active, maximum Android thermal status, encoded sample count, timestamp regressions and output-gap metrics. It never stores frame/audio payloads in diagnostics. The summary can be viewed from MainActivity without ADB.

@@ -108,6 +108,15 @@ class MainActivity : Activity() {
             }
         }
 
+        val diagnosticsButton = Button(this).apply {
+            text = "Show last recording diagnostics"
+            setOnClickListener {
+                reportView.text =
+                    CaptureService.readLastSessionDiagnostics(this@MainActivity)
+                        ?: "No completed recording diagnostics available yet."
+            }
+        }
+
         val stopButton = Button(this).apply {
             text = "Stop capture service"
             setOnClickListener {
@@ -129,6 +138,7 @@ class MainActivity : Activity() {
             addView(save300Button)
             addView(overlayButton)
             addView(stopButton)
+            addView(diagnosticsButton)
             addView(reportView)
         }
 
