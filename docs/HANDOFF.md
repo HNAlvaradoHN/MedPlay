@@ -261,3 +261,8 @@ PR #19 compiled but introduced a recursive disableInternalAudio() implementation
 ## MediaProjection lifecycle restart note
 
 Capture replacement now releases the entire old projection-owned pipeline before creating a new MediaProjection. Explicit shutdown also unregisters the callback and calls MediaProjection.stop(). A restart is ignored while a retroactive export is active so newly initialized rolling directories cannot invalidate files still leased by that export.
+
+
+## Video PTS normalization note
+
+Do not add encoderMonotonicStartUs directly to raw Surface/MediaCodec presentationTimeUs. Raw video PTS may not be zero-based. MedPlay now subtracts the first observed video PTS, then adds the monotonic session anchor. Tests cover both relative and large absolute-looking input PTS domains.
