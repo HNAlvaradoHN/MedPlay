@@ -35,6 +35,10 @@ class CaptureService : Service() {
     private var rollingAudioWriter: RollingAudioSegmentWriter? = null
     private var floatingClipControl: FloatingClipControl? = null
     private var activeRetentionUs: Long = RollingVideoSegmentWriter.DEFAULT_RETENTION_US
+    private var activeProfile: RecordingProfile? = null
+    private var latestThermalStatus: Int = android.os.PowerManager.THERMAL_STATUS_NONE
+    private var worstSustainabilityVerdict =
+        RecordingSustainabilityEvaluator.Verdict.GOOD
     private val exportInProgress = AtomicBoolean(false)
 
     private val projectionCallback = object : MediaProjection.Callback() {
@@ -109,6 +113,10 @@ class CaptureService : Service() {
             return START_NOT_STICKY
         }
 
+        activeProfile = profile
+        latestThermalStatus = android.os.PowerManager.THERMAL_STATUS_NONE
+        worstSustainabilityVerdict = RecordingSustainabilityEvaluator.Verdict.GOOD
+
         val retention = RecordingRetentionPolicy.choose(
             videoBitrate = profile.bitrate,
             audioBitrate = InternalAudioCapture.AAC_BITRATE,
@@ -162,7 +170,9 @@ class CaptureService : Service() {
         rollingWriter = segmentWriter
         videoEncoder = encoder
 
-        thermalGuard = RuntimeThermalGuard(applicationContext) { action, _ ->
+        thermalGuard = RuntimeThermalGuard(applicationContext) { action, status ->
+            latestThermalStatus = status
+            updateSustainabilityVerdict(encoder, profile)
             if (action.stopCapture) {
                 Handler(Looper.getMainLooper()).post {
                     stopProjectionAndSelf()
@@ -228,6 +238,22 @@ class CaptureService : Service() {
             } finally {
                 exportInProgress.set(false)
             }
+        }
+    }
+
+    private fun updateSustainabilityVerdict(
+        encoder: HardwareVideoEncoder,
+        profile: RecordingProfile,
+    ) {
+        val verdict = RecordingSustainabilityEvaluator.evaluate(
+            RecordingSustainabilityEvaluator.Input(
+                encoderHealth = encoder.healthSnapshot(),
+                thermalStatus = latestThermalStatus,
+                targetFps = profile.fps,
+            )
+        )
+        if (verdict.ordinal > worstSustainabilityVerdict.ordinal) {
+            worstSustainabilityVerdict = verdict
         }
     }
 
@@ -320,6 +346,12 @@ class CaptureService : Service() {
     }
 
     private fun releaseVideoPipeline() {
+        videoEncoder?.let { encoder ->
+            activeProfile?.let { profile ->
+                updateSustainabilityVerdict(encoder, profile)
+            }
+        }
+
         floatingClipControl?.close()
         floatingClipControl = null
 
@@ -340,6 +372,7 @@ class CaptureService : Service() {
 
         runCatching { rollingWriter?.close() }
         rollingWriter = null
+        activeProfile = null
     }
 
     private fun startAsProjectionForegroundService() {
