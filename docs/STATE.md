@@ -338,3 +338,8 @@ InternalAudioCapture teardown now distinguishes intentional stop from fatal fail
 ## Save-triggered sync-frame rollover
 
 MedPlay now reduces the gap between the Clip tap and the end of the saved retroactive clip by marking the rolling writer to rotate on the next sync frame, requesting MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, and waiting off the main thread for at most 750 ms for that newly completed segment. If the encoder ignores the request or the timeout expires, export falls back to the latest completed segments. No active MP4 is read and no media is re-encoded.
+
+
+## Video encoder stop race hardening
+
+Follow-up work serializes HardwareVideoEncoder.stop() with dynamic bitrate and sync-frame parameter updates. The stop-request flag now remains set through teardown, and drain-loop exceptions caused by intentional shutdown are suppressed from the fatal-error callback. start() resets the flag for any future reuse. This prevents a normal forced stop from being misreported as a new pipeline failure.
