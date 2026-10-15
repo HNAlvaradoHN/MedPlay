@@ -1,6 +1,6 @@
 # PROJECT STATE — MedPlay ⏯️
 
-status: ACTIVE_RESEARCH
+status: DEVICE_VALIDATION_READY
 protocol_version: 1
 repository: HNAlvaradoHN/MedPlay
 default_branch: main
@@ -15,20 +15,21 @@ This is MedPlay's first official session. Previous SendGram numbering/content in
 
 ## Verified project state
 
-- Product code: initial Android/Kotlin scaffold and encoder capability probe merged to main; public Android CI passed.
+- Product code: native Android/Kotlin retroactive recorder pipeline is implemented on main through hardware MediaCodec capture, rolling video/AAC segments, keyframe-aware save, no-reencode remux, MediaStore export, thermal protection, overlay/notification controls, configurable clip length, internal-audio toggle, and local session diagnostics.
 - Stable version: none.
-- Development version: none.
-- Release/APK: none.
-- Public CI: REA/JADX smoke workflow exists and passed.
+- Development version: 0.1.0-dev.
+- Release/APK: manual public workflow is merged and ready to produce a `dev-latest` debug APK release; no `dev-latest` Release exists yet.
+- Public Android CI: current main changes have passed unit-test + debug-assemble checks through PR #53.
+- Public REA/JADX smoke workflow: exists and passed; it is no longer on the critical path.
 - Private lab: HNAlvaradoHN/Medplay-Lab.
-- Private Medal analysis workflow: implemented and running successfully with GitHub Actions + JADX.
+- Private Medal analysis: sufficient for current implementation; no broad private analysis runs should be launched unless a specific unanswered reference question justifies one.
 - External paid services: none approved.
 - Secrets allowed in repository: none.
-- Reference target: Medal 7.1.1 Android package, stored temporarily as a private Release asset in Medplay-Lab, not committed to Git history.
+- Reference target: Medal 7.1.1 Android package; it must never be committed to the public repository. Deletion of the temporary private Release asset remains unconfirmed.
 
 ## Current objective
 
-Finish reference analysis of Medal's recorder internals, then scaffold MedPlay as an original native Android/Kotlin app for high-quality retroactive screen recording.
+Build and run the first real-device development APK, then validate capture correctness and sustainability on actual phones before raising default quality or adding automatic resolution/FPS promotion.
 
 The owner's highest priority is not simply "maximum settings". The product must target the best sustainable visual quality while minimizing heat, battery cost, dropped frames, gameplay stutter and device stress.
 
@@ -81,19 +82,18 @@ This direction is favored because it can preserve quality while reducing CPU wor
 
 ## Blockers / pending validation
 
-- Extract the actual live-recorder bitrate/FPS/resolution mapping from Medal.
-- Identify which codecs Medal uses for live recording and whether it selects hardware encoders explicitly.
-- Determine segment duration and retention behavior.
-- Identify any per-device capability filtering.
-- Identify any thermal/battery/performance adaptation logic.
-- Determine keyframe interval and clip assembly behavior.
-- Validate internal-audio strategy.
-- Sustainable profile selector passed public CI and is merged to main.
-- Measure sustained thermals, dropped frames and gameplay impact on real devices.
+- Generate the first `dev-latest` debug APK with the manual public GitHub Actions workflow.
+- Validate MediaProjection, overlay control, notification Clip/Stop actions, 15 s through 5 min clip requests, and MediaStore playback on a real device.
+- Measure sustained thermals, gameplay impact, encoder stalls/output gaps, battery trend and capture stability during at least one 20–30 minute game session.
+- Measure A/V start offset and long-session drift with internal playback audio enabled.
+- Confirm actual retention on-device for the selected bitrate/storage headroom.
+- Validate the observational GOOD / DEGRADED / UNSUSTAINABLE thresholds before using them for automatic profile changes.
+- Decide on resolution/FPS promotion or degradation only from real-device evidence; do not add aggressive automatic restarts yet.
+- Confirm deletion of the old private Medal input Release asset separately; this is not a blocker for public MedPlay implementation.
 
 ## Next step
 
-Validate floating save control and storage-aware 2/3/5-minute retention in public CI, then continue with real-device validation and recorder UX hardening.
+Run **Manual dev APK release** on `main`, install the generated debug APK on a real Android device, execute `docs/DEVICE_TESTING.md`, then copy the last recording diagnostics back into the project for analysis.
 
 
 ## Sustainable profile selector implementation
@@ -424,10 +424,6 @@ Rolling-retention storage estimation now uses the intended audio mode. If intern
 
 MedPlay exposes low-overhead Clip and Stop actions in the foreground-service notification. Clip without an explicit duration reads the persisted ClipLengthPreference; Stop uses the recorder-owned shutdown path. Normal, thermal and fatal shutdown no longer waits for audio/video EOS on the main thread: shutdown is admitted once, new recorder actions are rejected, the overlay is removed immediately, and recorder resources are released on a dedicated shutdown thread. Resource-release failures are isolated so cleanup continues, and service destruction waits until capture resources are released and any already-running clip export has finished.
 
-
-## Notification controls and asynchronous recorder shutdown
-
-MedPlay exposes low-overhead Clip and Stop actions in the foreground-service notification. Clip without an explicit duration reads the persisted ClipLengthPreference; Stop uses the recorder-owned shutdown path. Normal, thermal and fatal shutdown no longer waits for audio/video EOS on the main thread: shutdown is admitted once, new recorder actions are rejected, the overlay is removed immediately, and recorder resources are released on a dedicated shutdown thread. Resource-release failures are isolated so cleanup continues, and service destruction waits until capture resources are released and any already-running clip export has finished.
 
 
 ## Session sustainability verdict
