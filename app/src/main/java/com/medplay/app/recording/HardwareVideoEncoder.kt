@@ -2,6 +2,7 @@ package com.medplay.app.recording
 
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
+import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.Bundle
 import android.os.SystemClock
@@ -55,6 +56,7 @@ class HardwareVideoEncoder(
                 setInteger(MediaFormat.KEY_FRAME_RATE, profile.fps)
                 setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, I_FRAME_INTERVAL_SECONDS)
                 setInteger(MediaFormat.KEY_PRIORITY, 0)
+                applyHardwareQualityHints(this)
             }
 
             createdCodec.configure(
@@ -93,6 +95,40 @@ class HardwareVideoEncoder(
         }
 
         return readySurface
+    }
+
+    private fun applyHardwareQualityHints(format: MediaFormat) {
+        val info = MediaCodecList(MediaCodecList.ALL_CODECS)
+            .codecInfos
+            .firstOrNull { it.name == profile.encoderName }
+            ?: return
+        val capabilities = runCatching {
+            info.getCapabilitiesForType(profile.codec.mimeType)
+        }.getOrNull() ?: return
+        val encoderCapabilities = capabilities.encoderCapabilities ?: return
+
+        if (
+            encoderCapabilities.isBitrateModeSupported(
+                MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
+            )
+        ) {
+            format.setInteger(
+                MediaFormat.KEY_BITRATE_MODE,
+                MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR,
+            )
+        }
+
+        val preferredProfile = when (profile.codec) {
+            VideoCodec.HEVC -> MediaCodecInfo.CodecProfileLevel.HEVCProfileMain
+            VideoCodec.AVC -> MediaCodecInfo.CodecProfileLevel.AVCProfileHigh
+            VideoCodec.AV1 -> null
+        }
+        if (
+            preferredProfile != null &&
+            capabilities.profileLevels.any { it.profile == preferredProfile }
+        ) {
+            format.setInteger(MediaFormat.KEY_PROFILE, preferredProfile)
+        }
     }
 
     @Synchronized

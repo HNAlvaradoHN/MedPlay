@@ -116,3 +116,16 @@ automatically raises resolution/FPS beyond the conservative startup policy.
 - choose one Clip duration, then verify the in-app Save clip button, floating Clip control and notification Clip action all use that same duration;
 - verify there are no duplicate duration controls that can disagree with one another;
 - keep codec/bitrate automatic during this phase; do not infer sustainability from codec capability metadata alone.
+
+
+## High-motion quality / system-inset validation
+
+- verify the first visible control starts below the status bar/camera cutout and no control is hidden behind the bottom navigation/gesture area;
+- rotate the device once and verify left/right display cutouts or navigation bars do not cover controls;
+- in Automatic mode, record the recommended resolution/FPS/codec/bitrate shown by the UI;
+- if the device exposes 1080p60 or 1440p modes, verify only the modes actually validated by the hardware encoder appear;
+- record a shooter or other fast-camera-motion scene with rapid gyro turns and inspect foliage, text, edges and fine texture for smearing/blocking;
+- compare Automatic against 1080p30 on the same scene when both are available; do not assume 60 FPS is sharper unless bitrate and thermals remain healthy;
+- confirm Moderate/Severe thermal states still reduce bitrate and that cooling restores the full selected bitrate;
+- record the actual retention window after the higher-bitrate profile is selected, since the storage-aware buffer may shorten at high quality;
+- confirm save remains remux-only: no post-recording sharpening/color pass is required for the normal clip path.

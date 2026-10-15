@@ -45,7 +45,7 @@ object EncoderCapabilityProbe {
     }
 
     fun supportedStartupProfiles(): List<SustainableProfilePolicy.SupportedProfile> {
-        val targets = SustainableProfilePolicy.startupTargets
+        val targets = SustainableProfilePolicy.qualityTargets
 
         return encoderInfos().flatMap { info ->
             VideoCodec.entries.flatMap { codec ->
@@ -70,17 +70,28 @@ object EncoderCapabilityProbe {
                         }.getOrDefault(false)
                     }
                     .mapNotNull { target ->
+                        if (!hardware) return@mapNotNull null
+
                         val range = videoCaps.bitrateRange
-                        if (!range.contains(target.bitrate)) return@mapNotNull null
+                        if (range.upper < target.minimumBitrate) {
+                            return@mapNotNull null
+                        }
+                        val selectedBitrate = minOf(
+                            target.preferredBitrate,
+                            range.upper,
+                        )
+                        if (selectedBitrate < target.minimumBitrate) {
+                            return@mapNotNull null
+                        }
 
                         SustainableProfilePolicy.SupportedProfile(
                             encoderName = info.name,
                             codec = codec,
-                            hardwareAccelerated = hardware,
+                            hardwareAccelerated = true,
                             width = target.width,
                             height = target.height,
                             fps = target.fps,
-                            bitrate = target.bitrate,
+                            bitrate = selectedBitrate,
                         )
                     }
                     .toList()

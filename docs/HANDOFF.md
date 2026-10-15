@@ -380,3 +380,12 @@ The current development APK has been generated successfully and published under 
 ## Simplified settings / localization note
 
 The UI now uses one Clip duration selector and one Save clip button; the floating and notification Clip actions read the same persisted duration. App language is selectable between Spanish and English. Recording quality offers Automatic plus only hardware-validated 720p30/720p60/1080p30 modes. Codec/bitrate remain automatically selected within the chosen profile. Do not add arbitrary bitrate or 1080p60 controls until real-device sustainability data justifies them.
+
+
+## High-motion quality / inset handoff
+
+The current quality branch responds to real shooter/gyroscope testing where 1080p30 HEVC at the prior conservative bitrate looked smeared/pixelated during rapid motion. The implementation raises per-profile bitrate budgets, prefers hardware VBR, exposes 1080p60/1440p modes only when the device validates them, and keeps Automatic focused on high-quality 1080p before using 1440p automatically.
+
+MainActivity also handles system bars and display cutouts on every edge so the language/status/quality controls are not hidden by Android 15 edge-to-edge layout.
+
+Do not add mandatory post-processing or sharpening to the normal save path: that would require decode/re-encode, increase heat/battery use and cannot restore detail already lost by the encoder. The next evidence step is a real-device shooter/gyro comparison using the updated APK and copied diagnostics.
