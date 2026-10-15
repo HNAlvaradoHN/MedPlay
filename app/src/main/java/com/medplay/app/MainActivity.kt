@@ -28,6 +28,7 @@ import android.widget.Spinner
 import android.widget.TextView
 import com.medplay.app.recording.AppLanguagePreference
 import com.medplay.app.recording.CaptureService
+import com.medplay.app.recording.ClipLibrary
 import com.medplay.app.recording.ClipLengthPreference
 import com.medplay.app.recording.EncoderCapabilityProbe
 import com.medplay.app.recording.FloatingControlStylePreference
@@ -35,12 +36,15 @@ import com.medplay.app.recording.GlassClipView
 import com.medplay.app.recording.InternalAudioPreference
 import com.medplay.app.recording.MicrophoneVoicePreference
 import com.medplay.app.recording.RecordingQualityPreference
+import java.text.DateFormat
+import java.util.Date
 import kotlin.concurrent.thread
 
 class MainActivity : Activity() {
 
     private lateinit var statusView: TextView
     private lateinit var reportView: TextView
+    private lateinit var clipLibraryContainer: LinearLayout
     private lateinit var mediaProjectionManager: MediaProjectionManager
     private var pendingCaptureAfterOverlayPermission = false
 
@@ -217,6 +221,22 @@ class MainActivity : Activity() {
                     "Saving the previous ${durationLabel(seconds)}...",
                 )
             }
+        }
+
+        val clipLibraryLabel = TextView(this).apply {
+            text = tr("Mis clips", "My clips")
+            textSize = 16f
+        }
+
+        val refreshClipLibraryButton = Button(this).apply {
+            text = tr("Actualizar clips", "Refresh clips")
+            setOnClickListener {
+                refreshClipLibrary()
+            }
+        }
+
+        clipLibraryContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
         }
 
         val floatingStyleLabel = TextView(this).apply {
@@ -477,6 +497,9 @@ class MainActivity : Activity() {
             addView(clipLengthLabel)
             addView(clipLengthSpinner)
             addView(saveClipButton)
+            addView(clipLibraryLabel)
+            addView(refreshClipLibraryButton)
+            addView(clipLibraryContainer)
 
             addView(floatingStyleLabel)
             addView(floatingPreviewLabel)
@@ -537,6 +560,7 @@ class MainActivity : Activity() {
             }
         }
         setContentView(rootScrollView)
+        refreshClipLibrary()
         rootScrollView.requestApplyInsets()
         rootScrollView.post {
             rootScrollView.scrollTo(0, 0)
@@ -606,6 +630,64 @@ class MainActivity : Activity() {
                     )
                 }
             }
+        }
+    }
+
+    private fun refreshClipLibrary() {
+        if (!::clipLibraryContainer.isInitialized) return
+
+        clipLibraryContainer.removeAllViews()
+        val clips = ClipLibrary.listExisting(this)
+
+        if (clips.isEmpty()) {
+            clipLibraryContainer.addView(
+                TextView(this).apply {
+                    text = tr(
+                        "Los clips que guardes aparecerán aquí sin duplicar el archivo de la Galería.",
+                        "Clips you save will appear here without duplicating the Gallery file.",
+                    )
+                    textSize = 13f
+                }
+            )
+            return
+        }
+
+        clips.forEach { clip ->
+            val durationSeconds = (clip.durationUs / 1_000_000L).coerceAtLeast(0L)
+            val capturedAt = DateFormat.getDateTimeInstance(
+                DateFormat.SHORT,
+                DateFormat.SHORT,
+            ).format(Date(clip.createdAtMs))
+            val audioLabel = when {
+                clip.hasGameAudio && clip.hasMicrophone ->
+                    tr("Juego + voz", "Game + voice")
+                clip.hasGameAudio ->
+                    tr("Audio del juego", "Game audio")
+                clip.hasMicrophone ->
+                    tr("Voz", "Voice")
+                else ->
+                    tr("Sin audio", "No audio")
+            }
+
+            clipLibraryContainer.addView(
+                Button(this).apply {
+                    text = "${durationSeconds}s • $audioLabel • $capturedAt"
+                    setOnClickListener {
+                        val openIntent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(clip.uri, "video/mp4")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        if (openIntent.resolveActivity(packageManager) != null) {
+                            startActivity(openIntent)
+                        } else {
+                            statusView.text = tr(
+                                "No hay una aplicación disponible para abrir este clip.",
+                                "No application is available to open this clip.",
+                            )
+                        }
+                    }
+                }
+            )
         }
     }
 
@@ -683,6 +765,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        refreshClipLibrary()
         if (
             pendingCaptureAfterOverlayPermission &&
             Settings.canDrawOverlays(this)
