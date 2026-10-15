@@ -29,6 +29,11 @@ class RetroactiveVideoExporter(
         val videoSegments = videoLease.segments
         require(videoSegments.isNotEmpty())
 
+        validateSegments(
+            videoSegments = videoSegments,
+            audioSegments = audioLease?.segments.orEmpty(),
+        )
+
         val displayName = "MedPlay_" + System.currentTimeMillis() + ".mp4"
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
@@ -86,8 +91,20 @@ class RetroactiveVideoExporter(
             videoSegments.first().file.absolutePath,
             "video/",
         )
+        validateTrackFormats(
+            files = videoSegments.map { it.file.absolutePath },
+            mimePrefix = "video/",
+            referenceFormat = videoFormat,
+        )
+
         val audioFormat = audioSegments.firstOrNull()?.let {
-            readTrackFormat(it.file.absolutePath, "audio/")
+            readTrackFormat(it.file.absolutePath, "audio/").also { reference ->
+                validateTrackFormats(
+                    files = audioSegments.map { segment -> segment.file.absolutePath },
+                    mimePrefix = "audio/",
+                    referenceFormat = reference,
+                )
+            }
         }
 
         val muxer = MediaMuxer(
@@ -108,8 +125,9 @@ class RetroactiveVideoExporter(
             val buffer = ByteBuffer.allocateDirect(COPY_BUFFER_BYTES)
             val info = MediaCodec.BufferInfo()
 
+            var lastVideoPtsUs = Long.MIN_VALUE
             videoSegments.forEach { segment ->
-                copyTrackSegment(
+                lastVideoPtsUs = copyTrackSegment(
                     filePath = segment.file.absolutePath,
                     mimePrefix = "video/",
                     segmentStartUs = segment.sourceStartUs,
@@ -119,12 +137,14 @@ class RetroactiveVideoExporter(
                     outputTrack = videoTrack,
                     buffer = buffer,
                     info = info,
+                    lastWrittenPtsUs = lastVideoPtsUs,
                 )
             }
 
             if (audioTrack != null) {
+                var lastAudioPtsUs = Long.MIN_VALUE
                 audioSegments.forEach { segment ->
-                    copyTrackSegment(
+                    lastAudioPtsUs = copyTrackSegment(
                         filePath = segment.file.absolutePath,
                         mimePrefix = "audio/",
                         segmentStartUs = segment.sourceStartUs,
@@ -134,6 +154,7 @@ class RetroactiveVideoExporter(
                         outputTrack = audioTrack,
                         buffer = buffer,
                         info = info,
+                        lastWrittenPtsUs = lastAudioPtsUs,
                     )
                 }
             }
@@ -155,8 +176,10 @@ class RetroactiveVideoExporter(
         outputTrack: Int,
         buffer: ByteBuffer,
         info: MediaCodec.BufferInfo,
-    ) {
+        lastWrittenPtsUs: Long,
+    ): Long {
         val extractor = MediaExtractor()
+        var latestWrittenUs = lastWrittenPtsUs
 
         try {
             extractor.setDataSource(filePath)
@@ -183,18 +206,94 @@ class RetroactiveVideoExporter(
                     break
                 }
 
+                val outputPtsUs = absoluteUs - clipStartUs
+                check(outputPtsUs > latestWrittenUs) {
+                    "Non-monotonic $mimePrefix timestamp during remux"
+                }
+
                 info.set(
                     0,
                     size,
-                    absoluteUs - clipStartUs,
+                    outputPtsUs,
                     extractor.sampleFlags,
                 )
                 muxer.writeSampleData(outputTrack, buffer, info)
+                latestWrittenUs = outputPtsUs
                 extractor.advance()
             }
         } finally {
             extractor.release()
         }
+
+        return latestWrittenUs
+    }
+
+    private fun validateSegments(
+        videoSegments: List<RollingVideoSegmentWriter.Segment>,
+        audioSegments: List<RollingAudioSegmentWriter.Segment>,
+    ) {
+        videoSegments.forEach {
+            check(it.file.isFile && it.file.length() > 0L) {
+                "Missing or empty video segment: ${it.file.name}"
+            }
+        }
+        ClipTimelineValidator.validateOrderedNonOverlapping(
+            videoSegments.map {
+                ClipTimelineValidator.Range(it.sourceStartUs, it.sourceEndUs)
+            }
+        )
+
+        if (audioSegments.isNotEmpty()) {
+            audioSegments.forEach {
+                check(it.file.isFile && it.file.length() > 0L) {
+                    "Missing or empty audio segment: ${it.file.name}"
+                }
+            }
+            ClipTimelineValidator.validateOrderedNonOverlapping(
+                audioSegments.map {
+                    ClipTimelineValidator.Range(it.sourceStartUs, it.sourceEndUs)
+                }
+            )
+        }
+    }
+
+    private fun validateTrackFormats(
+        files: List<String>,
+        mimePrefix: String,
+        referenceFormat: MediaFormat,
+    ) {
+        val reference = TrackFormatSignature.from(referenceFormat)
+
+        files.drop(1).forEach { path ->
+            val format = readTrackFormat(path, mimePrefix)
+            check(TrackFormatSignature.from(format) == reference) {
+                "Track format changed across rolling segments for $mimePrefix"
+            }
+        }
+    }
+
+    private data class TrackFormatSignature(
+        val mime: String,
+        val width: Int?,
+        val height: Int?,
+        val sampleRate: Int?,
+        val channelCount: Int?,
+    ) {
+        companion object {
+            fun from(format: MediaFormat): TrackFormatSignature {
+                return TrackFormatSignature(
+                    mime = format.getString(MediaFormat.KEY_MIME).orEmpty(),
+                    width = format.intOrNull(MediaFormat.KEY_WIDTH),
+                    height = format.intOrNull(MediaFormat.KEY_HEIGHT),
+                    sampleRate = format.intOrNull(MediaFormat.KEY_SAMPLE_RATE),
+                    channelCount = format.intOrNull(MediaFormat.KEY_CHANNEL_COUNT),
+                )
+            }
+        }
+    }
+
+    private fun MediaFormat.intOrNull(key: String): Int? {
+        return if (containsKey(key)) getInteger(key) else null
     }
 
     private fun readTrackFormat(
