@@ -221,3 +221,8 @@ Video and internal AAC now use monotonic start anchors so segment metadata share
 ## Floating control / retention note
 
 The overlay is optional and only appears when Android overlay permission is granted and capture is active. A tap saves the default 30-second clip; the control is draggable. The rolling window can extend to 2/3/5 minutes, but retention is calculated from current bitrate and free storage, capped to a 768 MiB rolling budget with a 768 MiB reserve. If a safe one-minute window cannot fit, recording startup is refused.
+
+
+## Encoder hardening note
+
+Startup selection now requires hardware-backed, size/rate/bitrate-valid encoders that also advertise COLOR_FormatSurface. The video encoder keeps lightweight health counters for output gaps and timestamp regressions. Do not turn those observations into aggressive automatic resolution/FPS switching until thresholds are validated on real phones.
