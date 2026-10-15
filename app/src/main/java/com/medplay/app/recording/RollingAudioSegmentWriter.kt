@@ -6,6 +6,7 @@ import android.media.MediaMuxer
 import java.io.File
 import java.nio.ByteBuffer
 import java.util.ArrayDeque
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Writes already-encoded AAC into short MP4 audio segments on the same
@@ -27,11 +28,10 @@ class RollingAudioSegmentWriter(
         val segments: List<Segment>,
         private val releaser: () -> Unit,
     ) : AutoCloseable {
-        private var released = false
+        private val released = AtomicBoolean(false)
 
         override fun close() {
-            if (released) return
-            released = true
+            if (!released.compareAndSet(false, true)) return
             releaser()
         }
     }
@@ -157,8 +157,14 @@ class RollingAudioSegmentWriter(
         currentEndUs = Long.MIN_VALUE
 
         if (currentMuxer != null) {
-            runCatching { currentMuxer.stop() }
-            runCatching { currentMuxer.release() }
+            try {
+                currentMuxer.stop()
+            } catch (error: Throwable) {
+                file?.delete()
+                throw error
+            } finally {
+                runCatching { currentMuxer.release() }
+            }
         }
 
         if (file != null && startUs != Long.MIN_VALUE && endUs >= startUs) {
