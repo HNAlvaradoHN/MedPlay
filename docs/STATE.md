@@ -15,7 +15,7 @@ This is MedPlay's first official session. Previous SendGram numbering/content in
 
 ## Verified project state
 
-- Product code: initial Android/Kotlin scaffold added on feature branch; build validation pending.
+- Product code: initial Android/Kotlin scaffold and encoder capability probe merged to main; public Android CI passed.
 - Stable version: none.
 - Development version: none.
 - Release/APK: none.
@@ -93,4 +93,4 @@ This direction is favored because it can preserve quality while reducing CPU wor
 
 ## Next step
 
-Validate the public Android scaffold, then implement the original MedPlay capability-based profile selector before adding MediaProjection capture.
+Implement the original MedPlay capability-based profile selector with sustainable-quality safeguards, then add MediaProjection capture.
