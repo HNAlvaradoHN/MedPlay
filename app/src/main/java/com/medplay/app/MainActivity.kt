@@ -9,10 +9,15 @@ import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.provider.Settings
 import android.os.Bundle
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import com.medplay.app.recording.CaptureService
+import com.medplay.app.recording.ClipLengthPreference
 import com.medplay.app.recording.EncoderCapabilityProbe
 import kotlin.concurrent.thread
 
@@ -66,6 +71,44 @@ class MainActivity : Activity() {
             setOnClickListener {
                 startService(CaptureService.createSaveIntent(this@MainActivity, 60))
                 statusView.text = "Saving previous 60 seconds..."
+            }
+        }
+
+        val clipLengthLabel = TextView(this).apply {
+            text = "Floating clip length"
+            textSize = 14f
+        }
+
+        val clipLengthOptions = ClipLengthPreference.allowedSeconds
+        val clipLengthLabels = clipLengthOptions.map { seconds ->
+            when {
+                seconds < 60 -> "$seconds seconds"
+                seconds == 60 -> "1 minute"
+                else -> "${seconds / 60} minutes"
+            }
+        }
+        val clipLengthSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(
+                this@MainActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                clipLengthLabels,
+            )
+            val current = ClipLengthPreference.get(this@MainActivity)
+            setSelection(clipLengthOptions.indexOf(current).coerceAtLeast(0))
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: android.view.View?,
+                    position: Int,
+                    id: Long,
+                ) {
+                    ClipLengthPreference.set(
+                        this@MainActivity,
+                        clipLengthOptions[position],
+                    )
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
             }
         }
 
@@ -136,13 +179,19 @@ class MainActivity : Activity() {
             addView(save120Button)
             addView(save180Button)
             addView(save300Button)
+            addView(clipLengthLabel)
+            addView(clipLengthSpinner)
             addView(overlayButton)
             addView(stopButton)
             addView(diagnosticsButton)
             addView(reportView)
         }
 
-        setContentView(content)
+        setContentView(
+            ScrollView(this).apply {
+                addView(content)
+            }
+        )
 
         thread(name = "medplay-codec-probe") {
             val report = runCatching { EncoderCapabilityProbe.buildTextReport() }
