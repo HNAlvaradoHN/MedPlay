@@ -356,3 +356,8 @@ HardwareVideoEncoder no longer feeds BUFFER_FLAG_CODEC_CONFIG buffers into Encod
 ## Duplicate start note
 
 ACTION_START is ignored while MediaProjection is already active; the current session remains intact. Do not reintroduce live-session replacement on the Service main thread. Stop the active session first, then request a new projection session.
+
+
+## Copy diagnostics note
+
+MainActivity can copy the last persisted recording diagnostic summary to the clipboard. The copied text contains only compact session/encoder/thermal metadata, never recorded media payloads. This is the preferred way to paste a real-device session result back into ChatGPT.

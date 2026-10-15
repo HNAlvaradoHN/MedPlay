@@ -457,3 +457,8 @@ EncoderRuntimeHealth now observes only non-empty encoded media access units. Med
 ## Duplicate capture-start guard
 
 CaptureService now rejects a second ACTION_START while a MediaProjection session is already active. The existing recorder remains untouched and the foreground notification reports that capture is already active. This avoids synchronously tearing down and recreating AudioRecord/MediaCodec/VirtualDisplay from the service main thread when the user taps Enable screen capture again. A new capture session should be started only after the current one has been stopped.
+
+
+## Copyable session diagnostics
+
+MainActivity now exposes a **Copy last recording diagnostics** action. It copies only the compact persisted diagnostic text (profile, duration, retention, thermal/encoder-health metrics and sustainability verdict) to the Android clipboard. No video/audio payload, recording file, token or private app data is included. If no completed session exists, the UI reports that instead of copying an empty value.

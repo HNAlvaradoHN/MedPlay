@@ -79,6 +79,7 @@ test. Capability metadata means “supported”, not “sustainable”.
 ## Session diagnostics
 
 After stopping capture, use **Show last recording diagnostics** in MainActivity.
+Use **Copy last recording diagnostics** to copy the same compact summary for sharing/comparison.
 
 Record the values for:
 
