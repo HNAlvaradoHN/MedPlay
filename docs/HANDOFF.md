@@ -306,3 +306,8 @@ Video and AAC startup are transactional. Resources created before full publicati
 ## Capture startup failure note
 
 MediaProjection acquisition/registration, profile probing, encoder startup, VirtualDisplay creation and thermal-guard startup are failure-contained. A startup exception must end in bounded cleanup and service stop; secondary cleanup failures must not block projection teardown.
+
+
+## Clip-save feedback note
+
+Clip-save progress/outcome is surfaced through the existing foreground-service notification only on save events. This adds no per-frame logging or media processing. A late export completion must not recreate a notification after MediaProjection has already shut down, and export failure must not stop the active recorder.
