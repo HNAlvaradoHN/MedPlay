@@ -1,8 +1,10 @@
 package com.medplay.app
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.widget.Button
@@ -37,10 +39,7 @@ class MainActivity : Activity() {
         val startButton = Button(this).apply {
             text = "Enable screen capture"
             setOnClickListener {
-                startActivityForResult(
-                    mediaProjectionManager.createScreenCaptureIntent(),
-                    REQUEST_MEDIA_PROJECTION,
-                )
+                requestCaptureWithOptionalInternalAudio()
             }
         }
 
@@ -102,6 +101,43 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun requestCaptureWithOptionalInternalAudio() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            launchMediaProjectionConsent()
+            return
+        }
+
+        requestPermissions(
+            arrayOf(Manifest.permission.RECORD_AUDIO),
+            REQUEST_RECORD_AUDIO,
+        )
+    }
+
+    private fun launchMediaProjectionConsent() {
+        startActivityForResult(
+            mediaProjectionManager.createScreenCaptureIntent(),
+            REQUEST_MEDIA_PROJECTION,
+        )
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode != REQUEST_RECORD_AUDIO) return
+
+        val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+        statusView.text = if (granted) {
+            "Internal audio permission granted."
+        } else {
+            "Internal audio unavailable; continuing video-only."
+        }
+        launchMediaProjectionConsent()
+    }
+
     @Deprecated("Deprecated in Android API, kept here to avoid extra UI dependencies in the prototype.")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -124,5 +160,6 @@ class MainActivity : Activity() {
 
     companion object {
         private const val REQUEST_MEDIA_PROJECTION = 2001
+        private const val REQUEST_RECORD_AUDIO = 2002
     }
 }
