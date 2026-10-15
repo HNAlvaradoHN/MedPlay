@@ -331,3 +331,8 @@ Retention estimation includes AAC bitrate only when internal audio is enabled an
 ## Notification controls / shutdown note
 
 The foreground notification exposes Clip and Stop. Clip reads the persisted default duration when no explicit duration is supplied. Stop, thermal stops, projection callbacks and fatal video errors enter a one-shot asynchronous shutdown; heavy EOS/resource waits occur off the main thread, and stopSelf() waits for both recorder-resource release and any active export.
+
+
+## Notification controls / shutdown note
+
+The foreground notification exposes Clip and Stop. Clip reads the persisted default duration when no explicit duration is supplied. Stop, thermal stops, projection callbacks and fatal video errors enter a one-shot asynchronous shutdown; heavy EOS/resource waits occur off the main thread, and stopSelf() waits for both recorder-resource release and any active export.
