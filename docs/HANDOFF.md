@@ -174,7 +174,7 @@ The intended long-term quality strategy is adaptive:
 1. The Android/Kotlin scaffold has passed public CI and is merged to main.
 2. Sustainable startup profile selector passed public CI and is merged.
 3. MediaProjection consent + foreground-service lifecycle passed CI and is merged.
-4. Hardware MediaCodec/VirtualDisplay pipeline passed CI and is merged. Current branch writes compressed output into keyframe-aligned rolling MP4 segments; validate CI, merge, then implement retroactive selection/remux/export.
+4. Hardware pipeline and rolling segments passed CI and are merged. Current branch implements 15/30/60-second video-only retroactive remux/export to MediaStore; validate CI, merge, then add audio and runtime health monitoring.
 5. Measure sustained performance on real devices before raising default quality.
 
 
@@ -196,3 +196,8 @@ The capture path now targets zero CPU frame conversion: MediaProjection creates 
 ## Rolling segment implementation note
 
 Video segments are cut only on sync frames and are written from already-compressed MediaCodec output into MediaMuxer. Default prototype target is 2-second segments retained for 60 seconds in app cache. The retention window is bounded and deletes old files. This is the foundation for later 15s/30s/60s/etc. retroactive clip selection without re-encoding.
+
+
+## Retroactive export implementation note
+
+The exporter never decodes or re-encodes video. It leases completed rolling segments, concatenates compressed video samples with MediaExtractor/MediaMuxer, and publishes the final MP4 to Movies/MedPlay through MediaStore. The active segment is intentionally excluded because it is still open for writing; current saves can therefore trail the button press by up to approximately one 2-second segment.

@@ -26,6 +26,8 @@ class RollingVideoSegmentWriter(
     )
 
     private val completed = ArrayDeque<Segment>()
+    private val leasedPaths = mutableSetOf<String>()
+    private var latestCompletedEndUs = Long.MIN_VALUE
 
     private var outputFormat: MediaFormat? = null
     private var muxer: MediaMuxer? = null
@@ -83,18 +85,37 @@ class RollingVideoSegmentWriter(
         currentEndUs = info.presentationTimeUs
     }
 
-    @Synchronized
-    fun snapshot(): List<Segment> {
-        val result = completed.toMutableList()
-        val file = currentFile
-        if (
-            file != null &&
-            currentStartUs != Long.MIN_VALUE &&
-            currentEndUs >= currentStartUs
-        ) {
-            result += Segment(file, currentStartUs, currentEndUs)
+    class SegmentLease internal constructor(
+        val segments: List<Segment>,
+        private val releaser: () -> Unit,
+    ) : AutoCloseable {
+        private var released = false
+
+        override fun close() {
+            if (released) return
+            released = true
+            releaser()
         }
-        return result
+    }
+
+    @Synchronized
+    fun leaseCompleted(durationUs: Long): SegmentLease? {
+        require(durationUs > 0)
+        if (completed.isEmpty()) return null
+
+        val latestUs = completed.last().sourceEndUs
+        val desiredStartUs = latestUs - durationUs
+        val selected = completed
+            .filter { it.sourceEndUs >= desiredStartUs }
+            .toList()
+
+        if (selected.isEmpty()) return null
+
+        selected.forEach { leasedPaths += it.file.absolutePath }
+
+        return SegmentLease(selected) {
+            releaseLease(selected)
+        }
     }
 
     @Synchronized
@@ -145,6 +166,7 @@ class RollingVideoSegmentWriter(
 
         if (file != null && startUs != Long.MIN_VALUE && endUs >= startUs) {
             completed.addLast(Segment(file, startUs, endUs))
+            latestCompletedEndUs = endUs
             trimRetention(endUs)
         } else {
             file?.delete()
@@ -157,8 +179,17 @@ class RollingVideoSegmentWriter(
         while (completed.size > 1) {
             val oldest = completed.first()
             if (oldest.sourceEndUs >= keepFromUs) break
+            if (oldest.file.absolutePath in leasedPaths) break
             completed.removeFirst()
             oldest.file.delete()
+        }
+    }
+
+    @Synchronized
+    private fun releaseLease(segments: List<Segment>) {
+        segments.forEach { leasedPaths.remove(it.file.absolutePath) }
+        if (latestCompletedEndUs != Long.MIN_VALUE) {
+            trimRetention(latestCompletedEndUs)
         }
     }
 

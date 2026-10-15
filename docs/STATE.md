@@ -93,7 +93,7 @@ This direction is favored because it can preserve quality while reducing CPU wor
 
 ## Next step
 
-Validate rolling MP4 segments in public CI, then implement retroactive clip selection/remux and MediaStore export.
+Validate retroactive clip selection/remux/MediaStore export in public CI, then add audio and runtime health monitoring.
 
 
 ## Sustainable profile selector implementation
@@ -135,7 +135,7 @@ Hardware video pipeline passed public CI and is merged. Current feature branch r
 
 ## Rolling encoded segment buffer
 
-Current feature branch implements video-only rolling MP4 segments:
+Rolling MP4 segments passed public CI and are merged. The current feature branch implements video-only retroactive export:
 - MediaCodec compressed output is written directly to MediaMuxer;
 - segment cuts occur only on encoder keyframes;
 - target segment duration is 2 seconds;
@@ -145,3 +145,18 @@ Current feature branch implements video-only rolling MP4 segments:
 - no raw-frame buffering and no re-encoding are used.
 
 The writer currently performs MediaMuxer writes on the encoder drain thread. Because it writes compressed data rather than raw frames, this is intentionally simple for the first prototype, but real-device measurements must verify that storage latency does not back-pressure the encoder. If it does, move mux writes to a bounded dedicated I/O queue without introducing raw-frame copies.
+
+
+## Retroactive video export
+
+Current feature branch adds the first end-to-end save path:
+- UI buttons request the previous 15, 30 or 60 seconds;
+- only completed keyframe-aligned rolling segments are selected;
+- selected segments are leased so retention cleanup cannot delete them mid-export;
+- MediaExtractor reads compressed samples from each segment;
+- MediaMuxer writes one final MP4 directly into MediaStore under Movies/MedPlay;
+- timestamps are translated onto one monotonic output timeline;
+- no video decode/re-encode occurs during save;
+- export runs off the service main thread.
+
+Important limitation for this prototype: the currently open rolling segment is not exported until it is completed on the next keyframe boundary. That keeps the save path safe and avoids reading an MP4 while MediaMuxer is still writing it. With the current 2-second keyframe/segment target, the saved clip may end roughly up to one segment behind the exact button press. A later refinement can request an immediate sync frame/segment rollover before export if real-device testing shows the extra complexity is worthwhile.
