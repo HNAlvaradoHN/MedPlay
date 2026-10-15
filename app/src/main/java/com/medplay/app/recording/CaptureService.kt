@@ -254,11 +254,6 @@ class CaptureService : Service() {
         sessionStartedUs = SystemClock.elapsedRealtimeNanos() / 1_000L
         maxThermalStatus = 0
         sessionAudioWasActive = false
-        initialSessionProfile = null
-        thermalProfileDowngrades = 0
-        accumulatedEncodedSamples = 0L
-        accumulatedTimestampRegressions = 0L
-        accumulatedMaxWallOutputGapUs = 0L
         sessionMicrophoneWasActive = false
         sessionMicrophoneWasSilenced = false
         microphoneCurrentlySilenced = false
@@ -879,6 +874,13 @@ class CaptureService : Service() {
 
         maxThermalStatus = 0
         sessionAudioWasActive = false
+        sessionMicrophoneWasActive = false
+        sessionMicrophoneWasSilenced = false
+        initialSessionProfile = null
+        thermalProfileDowngrades = 0
+        accumulatedEncodedSamples = 0L
+        accumulatedTimestampRegressions = 0L
+        accumulatedMaxWallOutputGapUs = 0L
 
         runCatching {
             File(filesDir, LAST_SESSION_DIAGNOSTICS_FILE)
