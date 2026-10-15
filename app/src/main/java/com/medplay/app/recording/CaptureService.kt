@@ -431,6 +431,7 @@ class CaptureService : Service() {
     }
 
     private fun updateCaptureNotification(text: String) {
+        if (mediaProjection == null) return
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, buildNotification(text))
     }
