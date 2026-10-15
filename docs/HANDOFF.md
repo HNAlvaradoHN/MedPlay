@@ -174,7 +174,7 @@ The intended long-term quality strategy is adaptive:
 1. The Android/Kotlin scaffold has passed public CI and is merged to main.
 2. Sustainable startup profile selector passed public CI and is merged.
 3. MediaProjection consent + foreground-service lifecycle passed CI and is merged.
-4. Current feature branch connects VirtualDisplay directly to a surface-input hardware MediaCodec encoder. Validate CI, merge, then route encoded samples into short rolling segments.
+4. Hardware MediaCodec/VirtualDisplay pipeline passed CI and is merged. Current branch writes compressed output into keyframe-aligned rolling MP4 segments; validate CI, merge, then implement retroactive selection/remux/export.
 5. Measure sustained performance on real devices before raising default quality.
 
 
@@ -191,3 +191,8 @@ The projection token/lifecycle belongs to a dedicated foreground CaptureService.
 ## Hardware encoder pipeline note
 
 The capture path now targets zero CPU frame conversion: MediaProjection creates a VirtualDisplay whose Surface is owned by the selected hardware MediaCodec encoder. Output is drained continuously. Do not insert ImageReader/Bitmap/YUV conversion into the normal recording path unless a future feature has a compelling measured reason, because that would add memory bandwidth, CPU/GPU work and heat.
+
+
+## Rolling segment implementation note
+
+Video segments are cut only on sync frames and are written from already-compressed MediaCodec output into MediaMuxer. Default prototype target is 2-second segments retained for 60 seconds in app cache. The retention window is bounded and deletes old files. This is the foundation for later 15s/30s/60s/etc. retroactive clip selection without re-encoding.
