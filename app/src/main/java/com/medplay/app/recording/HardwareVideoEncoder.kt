@@ -4,6 +4,7 @@ import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.Surface
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
@@ -15,6 +16,7 @@ class HardwareVideoEncoder(
 ) {
 
     interface SampleConsumer {
+        fun onEncoderStarted(monotonicStartUs: Long) = Unit
         fun onOutputFormat(format: MediaFormat)
         fun onSample(buffer: ByteBuffer, info: MediaCodec.BufferInfo)
 
@@ -56,7 +58,9 @@ class HardwareVideoEncoder(
         )
 
         val surface = createdCodec.createInputSurface()
+        val monotonicStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
         createdCodec.start()
+        sampleConsumer.onEncoderStarted(monotonicStartUs)
 
         codec = createdCodec
         inputSurface = surface
