@@ -233,6 +233,11 @@ class CaptureService : Service() {
         val audioCapture = InternalAudioCapture(
             mediaProjection = projection,
             consumer = audioWriter,
+            onFatalError = {
+                Handler(Looper.getMainLooper()).post {
+                    disableInternalAudio()
+                }
+            },
         )
         val started = runCatching {
             audioCapture.start()
@@ -244,8 +249,12 @@ class CaptureService : Service() {
             internalAudioCapture = audioCapture
         } else {
             audioCapture.stop()
-            audioWriter.close()
+            runCatching { audioWriter.close() }
         }
+    }
+
+    private fun disableInternalAudio() {
+        disableInternalAudio()
     }
 
     private fun showFloatingControl() {
