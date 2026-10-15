@@ -365,3 +365,8 @@ Current feature branch prepares real-device validation without adding per-frame 
 - MainActivity can display the latest summary directly on-device, avoiding ADB/PC for initial validation.
 
 This telemetry is diagnostic only. It does not yet automatically change resolution/FPS because thresholds still require real-device evidence.
+
+
+## Capture startup failure containment
+
+CaptureService startup now contains failures from MediaProjection acquisition/callback registration, codec profile probing, video encoder startup, VirtualDisplay creation and thermal-guard startup. Each failure path performs bounded cleanup and stops the service instead of allowing a partially initialized recorder to escape through an exception. Local encoder/writer cleanup is wrapped so a secondary close failure cannot prevent MediaProjection teardown.
