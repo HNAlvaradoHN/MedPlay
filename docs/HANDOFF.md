@@ -241,3 +241,8 @@ Retroactive export now rejects missing/empty segments, overlapping timelines, no
 ## Serialized export note
 
 MedPlay now allows only one retroactive remux/export at a time. Extra taps during an active export are ignored to avoid duplicated MediaExtractor/MediaMuxer I/O, temporary lease growth and avoidable heat. SAVE/overlay actions received while capture is inactive no longer leave a started service hanging around.
+
+
+## Rolling segment finalization note
+
+Completed rolling segments are now considered valid only after MediaMuxer.stop() succeeds. Failed finalization deletes the file instead of exposing it to leases/export. SegmentLease.close() is thread-safe/idempotent, and teardown catches close-time muxer failures so service shutdown remains bounded.
