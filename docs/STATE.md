@@ -338,3 +338,8 @@ InternalAudioCapture teardown now distinguishes intentional stop from fatal fail
 ## Save-triggered sync-frame rollover
 
 MedPlay now reduces the gap between the Clip tap and the end of the saved retroactive clip by marking the rolling writer to rotate on the next sync frame, requesting MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, and waiting off the main thread for at most 750 ms for that newly completed segment. If the encoder ignores the request or the timeout expires, export falls back to the latest completed segments. No active MP4 is read and no media is re-encoded.
+
+
+## Adaptive remux sample buffer
+
+Retroactive export no longer assumes every encoded access unit fits inside a fixed 8 MiB direct buffer. MediaExtractor.sampleSize is inspected before each read; the reusable direct buffer grows only when an actual encoded sample requires more capacity. The exporter keeps an 8 MiB baseline and allows growth up to 64 MiB per encoded sample as a defensive memory bound. This removes an avoidable failure mode for unusually large keyframes while still preventing an anomalous/corrupt segment from forcing unbounded allocation.
