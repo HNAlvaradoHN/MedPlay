@@ -174,7 +174,7 @@ The intended long-term quality strategy is adaptive:
 1. The Android/Kotlin scaffold has passed public CI and is merged to main.
 2. Sustainable startup profile selector passed public CI and is merged.
 3. MediaProjection consent + foreground-service lifecycle passed CI and is merged.
-4. Video capture, rolling segments and 15/30/60-second remux/export passed CI and are merged. Current branch adds Android thermal monitoring with dynamic bitrate reduction and critical-stop protection; validate CI, merge, then add internal audio.
+4. Video capture/export and runtime thermal protection passed CI and are merged. Current branch adds optional AudioPlaybackCapture + AAC encoding; validate CI, merge, then synchronize encoded audio with rolling video segments and final export.
 5. Measure sustained performance on real devices before raising default quality.
 
 
@@ -206,3 +206,8 @@ The exporter never decodes or re-encodes video. It leases completed rolling segm
 ## Runtime thermal guard note
 
 MedPlay now reacts to Android thermal status while recording. Moderate/severe heat lowers encoder bitrate dynamically; critical-or-worse thermal state stops capture. This is deliberately conservative. Resolution/FPS restarts are deferred until real-device measurements show they are needed and can be performed without destabilizing the recorder.
+
+
+## Internal audio implementation note
+
+The current branch captures only playback audio that Android and the source app permit. RECORD_AUDIO denial does not block video recording. Audio is encoded to AAC-LC on a dedicated thread and hardware encoding is preferred when available. Encoded audio is intentionally not yet written into the final clip; do not claim saved clips have audio until the A/V segment synchronization/export block is complete.
