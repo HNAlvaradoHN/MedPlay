@@ -266,3 +266,8 @@ Capture replacement now releases the entire old projection-owned pipeline before
 ## Video PTS normalization note
 
 Do not add encoderMonotonicStartUs directly to raw Surface/MediaCodec presentationTimeUs. Raw video PTS may not be zero-based. MedPlay now subtracts the first observed video PTS, then adds the monotonic session anchor. Tests cover both relative and large absolute-looking input PTS domains.
+
+
+## Save-triggered rollover note
+
+A clip save now requests a MediaCodec sync frame and asks RollingVideoSegmentWriter to cut on that next keyframe. The export worker waits up to 750 ms for the segment completion, then falls back to the latest completed set if the device ignores the request. This reduces end-of-clip lag without reading an active MP4 or re-encoding.
