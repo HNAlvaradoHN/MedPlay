@@ -21,7 +21,6 @@ import android.os.Looper
 import android.os.StatFs
 import java.io.File
 import kotlin.concurrent.thread
-import androidx.annotation.RequiresApi
 import com.medplay.app.MainActivity
 
 class CaptureService : Service() {
@@ -113,6 +112,11 @@ class CaptureService : Service() {
         val encoder = HardwareVideoEncoder(
             profile = profile,
             sampleConsumer = segmentWriter,
+            onFatalError = {
+                Handler(Looper.getMainLooper()).post {
+                    stopProjectionAndSelf()
+                }
+            },
         )
         val encoderSurface = runCatching { encoder.start() }.getOrElse {
             encoder.stop()
