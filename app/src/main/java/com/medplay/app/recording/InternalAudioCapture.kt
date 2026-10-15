@@ -76,20 +76,22 @@ class InternalAudioCapture(
         var encoderStarted = false
 
         try {
-            record = AudioRecord.Builder()
+            val createdRecord = AudioRecord.Builder()
                 .setAudioFormat(audioFormat)
                 .setBufferSizeInBytes(maxOf(minBuffer, PCM_BUFFER_BYTES))
                 .setAudioPlaybackCaptureConfig(captureConfig)
                 .build()
+            record = createdRecord
 
-            check(record.state == AudioRecord.STATE_INITIALIZED) {
+            check(createdRecord.state == AudioRecord.STATE_INITIALIZED) {
                 "Playback AudioRecord failed to initialize"
             }
 
             val codecInfo = selectAacEncoder()
                 ?: error("No AAC encoder available")
 
-            encoder = MediaCodec.createByCodecName(codecInfo.name)
+            val createdEncoder = MediaCodec.createByCodecName(codecInfo.name)
+            encoder = createdEncoder
             val encoderFormat = MediaFormat.createAudioFormat(
                 MediaFormat.MIMETYPE_AUDIO_AAC,
                 SAMPLE_RATE,
@@ -103,15 +105,15 @@ class InternalAudioCapture(
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, PCM_BUFFER_BYTES)
             }
 
-            encoder.configure(
+            createdEncoder.configure(
                 encoderFormat,
                 null,
                 null,
                 MediaCodec.CONFIGURE_FLAG_ENCODE,
             )
-            encoder.start()
+            createdEncoder.start()
             encoderStarted = true
-            record.startRecording()
+            createdRecord.startRecording()
 
             val monotonicStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
             consumer.onCaptureStarted(monotonicStartUs, SAMPLE_RATE, CHANNEL_COUNT)
