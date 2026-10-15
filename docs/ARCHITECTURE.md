@@ -33,6 +33,14 @@ The app should avoid retaining an unlimited full-session recording. It should re
 
 Quality must not be defined by resolution alone.
 
+### Non-negotiable performance principle
+
+MedPlay must optimize for **maximum sustainable quality per device**, not maximum nominal settings. The recorder must protect gameplay responsiveness and device health first: avoid software encode when a stable hardware path exists, avoid unnecessary copies/re-encodes, keep the rolling buffer bounded, and lower load before thermal throttling or persistent frame loss occurs.
+
+A profile is considered better only if it improves visible output without causing disproportionate heat, battery drain, encoder instability, dropped frames, or game stutter. Peak settings that a device can expose but cannot sustain are not acceptable defaults.
+
+The implementation should prefer efficient system primitives and measurement over assumptions: query MediaCodec capabilities, validate size/rate combinations, prefer surface-input hardware encoding, monitor thermal/load signals where Android exposes them, and adapt conservatively.
+
 The profile system should consider:
 - source/device native resolution;
 - output resolution;
