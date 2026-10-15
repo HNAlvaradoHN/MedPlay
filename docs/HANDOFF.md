@@ -276,3 +276,8 @@ InternalAudioCapture now unblocks AudioRecord before teardown, gives its worker 
 ## Save-triggered rollover note
 
 A clip save requests a sync frame and asks RollingVideoSegmentWriter to cut on that next keyframe. The export worker waits up to 750 ms for completion, then falls back to the latest completed set if needed. This reduces end-of-clip lag without reading an active segment or re-encoding.
+
+
+## Video stop race note
+
+HardwareVideoEncoder.stop() now shares the same synchronization boundary as updateBitrate() and requestSyncFrame(). Keep stopRequested true until teardown completes so drain errors caused by intentional shutdown are suppressed; start() resets the flag.
