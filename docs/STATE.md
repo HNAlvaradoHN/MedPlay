@@ -365,3 +365,8 @@ Current feature branch prepares real-device validation without adding per-frame 
 - MainActivity can display the latest summary directly on-device, avoiding ADB/PC for initial validation.
 
 This telemetry is diagnostic only. It does not yet automatically change resolution/FPS because thresholds still require real-device evidence.
+
+
+## Transactional encoder startup cleanup
+
+Video and AAC startup now clean locally owned resources if initialization fails before those resources are published to the recorder service. HardwareVideoEncoder releases any created input Surface and MediaCodec after configure/createInputSurface/start/initial-callback failure. InternalAudioCapture stops/releases any partially started AudioRecord and AAC MediaCodec after initialization/configure/start/recording/callback failure. This prevents leaked codec/audio resources after a failed recording start.
