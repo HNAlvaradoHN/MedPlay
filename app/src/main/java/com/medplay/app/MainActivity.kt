@@ -2,6 +2,8 @@ package com.medplay.app
 
 import android.Manifest
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -171,6 +173,29 @@ class MainActivity : Activity() {
             }
         }
 
+        val copyDiagnosticsButton = Button(this).apply {
+            text = "Copy last recording diagnostics"
+            setOnClickListener {
+                val diagnostics =
+                    CaptureService.readLastSessionDiagnostics(this@MainActivity)
+                if (diagnostics == null) {
+                    statusView.text =
+                        "No completed recording diagnostics available yet."
+                } else {
+                    val clipboard = getSystemService(
+                        ClipboardManager::class.java
+                    )
+                    clipboard.setPrimaryClip(
+                        ClipData.newPlainText(
+                            "MedPlay recording diagnostics",
+                            diagnostics,
+                        )
+                    )
+                    statusView.text = "Recording diagnostics copied."
+                }
+            }
+        }
+
         val stopButton = Button(this).apply {
             text = "Stop capture service"
             setOnClickListener {
@@ -196,6 +221,7 @@ class MainActivity : Activity() {
             addView(overlayButton)
             addView(stopButton)
             addView(diagnosticsButton)
+            addView(copyDiagnosticsButton)
             addView(reportView)
         }
 
