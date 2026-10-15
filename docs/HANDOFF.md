@@ -271,3 +271,8 @@ Do not add encoderMonotonicStartUs directly to raw Surface/MediaCodec presentati
 ## AAC EOS shutdown note
 
 InternalAudioCapture now unblocks AudioRecord before teardown, gives its worker time to queue/drain EOS, suppresses false fatal callbacks during intentional shutdown, force-stops MediaCodec only after a bounded timeout, releases output buffers in finally, and surfaces read errors instead of silently feeding empty AAC input.
+
+
+## Save-triggered rollover note
+
+A clip save requests a sync frame and asks RollingVideoSegmentWriter to cut on that next keyframe. The export worker waits up to 750 ms for completion, then falls back to the latest completed set if needed. This reduces end-of-clip lag without reading an active segment or re-encoding.
