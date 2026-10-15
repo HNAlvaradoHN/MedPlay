@@ -246,3 +246,8 @@ MedPlay now allows only one retroactive remux/export at a time. Extra taps durin
 ## Rolling segment finalization note
 
 Completed rolling segments are now considered valid only after MediaMuxer.stop() succeeds. Failed finalization deletes the file instead of exposing it to leases/export. SegmentLease.close() is thread-safe/idempotent, and teardown catches close-time muxer failures so service shutdown remains bounded.
+
+
+## Audio failure fallback note
+
+A fatal internal-audio worker or AAC consumer failure now disables only audio and leaves the video recorder running. Saved clips then fall back to video-only. This is intentional because playback capture support varies by app/device and should not take down the core recorder.
