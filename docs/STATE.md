@@ -503,3 +503,18 @@ The prototype UI has been simplified after real-device usability feedback:
 - codec and bitrate remain profile-managed automatically rather than exposing unsafe arbitrary values.
 
 1080p60 is intentionally not exposed yet. Capability metadata alone does not prove sustained gaming/thermal stability; higher-load profiles require real-device evidence first.
+
+
+## High-motion sharpness and safe-inset implementation
+
+Current feature work addresses real-device feedback from shooter/gyro capture:
+- MainActivity now applies system-bar and display-cutout insets to all four edges of the root ScrollView, including Android 15 edge-to-edge behavior; controls must no longer begin underneath the status/camera area or end underneath navigation/gesture areas.
+- High-motion quality targets now require both a supported size/FPS combination and sufficient hardware bitrate headroom before a mode is exposed.
+- Manual hardware-validated modes can now include 1080p60, 1440p30 and 1440p60 in addition to the existing modes.
+- Automatic mode intentionally prioritizes sharp 1080p60 when the hardware can sustain the configured high-motion bitrate, then falls back through 1080p30/720p60/720p30. 1440p remains manual-only until sustained real-device evidence justifies making it automatic.
+- HEVC high-motion targets use substantially more bitrate than the original 12 Mbps 1080p30 prototype; AVC receives a larger bitrate budget because it is less efficient.
+- HardwareVideoEncoder requests VBR when the selected encoder advertises VBR support and prefers HEVC Main / AVC High profiles when available.
+- Existing thermal protection remains active: NORMAL/LIGHT uses the full selected bitrate, MODERATE reduces it, SEVERE reduces it further, and CRITICAL stops capture.
+- The normal save path remains compressed-sample remux with no decode/re-encode. No sharpening/color postprocess was added because it would consume extra power and cannot recover detail already destroyed during capture.
+
+Real-device validation is required before declaring the new high-motion targets sustainable. In particular, verify 1080p60 quality, gameplay smoothness, thermal behavior, storage-aware retention and long-session stability on the owner's shooter workload.
