@@ -291,20 +291,34 @@ class MainActivity : Activity() {
             clipToPadding = false
             addView(content)
             setOnApplyWindowInsetsListener { view, insets ->
+                val leftInset: Int
                 val topInset: Int
+                val rightInset: Int
                 val bottomInset: Int
                 if (Build.VERSION.SDK_INT >= 30) {
                     val safeInsets = insets.getInsets(
                         WindowInsets.Type.systemBars() or
                             WindowInsets.Type.displayCutout()
                     )
+                    leftInset = safeInsets.left
                     topInset = safeInsets.top
+                    rightInset = safeInsets.right
                     bottomInset = safeInsets.bottom
                 } else {
+                    @Suppress("DEPRECATION")
+                    leftInset = maxOf(
+                        insets.systemWindowInsetLeft,
+                        insets.displayCutout?.safeInsetLeft ?: 0,
+                    )
                     @Suppress("DEPRECATION")
                     topInset = maxOf(
                         insets.systemWindowInsetTop,
                         insets.displayCutout?.safeInsetTop ?: 0,
+                    )
+                    @Suppress("DEPRECATION")
+                    rightInset = maxOf(
+                        insets.systemWindowInsetRight,
+                        insets.displayCutout?.safeInsetRight ?: 0,
                     )
                     @Suppress("DEPRECATION")
                     bottomInset = maxOf(
@@ -312,7 +326,7 @@ class MainActivity : Activity() {
                         insets.displayCutout?.safeInsetBottom ?: 0,
                     )
                 }
-                view.setPadding(0, topInset, 0, bottomInset)
+                view.setPadding(leftInset, topInset, rightInset, bottomInset)
                 insets
             }
         }
