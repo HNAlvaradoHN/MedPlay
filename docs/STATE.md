@@ -93,7 +93,7 @@ This direction is favored because it can preserve quality while reducing CPU wor
 
 ## Next step
 
-Validate the MediaProjection foreground-service foundation in public CI, then connect it to the hardware encoder.
+Validate the hardware video pipeline in public CI, then add rolling encoded segments and muxing.
 
 
 ## Sustainable profile selector implementation
@@ -116,4 +116,18 @@ Implemented on feature branch:
 - Android foreground-service permissions for media projection;
 - MediaProjection lifetime owned by CaptureService rather than Activity;
 - MediaProjection.Callback registered so revoked/stopped projection tears the service down;
-- no encoder or VirtualDisplay is started yet in this block, keeping capture permission/lifecycle isolated and testable.
+- MediaProjection foundation passed public CI and was merged; current feature branch adds VirtualDisplay -> surface-input hardware MediaCodec.
+
+
+## Hardware video pipeline implementation
+
+Current feature branch now connects the selected sustainable profile to a named hardware MediaCodec encoder and creates the MediaProjection VirtualDisplay directly onto the codec input Surface.
+
+Performance properties:
+- no CPU pixel readback/conversion path;
+- no Bitmap/ImageReader frame copies;
+- encoder output is drained continuously on a dedicated lightweight thread so codec buffers do not back up;
+- keyframe interval starts at 2 seconds to support later segment/keyframe-safe clipping;
+- encoder, input Surface and VirtualDisplay have explicit teardown paths.
+
+Encoded output is currently drained but intentionally discarded. The next block will route these already-encoded samples into short rolling segments; no re-encoding will be introduced.
