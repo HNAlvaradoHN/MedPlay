@@ -36,9 +36,14 @@ object RecordingRetentionPolicy {
                 .toInt()
         }
 
-        val selected = affordableSeconds
-            .coerceAtMost(boundedRequested)
-            .coerceAtLeast(MIN_RETENTION_SECONDS)
+        if (affordableSeconds < MIN_RETENTION_SECONDS) {
+            return Result(
+                retentionSeconds = 0,
+                estimatedBytes = 0L,
+            )
+        }
+
+        val selected = affordableSeconds.coerceAtMost(boundedRequested)
 
         return Result(
             retentionSeconds = selected,
