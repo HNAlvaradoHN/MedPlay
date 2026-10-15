@@ -316,3 +316,8 @@ Clip-save progress/outcome is surfaced through the existing foreground-service n
 ## Floating clip duration note
 
 The floating Clip button reads a persisted default duration (15/30/60/120/180/300 s) at tap time. Invalid values fall back to 30 s. This changes only the requested save window; storage-aware rolling retention determines how much history is actually available.
+
+
+## Internal audio toggle note
+
+Internal playback audio can now be disabled persistently. When off, MedPlay does not request RECORD_AUDIO and does not start AudioPlaybackCapture/AudioRecord/AAC for the next capture session. The setting is intentionally session-start scoped for now.
