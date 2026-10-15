@@ -61,9 +61,12 @@ class CaptureService : Service() {
                     if (mediaProjection == null) stopSelf(startId)
                     return START_NOT_STICKY
                 }
-                saveRetroactiveClip(
+                val requestedSeconds = if (intent.hasExtra(EXTRA_SAVE_SECONDS)) {
                     intent.getIntExtra(EXTRA_SAVE_SECONDS, DEFAULT_SAVE_SECONDS)
-                )
+                } else {
+                    ClipLengthPreference.get(applicationContext)
+                }
+                saveRetroactiveClip(requestedSeconds)
                 return START_NOT_STICKY
             }
             ACTION_SHOW_OVERLAY -> {
@@ -72,6 +75,10 @@ class CaptureService : Service() {
                     return START_NOT_STICKY
                 }
                 showFloatingControl()
+                return START_NOT_STICKY
+            }
+            ACTION_STOP -> {
+                stopProjectionAndSelf()
                 return START_NOT_STICKY
             }
             else -> {
@@ -463,11 +470,42 @@ class CaptureService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
+        val saveIntent = PendingIntent.getService(
+            this,
+            1,
+            Intent(this, CaptureService::class.java).apply {
+                action = ACTION_SAVE
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val stopIntent = PendingIntent.getService(
+            this,
+            2,
+            Intent(this, CaptureService::class.java).apply {
+                action = ACTION_STOP
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("MedPlay")
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.presence_video_online)
             .setContentIntent(openIntent)
+            .addAction(
+                Notification.Action.Builder(
+                    null,
+                    "Clip",
+                    saveIntent,
+                ).build()
+            )
+            .addAction(
+                Notification.Action.Builder(
+                    null,
+                    "Stop",
+                    stopIntent,
+                ).build()
+            )
             .setOngoing(true)
             .build()
     }
@@ -490,6 +528,7 @@ class CaptureService : Service() {
         private const val ACTION_START = "com.medplay.app.action.START_CAPTURE"
         private const val ACTION_SAVE = "com.medplay.app.action.SAVE_RETROACTIVE"
         private const val ACTION_SHOW_OVERLAY = "com.medplay.app.action.SHOW_OVERLAY"
+        private const val ACTION_STOP = "com.medplay.app.action.STOP_CAPTURE"
         private const val EXTRA_RESULT_CODE = "result_code"
         private const val EXTRA_RESULT_DATA = "result_data"
         private const val EXTRA_SAVE_SECONDS = "save_seconds"
