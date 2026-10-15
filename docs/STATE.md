@@ -452,3 +452,8 @@ MedPlay already declares POST_NOTIFICATIONS and now requests it at runtime on An
 ## Encoder-health media-sample filtering
 
 EncoderRuntimeHealth now observes only non-empty encoded media access units. MediaCodec BUFFER_FLAG_CODEC_CONFIG output is still delivered to the existing sample consumer path, but it is excluded from encodedSamples, timestamp-regression and wall-gap telemetry. This keeps session sustainability diagnostics from treating codec configuration bytes as a video frame/sample.
+
+
+## Duplicate capture-start guard
+
+CaptureService now rejects a second ACTION_START while a MediaProjection session is already active. The existing recorder remains untouched and the foreground notification reports that capture is already active. This avoids synchronously tearing down and recreating AudioRecord/MediaCodec/VirtualDisplay from the service main thread when the user taps Enable screen capture again. A new capture session should be started only after the current one has been stopped.
