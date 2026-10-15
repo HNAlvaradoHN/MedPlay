@@ -563,3 +563,20 @@ Physical validation is still pending for:
 - confirming notifications/vendor overlays and the MedPlay floating button are excluded from the saved game-only clip;
 - confirming bitrate/FPS/audio quality remains equivalent to the previously approved high-motion build;
 - confirming floating control tint, size, opacity and accepted/saved/error feedback on-device.
+
+
+## Main recording UI polish
+
+Real-device feedback showed that the first game-only/glass-overlay build was functionally correct but still exposed prototype-oriented controls and lacked visual feedback while customizing the overlay.
+
+The main UI is now simplified:
+- removed the redundant MedPlay **Qué grabar** selector; Android 14+ always opens the platform user-choice capture dialog, where the user selects one app or the full screen;
+- added a concise explanation of the Android capture choice instead of duplicating it in MedPlay;
+- removed the main-screen **Activar botón flotante** action; the overlay appears automatically when capture starts;
+- if overlay permission is missing, **Iniciar grabación** opens the system permission page and resumes capture setup automatically after the user grants it;
+- added a live in-app preview using the exact same GlassClipView renderer as the real floating overlay, so tint, size and transparency changes are visible immediately;
+- moved Stop and diagnostic controls into a collapsed **Opciones avanzadas** section;
+- disabled ScrollView state restoration and explicitly resets the root scroll to the top after layout so the first controls do not reopen clipped/off-screen;
+- removed the now-unused CaptureScopePreference.
+
+No encoder, bitrate, FPS, codec, thermal or export-quality behavior changed in this UI pass.
