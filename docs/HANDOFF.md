@@ -291,3 +291,8 @@ Before audio leasing, RollingAudioSegmentWriter finalizes its active AAC segment
 ## Remux buffer sizing note
 
 RetroactiveVideoExporter checks MediaExtractor.sampleSize and grows its reusable direct buffer only when a compressed access unit exceeds the 8 MiB baseline, capped defensively at 64 MiB per sample.
+
+
+## Encoder startup cleanup note
+
+Video and AAC startup are now transactional: resources created before full object publication are cleaned locally on any startup exception. Do not depend on stop() for partially initialized MediaCodec/AudioRecord instances that were never assigned to fields.
