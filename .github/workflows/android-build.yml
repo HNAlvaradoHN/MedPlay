@@ -8,6 +8,7 @@ on:
       - "settings.gradle.kts"
       - "gradle.properties"
       - ".github/workflows/android-build.yml"
+      - ".github/workflows/manual-dev-apk-release.yml"
   workflow_dispatch:
 
 permissions:
