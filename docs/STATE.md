@@ -649,3 +649,14 @@ During the short profile handoff, Clip requests are rejected with a thermal-adju
 Diagnostics now include `initialResolution`, `initialFps`, and `thermalProfileDowngrades`.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. Real-device testing must verify temperature response, gameplay smoothness, visual quality after each downgrade and stability of VirtualDisplay resize/surface handoff on target devices.
+
+
+## In-app clip library
+
+Saved retroactive MP4s now remain accessible inside MedPlay as well as Gallery. MedPlay does not duplicate the video file: it stores only a private metadata index containing the MediaStore URI, display name, creation time, duration and whether game-audio/microphone tracks were present.
+
+MainActivity exposes a **Mis clips / My clips** section. Entries can be refreshed and opened with the device video player. If a Gallery/MediaStore clip is deleted externally, the stale index entry is pruned the next time the library is read.
+
+This is the storage/library foundation for the planned non-destructive editor. The original MediaStore clip remains the master source.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on-device.
