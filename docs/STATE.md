@@ -328,3 +328,8 @@ This branch also fixes a potential A/V timeline error in the Surface-input path:
 - regressions in the mapped PTS are rejected instead of silently producing invalid segment timing.
 
 Unit tests cover both zero-based and large absolute-looking codec PTS domains. Real-device testing is still required to measure residual A/V start offset and long-session drift.
+
+
+## AAC EOS and shutdown hardening
+
+InternalAudioCapture teardown now distinguishes intentional stop from fatal failure, stops AudioRecord first to unblock READ_BLOCKING, gives the worker a bounded grace period to queue/drain AAC EOS, waits during EOS dequeue, force-stops MediaCodec at most once if necessary, always releases output buffers from finally, and surfaces negative AudioRecord.read() errors. This preserves as much final AAC output as possible while keeping shutdown bounded.
