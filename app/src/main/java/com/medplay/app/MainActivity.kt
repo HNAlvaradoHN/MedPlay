@@ -173,8 +173,8 @@ class MainActivity : Activity() {
         val stopButton = Button(this).apply {
             text = "Stop capture service"
             setOnClickListener {
-                stopService(Intent(this@MainActivity, CaptureService::class.java))
-                statusView.text = "Capture service stopped."
+                startService(CaptureService.createStopIntent(this@MainActivity))
+                statusView.text = "Stopping capture service..."
             }
         }
 

@@ -418,3 +418,13 @@ This provides an intentional video-only mode in addition to the existing automat
 ## Audio-aware retention budgeting
 
 Rolling-retention storage estimation now uses the intended audio mode. If internal audio is disabled or RECORD_AUDIO is not granted, the retention policy budgets zero AAC bitrate instead of reserving 128 kbps for an audio stream that will not exist. The same free-space reserve and rolling-storage ceiling remain in force.
+
+
+## Notification controls and asynchronous recorder shutdown
+
+MedPlay exposes low-overhead Clip and Stop actions in the foreground-service notification. Clip without an explicit duration reads the persisted ClipLengthPreference; Stop uses the recorder-owned shutdown path. Normal, thermal and fatal shutdown no longer waits for audio/video EOS on the main thread: shutdown is admitted once, new recorder actions are rejected, the overlay is removed immediately, and recorder resources are released on a dedicated shutdown thread. Resource-release failures are isolated so cleanup continues, and service destruction waits until capture resources are released and any already-running clip export has finished.
+
+
+## Notification controls and asynchronous recorder shutdown
+
+MedPlay exposes low-overhead Clip and Stop actions in the foreground-service notification. Clip without an explicit duration reads the persisted ClipLengthPreference; Stop uses the recorder-owned shutdown path. Normal, thermal and fatal shutdown no longer waits for audio/video EOS on the main thread: shutdown is admitted once, new recorder actions are rejected, the overlay is removed immediately, and recorder resources are released on a dedicated shutdown thread. Resource-release failures are isolated so cleanup continues, and service destruction waits until capture resources are released and any already-running clip export has finished.
