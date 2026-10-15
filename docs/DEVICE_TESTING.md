@@ -174,3 +174,26 @@ Use a real game with voice chat to validate the optional **Grabar mi voz (pista 
 9. Repeat once with **Grabar mi voz** disabled and confirm behavior/quality matches the previously validated recorder.
 
 Important: this phase preserves game audio and microphone as independent AAC tracks. A standard gallery player may select only one audio track for playback. Mixing, per-track volume preview and final single-track MP4 export belong to the planned MedPlay editor phase and are not claimed complete here.
+
+
+## Automatic thermal adaptation validation
+
+For a sustained-game test, start with the same quality mode that previously looked good and play long enough for the phone to warm naturally.
+
+Record:
+- `initialResolution` / `initialFps`
+- final `resolution` / `fps`
+- `maxThermalStatus`
+- `thermalProfileDowngrades`
+- `sustainabilityVerdict`
+- `maxWallOutputGapUs`
+
+Expected behavior:
+1. NORMAL/LIGHT: no resolution/FPS downgrade.
+2. MODERATE: bitrate may reduce, but resolution/FPS stay unchanged.
+3. SEVERE: MedPlay may briefly pause Clip saving while it switches to the next validated lower hardware profile. Screen capture and audio should continue.
+4. Persistent SEVERE: another downgrade may occur after about 30 seconds.
+5. CRITICAL: capture should stop rather than continue heating the device.
+6. After a downgrade, save a clip and verify that video is decodable, audio remains synchronized and no incompatible-format export error occurs.
+
+Also compare a similar-length game session with MedPlay OFF. The goal is not a cold phone during heavy gaming; the goal is to avoid MedPlay adding unnecessary heat and to reduce its load automatically before Android reaches critical pressure.

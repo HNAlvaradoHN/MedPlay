@@ -39,6 +39,13 @@ class CaptureService : Service() {
     private var floatingClipControl: FloatingClipControl? = null
     private var activeRetentionUs: Long = RollingVideoSegmentWriter.DEFAULT_RETENTION_US
     private var activeProfile: RecordingProfile? = null
+    private var initialSessionProfile: RecordingProfile? = null
+    private var activeVideoDirectory: File? = null
+    private var videoEpochSequence = 0L
+    private var thermalProfileDowngrades = 0
+    private var accumulatedEncodedSamples = 0L
+    private var accumulatedTimestampRegressions = 0L
+    private var accumulatedMaxWallOutputGapUs = 0L
     private var sessionStartedUs = Long.MIN_VALUE
     private var maxThermalStatus = 0
     private var sessionAudioWasActive = false
@@ -46,6 +53,7 @@ class CaptureService : Service() {
     private var sessionMicrophoneWasSilenced = false
     private var microphoneCurrentlySilenced = false
     private val exportInProgress = AtomicBoolean(false)
+    private val profileSwitchInProgress = AtomicBoolean(false)
     private val shutdownStarted = AtomicBoolean(false)
     private val shutdownResourcesReleased = AtomicBoolean(false)
 
@@ -191,8 +199,10 @@ class CaptureService : Service() {
         }
         activeRetentionUs = retention.retentionSeconds * 1_000_000L
 
+        clearStaleVideoEpochDirectories()
+        val videoDirectory = nextVideoEpochDirectory()
         val segmentWriter = RollingVideoSegmentWriter(
-            directory = File(cacheDir, "medplay_rolling_video"),
+            directory = videoDirectory,
             retentionUs = activeRetentionUs,
         )
         val encoder = HardwareVideoEncoder(
@@ -235,11 +245,15 @@ class CaptureService : Service() {
         rollingWriter = segmentWriter
         videoEncoder = encoder
         activeProfile = profile
+        initialSessionProfile = profile
+        activeVideoDirectory = videoDirectory
+        thermalProfileDowngrades = 0
+        accumulatedEncodedSamples = 0L
+        accumulatedTimestampRegressions = 0L
+        accumulatedMaxWallOutputGapUs = 0L
         sessionStartedUs = SystemClock.elapsedRealtimeNanos() / 1_000L
         maxThermalStatus = 0
         sessionAudioWasActive = false
-        sessionMicrophoneWasActive = false
-        sessionMicrophoneWasSilenced = false
         sessionMicrophoneWasActive = false
         sessionMicrophoneWasSilenced = false
         microphoneCurrentlySilenced = false
@@ -252,10 +266,20 @@ class CaptureService : Service() {
                         stopProjectionAndSelf()
                     }
                 } else {
-                    val targetBitrate = (
-                        profile.bitrate.toLong() * action.bitratePercent / 100L
-                    ).toInt()
-                    encoder.updateBitrate(targetBitrate)
+                    val currentProfile = activeProfile
+                    val currentEncoder = videoEncoder
+                    if (currentProfile != null && currentEncoder != null) {
+                        val targetBitrate = (
+                            currentProfile.bitrate.toLong() *
+                                action.bitratePercent / 100L
+                        ).toInt()
+                        currentEncoder.updateBitrate(targetBitrate)
+                    }
+                    if (action.requestProfileStepDown) {
+                        requestThermalProfileDowngrade(
+                            bitratePercent = action.bitratePercent,
+                        )
+                    }
                 }
             }.also { it.start() }
         }.getOrNull()
@@ -277,6 +301,16 @@ class CaptureService : Service() {
     }
 
     private fun saveRetroactiveClip(seconds: Int): Boolean {
+        if (profileSwitchInProgress.get()) {
+            updateCaptureNotification(
+                tr(
+                    "MedPlay está ajustando la carga por temperatura. Intenta Clip de nuevo en unos segundos.",
+                    "MedPlay is adjusting thermal load. Try Clip again in a few seconds.",
+                )
+            )
+            return false
+        }
+
         if (!exportInProgress.compareAndSet(false, true)) {
             updateCaptureNotification(
                 tr(
@@ -518,6 +552,174 @@ class CaptureService : Service() {
         microphoneCurrentlySilenced = false
     }
 
+    private fun requestThermalProfileDowngrade(
+        bitratePercent: Int,
+    ) {
+        if (shutdownStarted.get() || mediaProjection == null) return
+        if (!profileSwitchInProgress.compareAndSet(false, true)) return
+        if (exportInProgress.get()) {
+            profileSwitchInProgress.set(false)
+            return
+        }
+
+        val currentProfile = activeProfile
+        val currentEncoder = videoEncoder
+        val currentWriter = rollingWriter
+        val display = virtualDisplay
+        val oldDirectory = activeVideoDirectory
+        val oldSurface = currentEncoder?.captureSurface()
+
+        if (
+            currentProfile == null ||
+            currentEncoder == null ||
+            currentWriter == null ||
+            display == null ||
+            oldSurface == null
+        ) {
+            profileSwitchInProgress.set(false)
+            return
+        }
+
+        thread(
+            start = true,
+            isDaemon = true,
+            name = "medplay-thermal-profile-switch",
+        ) {
+            var replacementWriter: RollingVideoSegmentWriter? = null
+            var replacementEncoder: HardwareVideoEncoder? = null
+            var replacementDirectory: File? = null
+            var displayMoved = false
+
+            try {
+                val supported = EncoderCapabilityProbe.supportedStartupProfiles()
+                if (shutdownStarted.get()) return@thread
+
+                val nextProfile =
+                    AdaptiveRecordingProfilePolicy.nextLowerProfile(
+                        current = currentProfile,
+                        supported = supported,
+                    ) ?: return@thread
+
+                replacementDirectory = nextVideoEpochDirectory()
+                replacementWriter = RollingVideoSegmentWriter(
+                    directory = replacementDirectory,
+                    retentionUs = activeRetentionUs,
+                )
+                replacementEncoder = HardwareVideoEncoder(
+                    profile = nextProfile,
+                    sampleConsumer = replacementWriter,
+                    onFatalError = {
+                        Handler(Looper.getMainLooper()).post {
+                            stopProjectionAndSelf()
+                        }
+                    },
+                )
+                val replacementSurface = replacementEncoder.start()
+                if (shutdownStarted.get()) return@thread
+
+                display.setSurface(null)
+                display.resize(
+                    nextProfile.width,
+                    nextProfile.height,
+                    resources.displayMetrics.densityDpi,
+                )
+                display.setSurface(replacementSurface)
+                displayMoved = true
+                replacementEncoder.requestSyncFrame()
+
+                accumulateEncoderHealth(currentEncoder)
+
+                rollingWriter = replacementWriter
+                videoEncoder = replacementEncoder
+                activeProfile = nextProfile
+                activeVideoDirectory = replacementDirectory
+                thermalProfileDowngrades += 1
+
+                val reducedBitrate = (
+                    nextProfile.bitrate.toLong() * bitratePercent / 100L
+                ).toInt()
+                replacementEncoder.updateBitrate(reducedBitrate)
+
+                runCatching { currentEncoder.stop() }
+                runCatching { currentWriter.close() }
+                runCatching { oldDirectory?.deleteRecursively() }
+
+                Handler(Looper.getMainLooper()).post {
+                    updateCaptureNotification(
+                        tr(
+                            "Protección térmica: " +
+                                "${nextProfile.width}x${nextProfile.height} @ " +
+                                "${nextProfile.fps} FPS. La grabación continúa.",
+                            "Thermal protection: " +
+                                "${nextProfile.width}x${nextProfile.height} @ " +
+                                "${nextProfile.fps} FPS. Recording continues.",
+                        )
+                    )
+                }
+            } catch (_: Throwable) {
+                if (!displayMoved) {
+                    runCatching {
+                        display.resize(
+                            currentProfile.width,
+                            currentProfile.height,
+                            resources.displayMetrics.densityDpi,
+                        )
+                        display.setSurface(oldSurface)
+                    }
+                }
+                runCatching { replacementEncoder?.stop() }
+                runCatching { replacementWriter?.close() }
+                runCatching { replacementDirectory?.deleteRecursively() }
+            } finally {
+                profileSwitchInProgress.set(false)
+            }
+        }
+    }
+
+    private fun accumulateEncoderHealth(encoder: HardwareVideoEncoder) {
+        val health = encoder.healthSnapshot()
+        accumulatedEncodedSamples += health.encodedSamples
+        accumulatedTimestampRegressions += health.timestampRegressions
+        accumulatedMaxWallOutputGapUs = maxOf(
+            accumulatedMaxWallOutputGapUs,
+            health.maxWallOutputGapUs,
+        )
+    }
+
+    private fun combinedEncoderHealth(
+        encoder: HardwareVideoEncoder,
+    ): EncoderRuntimeHealth.Snapshot {
+        val current = encoder.healthSnapshot()
+        return EncoderRuntimeHealth.Snapshot(
+            encodedSamples = accumulatedEncodedSamples + current.encodedSamples,
+            timestampRegressions =
+                accumulatedTimestampRegressions + current.timestampRegressions,
+            maxWallOutputGapUs = maxOf(
+                accumulatedMaxWallOutputGapUs,
+                current.maxWallOutputGapUs,
+            ),
+            timeSinceLastOutputUs = current.timeSinceLastOutputUs,
+        )
+    }
+
+    @Synchronized
+    private fun nextVideoEpochDirectory(): File {
+        return File(
+            cacheDir,
+            "medplay_rolling_video_epoch_%03d".format(videoEpochSequence++),
+        )
+    }
+
+    private fun clearStaleVideoEpochDirectories() {
+        videoEpochSequence = 0L
+        cacheDir.listFiles()
+            ?.filter {
+                it.isDirectory &&
+                    it.name.startsWith("medplay_rolling_video")
+            }
+            ?.forEach { runCatching { it.deleteRecursively() } }
+    }
+
     private fun showFloatingControl() {
         if (mediaProjection == null) return
         if (floatingClipControl != null) return
@@ -559,12 +761,24 @@ class CaptureService : Service() {
             name = "medplay-recorder-shutdown",
         ) {
             try {
+                awaitProfileSwitchCompletion()
                 releaseVideoPipeline()
                 runCatching { projection?.stop() }
             } finally {
                 shutdownResourcesReleased.set(true)
                 finishServiceIfShutdownReady()
             }
+        }
+    }
+
+    private fun awaitProfileSwitchCompletion() {
+        val deadlineNs =
+            System.nanoTime() + PROFILE_SWITCH_SHUTDOWN_WAIT_MS * 1_000_000L
+        while (
+            profileSwitchInProgress.get() &&
+            System.nanoTime() < deadlineNs
+        ) {
+            Thread.sleep(PROFILE_SWITCH_POLL_MS)
         }
     }
 
@@ -632,6 +846,7 @@ class CaptureService : Service() {
 
         runCatching { rollingWriter?.close() }
         rollingWriter = null
+        activeVideoDirectory = null
     }
 
     private fun persistSessionDiagnostics() {
@@ -650,13 +865,22 @@ class CaptureService : Service() {
             retentionSeconds = (activeRetentionUs / 1_000_000L).toInt(),
             maxThermalStatus = maxThermalStatus,
             audioWasActive = sessionAudioWasActive,
-            encoderHealth = encoder.healthSnapshot(),
+            encoderHealth = combinedEncoderHealth(encoder),
             microphoneWasActive = sessionMicrophoneWasActive,
             microphoneWasSilenced = sessionMicrophoneWasSilenced,
+            thermalProfileDowngrades = thermalProfileDowngrades,
+            initialProfile = initialSessionProfile,
         )
 
         maxThermalStatus = 0
         sessionAudioWasActive = false
+        sessionMicrophoneWasActive = false
+        sessionMicrophoneWasSilenced = false
+        initialSessionProfile = null
+        thermalProfileDowngrades = 0
+        accumulatedEncodedSamples = 0L
+        accumulatedTimestampRegressions = 0L
+        accumulatedMaxWallOutputGapUs = 0L
 
         runCatching {
             File(filesDir, LAST_SESSION_DIAGNOSTICS_FILE)
@@ -793,6 +1017,8 @@ class CaptureService : Service() {
         private const val MIN_SAVE_SECONDS = 5
         private const val MAX_SAVE_SECONDS = 300
         private const val SAVE_ROLLOVER_WAIT_MS = 750L
+        private const val PROFILE_SWITCH_SHUTDOWN_WAIT_MS = 3_000L
+        private const val PROFILE_SWITCH_POLL_MS = 25L
         private const val LAST_SESSION_DIAGNOSTICS_FILE =
             "last_session_diagnostics.txt"
 

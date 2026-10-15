@@ -29,6 +29,15 @@ class RecordingSessionDiagnosticsTest {
             ),
             microphoneWasActive = true,
             microphoneWasSilenced = true,
+            thermalProfileDowngrades = 1,
+            initialProfile = RecordingProfile(
+                width = 1920,
+                height = 1080,
+                fps = 60,
+                bitrate = 40_000_000,
+                codec = VideoCodec.HEVC,
+                encoderName = "test.encoder",
+            ),
         )
 
         val text = diagnostics.toText()
@@ -39,5 +48,7 @@ class RecordingSessionDiagnosticsTest {
         assertTrue(text.contains("timestampRegressions=0"))
         assertTrue(text.contains("microphoneWasActive=true"))
         assertTrue(text.contains("microphoneWasSilenced=true"))
+        assertTrue(text.contains("initialFps=60"))
+        assertTrue(text.contains("thermalProfileDowngrades=1"))
     }
 }

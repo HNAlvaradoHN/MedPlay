@@ -626,3 +626,26 @@ Implementation:
 Current limitation: the microphone and game sound are intentionally separate tracks. Common gallery players may play only one selected track. The future editor/mixer will provide simultaneous preview, per-track volume controls and a final mixed MP4 while keeping the original sources intact.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on a real device with game voice chat.
+
+
+## Automatic thermal load adaptation
+
+Session 2 extends the existing runtime thermal guard so MedPlay can reduce encoder/display load automatically instead of relying on bitrate alone.
+
+Behavior:
+- NORMAL/LIGHT: keep the selected validated profile at full configured bitrate.
+- MODERATE: keep resolution/FPS and request 85% bitrate.
+- SEVERE: request 70% bitrate and move down one validated hardware profile.
+- If SEVERE persists, reassess every 30 seconds and step down again when another validated lower mode exists.
+- CRITICAL or worse: stop capture as before.
+
+Current step-down order is intentionally conservative for gameplay detail:
+`1440p60 -> 1440p30 -> 1080p60 -> 1080p30 -> 720p60 -> 720p30`, skipping modes the device does not validate. The same codec/encoder is preferred when a lower mode exists.
+
+A profile transition creates a fresh rolling-video epoch and resizes/rebinds the existing VirtualDisplay to a new hardware encoder surface. This prevents MP4 segments with incompatible video formats from being concatenated. Internal game audio and microphone rolling timelines continue, and clip export uses only the current compatible video epoch.
+
+During the short profile handoff, Clip requests are rejected with a thermal-adjustment message to avoid export/switch races. Shutdown waits a bounded time for an in-progress handoff. Encoder health counters are accumulated across thermal epochs for diagnostics.
+
+Diagnostics now include `initialResolution`, `initialFps`, and `thermalProfileDowngrades`.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. Real-device testing must verify temperature response, gameplay smoothness, visual quality after each downgrade and stability of VirtualDisplay resize/surface handoff on target devices.
