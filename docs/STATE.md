@@ -15,7 +15,7 @@ This is MedPlay's first official session. Previous SendGram numbering/content in
 
 ## Verified project state
 
-- Product code: none yet.
+- Product code: initial Android/Kotlin scaffold added on feature branch; build validation pending.
 - Stable version: none.
 - Development version: none.
 - Release/APK: none.
@@ -55,6 +55,8 @@ Private Medal analysis has confirmed:
 - this strongly supports a rolling short-segment/remux architecture for MedPlay rather than an unlimited monolithic recording or naive raw byte ring buffer;
 - Medal contains a VideoQualityInfo model with bitrate, width and height;
 - editor-side bitrate presets include 5, 10, 20, 50 and 100 Mbps; these values are not yet proven to be live-recorder presets;
+- Medal's recorder video UI state defaults to clipping mode, 15-second clips, 720p and 30 FPS;
+- Medal keeps resolution and FPS as explicit recorder settings and separately checks whether battery optimization needs attention;
 - JADX can decompile enough of Medal to expose relevant recorder architecture, even though some methods remain undecompiled;
 - REA inspect-android-package currently returns execution_failure in this environment, so JADX is the reliable analysis path for now.
 
@@ -67,7 +69,7 @@ Private Medal analysis has confirmed:
 - Private run #4: success after switching findings to private workflow logs instead of artifacts.
 - Private run #5: invalid YAML introduced while inserting a targeted analysis step; no analysis job ran.
 - Private run #6: success; targeted quality/performance scan completed.
-- Private run #7: deep-dive recorder-internals scan was launched and should be reviewed next.
+- Private run #7: success; deep-dive recorder-internals scan reviewed without launching another private run.
 
 ## Important technical direction
 
@@ -86,9 +88,9 @@ This direction is favored because it can preserve quality while reducing CPU wor
 - Identify any thermal/battery/performance adaptation logic.
 - Determine keyframe interval and clip assembly behavior.
 - Validate internal-audio strategy.
-- Build first MedPlay Android prototype.
+- Validate the initial MedPlay Android scaffold and encoder capability probe in public CI.
 - Measure sustained thermals, dropped frames and gameplay impact on real devices.
 
 ## Next step
 
-Review private analysis run #7, document concrete recorder findings, then convert those findings into an original MedPlay recording profile strategy and initial Android prototype design.
+Validate the public Android scaffold, then implement the original MedPlay capability-based profile selector before adding MediaProjection capture.
