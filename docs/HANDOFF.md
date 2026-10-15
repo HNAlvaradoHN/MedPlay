@@ -174,7 +174,7 @@ The intended long-term quality strategy is adaptive:
 1. The Android/Kotlin scaffold has passed public CI and is merged to main.
 2. Sustainable startup profile selector passed public CI and is merged.
 3. MediaProjection consent + foreground-service lifecycle passed CI and is merged.
-4. Video capture/export, thermal protection and internal AAC capture passed CI and are merged. Current branch places video and AAC on one monotonic timeline, keeps bounded rolling audio segments, and exports synchronized A/V without re-encoding.
+4. Video/audio capture, synchronized retroactive export and thermal protection are merged. Current branch adds a draggable floating clip control plus storage-aware retention up to 5 minutes.
 5. Measure sustained performance on real devices before raising default quality.
 
 
@@ -216,3 +216,8 @@ The current branch captures only playback audio that Android and the source app 
 ## A/V synchronization implementation note
 
 Video and internal AAC now use monotonic start anchors so segment metadata shares one time base. Final export leases the overlapping audio range and writes both compressed tracks into one MP4. Audio remains optional: denied/blocked playback capture falls back cleanly to video-only. Long-session drift still requires real-device measurement before this is considered production-validated.
+
+
+## Floating control / retention note
+
+The overlay is optional and only appears when Android overlay permission is granted and capture is active. A tap saves the default 30-second clip; the control is draggable. The rolling window can extend to 2/3/5 minutes, but retention is calculated from current bitrate and free storage, capped to a 768 MiB rolling budget with a 768 MiB reserve. If a safe one-minute window cannot fit, recording startup is refused.
