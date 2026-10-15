@@ -418,3 +418,22 @@ This provides an intentional video-only mode in addition to the existing automat
 ## Audio-aware retention budgeting
 
 Rolling-retention storage estimation now uses the intended audio mode. If internal audio is disabled or RECORD_AUDIO is not granted, the retention policy budgets zero AAC bitrate instead of reserving 128 kbps for an audio stream that will not exist. The same free-space reserve and rolling-storage ceiling remain in force.
+
+
+## Notification controls and asynchronous recorder shutdown
+
+MedPlay now exposes low-overhead **Clip** and **Stop** actions in the existing foreground-service notification:
+- Clip without an explicit duration reads the same persisted ClipLengthPreference used by the floating control;
+- Stop uses the recorder-owned shutdown path rather than directly killing the Service;
+- direct duration buttons remain unchanged.
+
+Normal/thermal/fatal shutdown no longer waits for audio/video EOS on the main thread:
+- shutdown is admitted once through an AtomicBoolean gate;
+- MediaProjection is detached from new actions immediately and the overlay is removed on the main thread;
+- audio, rolling writers, thermal listener, VirtualDisplay, video encoder and projection are released on a dedicated shutdown thread;
+- each resource release is isolated so one close failure cannot prevent the remaining cleanup;
+- service destruction waits until capture resources have been released and any already-running clip export has finished closing its leases;
+- new save/start/overlay actions are rejected after shutdown begins;
+- onDestroy retains a synchronous fallback only when an asynchronous shutdown was never started.
+
+This reduces UI/Service-main-thread stalls while preserving bounded EOS handling and in-progress clip integrity.
