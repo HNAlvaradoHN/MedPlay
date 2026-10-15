@@ -353,3 +353,14 @@ Before leasing AAC for a saved clip, MedPlay finalizes the currently open rollin
 ## Adaptive remux sample buffer
 
 Retroactive export inspects MediaExtractor.sampleSize before each compressed-sample read. The reusable direct buffer starts at 8 MiB and grows only when an actual encoded access unit needs more capacity, with a 64 MiB defensive per-sample ceiling. This removes the fixed-buffer failure mode for unusually large keyframes without reserving large memory for normal clips.
+
+
+## Transactional encoder startup cleanup
+
+Current feature branch hardens partial startup failures:
+- HardwareVideoEncoder now releases any created input Surface and MediaCodec if configure/createInputSurface/start or the initial consumer callback fails before the encoder is fully published to the service;
+- InternalAudioCapture now releases a partially created AudioRecord and AAC MediaCodec if initialization, configure/start, AudioRecord.startRecording or the initial consumer callback fails;
+- cleanup distinguishes whether the codec actually reached the started state before attempting stop();
+- failed startup no longer relies on a later stop() call finding resources that were never assigned to object fields.
+
+This prevents hidden codec/audio resource leaks after a failed recording start.
