@@ -276,3 +276,8 @@ InternalAudioCapture now unblocks AudioRecord before teardown, gives its worker 
 ## Save-triggered rollover note
 
 A clip save requests a sync frame and asks RollingVideoSegmentWriter to cut on that next keyframe. The export worker waits up to 750 ms for completion, then falls back to the latest completed set if needed. This reduces end-of-clip lag without reading an active segment or re-encoding.
+
+
+## Save-aligned AAC rollover note
+
+Before leasing audio for a clip, RollingAudioSegmentWriter now finalizes its active AAC segment under synchronization. The next encoded AAC sample opens a fresh segment automatically. This keeps the final audio boundary close to the video boundary instead of waiting for the normal 2-second audio rotation.
