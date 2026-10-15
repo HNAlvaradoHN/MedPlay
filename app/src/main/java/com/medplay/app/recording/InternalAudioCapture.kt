@@ -23,6 +23,7 @@ import kotlin.concurrent.thread
 class InternalAudioCapture(
     private val mediaProjection: MediaProjection,
     private val consumer: EncodedAudioConsumer = EncodedAudioConsumer.Discard,
+    private val onFatalError: (Throwable) -> Unit = {},
 ) {
 
     interface EncodedAudioConsumer {
@@ -117,7 +118,13 @@ class InternalAudioCapture(
             isDaemon = true,
             name = "medplay-internal-audio",
         ) {
-            runLoop(record, encoder)
+            try {
+                runLoop(record, encoder)
+            } catch (error: Throwable) {
+                onFatalError(error)
+            } finally {
+                running.set(false)
+            }
         }
     }
 
