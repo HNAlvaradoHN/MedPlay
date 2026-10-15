@@ -351,3 +351,8 @@ On Android 13+, MainActivity requests POST_NOTIFICATIONS before the audio/MediaP
 ## Encoder-health sample note
 
 HardwareVideoEncoder no longer feeds BUFFER_FLAG_CODEC_CONFIG buffers into EncoderRuntimeHealth. Codec-config output still reaches the sample consumer; only health counters/gap/timestamp metrics exclude it.
+
+
+## Duplicate start note
+
+ACTION_START is ignored while MediaProjection is already active; the current session remains intact. Do not reintroduce live-session replacement on the Service main thread. Stop the active session first, then request a new projection session.
