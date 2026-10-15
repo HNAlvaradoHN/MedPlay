@@ -57,7 +57,7 @@ class RetroactiveVideoExporter(
                 )
             } ?: error("Unable to open MediaStore destination")
 
-            resolver.update(
+            val updated = resolver.update(
                 uri,
                 ContentValues().apply {
                     put(MediaStore.Video.Media.IS_PENDING, 0)
@@ -65,6 +65,7 @@ class RetroactiveVideoExporter(
                 null,
                 null,
             )
+            check(updated == 1) { "Unable to publish completed MediaStore clip" }
 
             return ExportResult(
                 uri = uri,
@@ -112,6 +113,7 @@ class RetroactiveVideoExporter(
             MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4,
         )
         var started = false
+        var failure: Throwable? = null
 
         try {
             val videoTrack = muxer.addTrack(videoFormat)
@@ -158,9 +160,16 @@ class RetroactiveVideoExporter(
                     )
                 }
             }
+        } catch (error: Throwable) {
+            failure = error
+            throw error
         } finally {
             if (started) {
-                runCatching { muxer.stop() }
+                if (failure == null) {
+                    muxer.stop()
+                } else {
+                    runCatching { muxer.stop() }
+                }
             }
             runCatching { muxer.release() }
         }
@@ -236,6 +245,9 @@ class RetroactiveVideoExporter(
             check(it.file.isFile && it.file.length() > 0L) {
                 "Missing or empty video segment: ${it.file.name}"
             }
+            check(videoSegmentStartsWithSyncSample(it.file.absolutePath)) {
+                "Video segment does not start with a sync frame: ${it.file.name}"
+            }
         }
         ClipTimelineValidator.validateOrderedNonOverlapping(
             videoSegments.map {
@@ -254,6 +266,19 @@ class RetroactiveVideoExporter(
                     ClipTimelineValidator.Range(it.sourceStartUs, it.sourceEndUs)
                 }
             )
+        }
+    }
+
+    private fun videoSegmentStartsWithSyncSample(filePath: String): Boolean {
+        val extractor = MediaExtractor()
+        try {
+            extractor.setDataSource(filePath)
+            val track = findTrack(extractor, "video/")
+            extractor.selectTrack(track)
+            return extractor.sampleTime >= 0L &&
+                (extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC) != 0
+        } finally {
+            extractor.release()
         }
     }
 
