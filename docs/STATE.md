@@ -93,7 +93,7 @@ This direction is favored because it can preserve quality while reducing CPU wor
 
 ## Next step
 
-Validate internal audio capture/AAC foundation in public CI, then add A/V rolling-segment synchronization and joint export.
+Validate synchronized A/V rolling segments and joint MP4 export in public CI, then add floating save controls and extend retention beyond the 60-second prototype.
 
 
 ## Sustainable profile selector implementation
@@ -179,7 +179,7 @@ This is a real APK safeguard, not only documentation. It does not yet prove that
 
 ## Internal audio foundation
 
-Current feature branch adds optional Android playback-audio capture:
+Internal playback-audio capture/AAC foundation passed public CI and is merged. Current feature branch synchronizes audio and video rolling timelines:
 - requests RECORD_AUDIO at runtime, but continues video-only if the user denies it;
 - uses AudioPlaybackCaptureConfiguration tied to the same MediaProjection;
 - matches GAME and MEDIA playback usages;
@@ -191,3 +191,20 @@ Current feature branch adds optional Android playback-audio capture:
 - tears down AudioRecord and MediaCodec with the capture service.
 
 Important limitation: encoded AAC output is currently consumed by a discard sink. Audio is therefore not yet present in saved clips. This branch establishes and validates the capture/encode path first; the next block will place encoded audio into rolling segments aligned to the video timeline and then add the audio track during final remux.
+
+
+## Synchronized A/V rolling export
+
+Current feature branch completes the first audio-in-clip path:
+- hardware video encoder start is anchored to SystemClock.elapsedRealtimeNanos();
+- encoded video PTS is translated onto that monotonic timeline before segment bookkeeping;
+- internal AAC capture already exposes its own monotonic start anchor;
+- encoded AAC is written into independent 2-second rolling MP4 audio segments;
+- audio retention is bounded to the same 60-second prototype window;
+- save leases audio segments overlapping the selected video interval;
+- the final MediaMuxer output contains both video and AAC tracks;
+- both tracks are copied as already-compressed samples, with no decode/re-encode;
+- audio samples outside the selected video interval are trimmed during remux;
+- if playback capture is unavailable or denied, export remains valid video-only.
+
+This creates one common time base for A/V alignment while keeping audio and video storage independently bounded. Real-device testing must still measure lip/game-audio sync drift over long sessions; if drift appears, future correction should be timestamp-based rather than by resampling or re-encoding unless measurement proves that necessary.

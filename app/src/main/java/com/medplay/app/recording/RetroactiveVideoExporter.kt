@@ -18,14 +18,16 @@ class RetroactiveVideoExporter(
     data class ExportResult(
         val uri: Uri,
         val durationUs: Long,
-        val segmentCount: Int,
+        val videoSegmentCount: Int,
+        val audioSegmentCount: Int,
     )
 
     fun export(
-        lease: RollingVideoSegmentWriter.SegmentLease,
+        videoLease: RollingVideoSegmentWriter.SegmentLease,
+        audioLease: RollingAudioSegmentWriter.SegmentLease? = null,
     ): ExportResult {
-        val segments = lease.segments
-        require(segments.isNotEmpty())
+        val videoSegments = videoLease.segments
+        require(videoSegments.isNotEmpty())
 
         val displayName = "MedPlay_" + System.currentTimeMillis() + ".mp4"
         val values = ContentValues().apply {
@@ -43,7 +45,11 @@ class RetroactiveVideoExporter(
 
         try {
             resolver.openFileDescriptor(uri, "w")?.use { descriptor ->
-                remuxSegments(segments, descriptor.fileDescriptor)
+                remux(
+                    videoSegments = videoSegments,
+                    audioSegments = audioLease?.segments.orEmpty(),
+                    outputDescriptor = descriptor.fileDescriptor,
+                )
             } ?: error("Unable to open MediaStore destination")
 
             resolver.update(
@@ -57,22 +63,33 @@ class RetroactiveVideoExporter(
 
             return ExportResult(
                 uri = uri,
-                durationUs = segments.last().sourceEndUs - segments.first().sourceStartUs,
-                segmentCount = segments.size,
+                durationUs = videoSegments.last().sourceEndUs -
+                    videoSegments.first().sourceStartUs,
+                videoSegmentCount = videoSegments.size,
+                audioSegmentCount = audioLease?.segments?.size ?: 0,
             )
         } catch (error: Throwable) {
             resolver.delete(uri, null, null)
             throw error
         } finally {
-            lease.close()
+            audioLease?.close()
+            videoLease.close()
         }
     }
 
-    private fun remuxSegments(
-        segments: List<RollingVideoSegmentWriter.Segment>,
+    private fun remux(
+        videoSegments: List<RollingVideoSegmentWriter.Segment>,
+        audioSegments: List<RollingAudioSegmentWriter.Segment>,
         outputDescriptor: FileDescriptor,
     ) {
-        val firstFormat = readVideoFormat(segments.first())
+        val videoFormat = readTrackFormat(
+            videoSegments.first().file.absolutePath,
+            "video/",
+        )
+        val audioFormat = audioSegments.firstOrNull()?.let {
+            readTrackFormat(it.file.absolutePath, "audio/")
+        }
+
         val muxer = MediaMuxer(
             outputDescriptor,
             MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4,
@@ -80,28 +97,45 @@ class RetroactiveVideoExporter(
         var started = false
 
         try {
-            val outputTrack = muxer.addTrack(firstFormat)
+            val videoTrack = muxer.addTrack(videoFormat)
+            val audioTrack = audioFormat?.let { muxer.addTrack(it) }
+
             muxer.start()
             started = true
 
-            val baseSourceUs = segments.first().sourceStartUs
-            val maxSegmentBytes = segments.maxOf { it.file.length() }
-            val capacity = maxOf(
-                DEFAULT_COPY_BUFFER_BYTES.toLong(),
-                maxSegmentBytes,
-            ).coerceAtMost(MAX_COPY_BUFFER_BYTES.toLong()).toInt()
-            val buffer = ByteBuffer.allocateDirect(capacity)
+            val clipStartUs = videoSegments.first().sourceStartUs
+            val clipEndUs = videoSegments.last().sourceEndUs
+            val buffer = ByteBuffer.allocateDirect(COPY_BUFFER_BYTES)
             val info = MediaCodec.BufferInfo()
 
-            segments.forEach { segment ->
-                copySegment(
-                    segment = segment,
+            videoSegments.forEach { segment ->
+                copyTrackSegment(
+                    filePath = segment.file.absolutePath,
+                    mimePrefix = "video/",
+                    segmentStartUs = segment.sourceStartUs,
+                    clipStartUs = clipStartUs,
+                    clipEndUs = clipEndUs,
                     muxer = muxer,
-                    outputTrack = outputTrack,
-                    baseSourceUs = baseSourceUs,
+                    outputTrack = videoTrack,
                     buffer = buffer,
                     info = info,
                 )
+            }
+
+            if (audioTrack != null) {
+                audioSegments.forEach { segment ->
+                    copyTrackSegment(
+                        filePath = segment.file.absolutePath,
+                        mimePrefix = "audio/",
+                        segmentStartUs = segment.sourceStartUs,
+                        clipStartUs = clipStartUs,
+                        clipEndUs = clipEndUs,
+                        muxer = muxer,
+                        outputTrack = audioTrack,
+                        buffer = buffer,
+                        info = info,
+                    )
+                }
             }
         } finally {
             if (started) {
@@ -111,46 +145,48 @@ class RetroactiveVideoExporter(
         }
     }
 
-    private fun readVideoFormat(
-        segment: RollingVideoSegmentWriter.Segment,
-    ): MediaFormat {
-        val extractor = MediaExtractor()
-        try {
-            extractor.setDataSource(segment.file.absolutePath)
-            val track = findVideoTrack(extractor)
-            return extractor.getTrackFormat(track)
-        } finally {
-            extractor.release()
-        }
-    }
-
-    private fun copySegment(
-        segment: RollingVideoSegmentWriter.Segment,
+    private fun copyTrackSegment(
+        filePath: String,
+        mimePrefix: String,
+        segmentStartUs: Long,
+        clipStartUs: Long,
+        clipEndUs: Long,
         muxer: MediaMuxer,
         outputTrack: Int,
-        baseSourceUs: Long,
         buffer: ByteBuffer,
         info: MediaCodec.BufferInfo,
     ) {
         val extractor = MediaExtractor()
 
         try {
-            extractor.setDataSource(segment.file.absolutePath)
-            val inputTrack = findVideoTrack(extractor)
+            extractor.setDataSource(filePath)
+            val inputTrack = findTrack(extractor, mimePrefix)
             extractor.selectTrack(inputTrack)
 
             while (true) {
                 buffer.clear()
                 val size = extractor.readSampleData(buffer, 0)
                 if (size < 0) break
+                check(size <= buffer.capacity()) {
+                    "Encoded sample exceeds remux buffer"
+                }
 
                 val sampleTimeUs = extractor.sampleTime
-                check(sampleTimeUs >= 0) { "Invalid sample timestamp" }
+                if (sampleTimeUs < 0) break
+
+                val absoluteUs = segmentStartUs + sampleTimeUs
+                if (absoluteUs < clipStartUs) {
+                    extractor.advance()
+                    continue
+                }
+                if (absoluteUs > clipEndUs) {
+                    break
+                }
 
                 info.set(
                     0,
                     size,
-                    (segment.sourceStartUs - baseSourceUs) + sampleTimeUs,
+                    absoluteUs - clipStartUs,
                     extractor.sampleFlags,
                 )
                 muxer.writeSampleData(outputTrack, buffer, info)
@@ -161,17 +197,33 @@ class RetroactiveVideoExporter(
         }
     }
 
-    private fun findVideoTrack(extractor: MediaExtractor): Int {
+    private fun readTrackFormat(
+        filePath: String,
+        mimePrefix: String,
+    ): MediaFormat {
+        val extractor = MediaExtractor()
+        try {
+            extractor.setDataSource(filePath)
+            val track = findTrack(extractor, mimePrefix)
+            return extractor.getTrackFormat(track)
+        } finally {
+            extractor.release()
+        }
+    }
+
+    private fun findTrack(
+        extractor: MediaExtractor,
+        mimePrefix: String,
+    ): Int {
         for (index in 0 until extractor.trackCount) {
             val format = extractor.getTrackFormat(index)
             val mime = format.getString(MediaFormat.KEY_MIME).orEmpty()
-            if (mime.startsWith("video/")) return index
+            if (mime.startsWith(mimePrefix)) return index
         }
-        error("No video track found in rolling segment")
+        error("No $mimePrefix track found")
     }
 
     companion object {
-        private const val DEFAULT_COPY_BUFFER_BYTES = 8 * 1024 * 1024
-        private const val MAX_COPY_BUFFER_BYTES = 32 * 1024 * 1024
+        private const val COPY_BUFFER_BYTES = 8 * 1024 * 1024
     }
 }

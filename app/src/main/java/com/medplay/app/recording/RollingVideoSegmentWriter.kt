@@ -30,6 +30,7 @@ class RollingVideoSegmentWriter(
     private var latestCompletedEndUs = Long.MIN_VALUE
 
     private var outputFormat: MediaFormat? = null
+    private var encoderMonotonicStartUs = Long.MIN_VALUE
     private var muxer: MediaMuxer? = null
     private var trackIndex = -1
     private var currentFile: File? = null
@@ -46,6 +47,11 @@ class RollingVideoSegmentWriter(
     }
 
     @Synchronized
+    override fun onEncoderStarted(monotonicStartUs: Long) {
+        encoderMonotonicStartUs = monotonicStartUs
+    }
+
+    @Synchronized
     override fun onOutputFormat(format: MediaFormat) {
         check(outputFormat == null) { "Encoder output format changed more than once" }
         outputFormat = format
@@ -56,19 +62,22 @@ class RollingVideoSegmentWriter(
         if (info.size <= 0) return
         if ((info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) return
 
+        if (encoderMonotonicStartUs == Long.MIN_VALUE) return
+
+        val absolutePtsUs = encoderMonotonicStartUs + info.presentationTimeUs
         val isSyncFrame = (info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
         val activeMuxer = muxer
 
         if (activeMuxer == null) {
             if (!isSyncFrame) return
-            openSegment(info.presentationTimeUs)
+            openSegment(absolutePtsUs)
         } else if (
             isSyncFrame &&
             currentStartUs != Long.MIN_VALUE &&
-            info.presentationTimeUs - currentStartUs >= targetSegmentUs
+            absolutePtsUs - currentStartUs >= targetSegmentUs
         ) {
             finishCurrentSegment()
-            openSegment(info.presentationTimeUs)
+            openSegment(absolutePtsUs)
         }
 
         val destinationMuxer = muxer ?: return
@@ -76,13 +85,13 @@ class RollingVideoSegmentWriter(
             set(
                 0,
                 info.size,
-                (info.presentationTimeUs - currentStartUs).coerceAtLeast(0L),
+                (absolutePtsUs - currentStartUs).coerceAtLeast(0L),
                 info.flags,
             )
         }
 
         destinationMuxer.writeSampleData(trackIndex, buffer, normalizedInfo)
-        currentEndUs = info.presentationTimeUs
+        currentEndUs = absolutePtsUs
     }
 
     class SegmentLease internal constructor(

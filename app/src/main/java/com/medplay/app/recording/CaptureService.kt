@@ -31,6 +31,7 @@ class CaptureService : Service() {
     private var rollingWriter: RollingVideoSegmentWriter? = null
     private var thermalGuard: RuntimeThermalGuard? = null
     private var internalAudioCapture: InternalAudioCapture? = null
+    private var rollingAudioWriter: RollingAudioSegmentWriter? = null
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
@@ -145,6 +146,9 @@ class CaptureService : Service() {
         val writer = rollingWriter ?: return
         val safeSeconds = seconds.coerceIn(MIN_SAVE_SECONDS, MAX_SAVE_SECONDS)
         val lease = writer.leaseCompleted(safeSeconds * 1_000_000L) ?: return
+        val videoStartUs = lease.segments.first().sourceStartUs
+        val videoEndUs = lease.segments.last().sourceEndUs
+        val audioLease = rollingAudioWriter?.leaseRange(videoStartUs, videoEndUs)
 
         thread(
             start = true,
@@ -152,8 +156,12 @@ class CaptureService : Service() {
             name = "medplay-clip-export",
         ) {
             runCatching {
-                RetroactiveVideoExporter(applicationContext).export(lease)
+                RetroactiveVideoExporter(applicationContext).export(
+                    videoLease = lease,
+                    audioLease = audioLease,
+                )
             }.onFailure {
+                audioLease?.close()
                 lease.close()
             }
         }
@@ -168,16 +176,24 @@ class CaptureService : Service() {
             return
         }
 
-        val audioCapture = InternalAudioCapture(projection)
+        val audioWriter = RollingAudioSegmentWriter(
+            directory = File(cacheDir, "medplay_rolling_audio"),
+        )
+        val audioCapture = InternalAudioCapture(
+            mediaProjection = projection,
+            consumer = audioWriter,
+        )
         val started = runCatching {
             audioCapture.start()
             true
         }.getOrDefault(false)
 
         if (started) {
+            rollingAudioWriter = audioWriter
             internalAudioCapture = audioCapture
         } else {
             audioCapture.stop()
+            audioWriter.close()
         }
     }
 
@@ -201,6 +217,9 @@ class CaptureService : Service() {
     private fun releaseVideoPipeline() {
         internalAudioCapture?.stop()
         internalAudioCapture = null
+
+        rollingAudioWriter?.close()
+        rollingAudioWriter = null
 
         thermalGuard?.close()
         thermalGuard = null
