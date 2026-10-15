@@ -317,6 +317,7 @@ class FloatingClipControl(
 
         private fun drawAcceptedIcon(canvas: Canvas, diameter: Float) {
             detailPaint.color = style.tint.accentColor
+            iconPaint.color = style.tint.accentColor
             detailPaint.strokeWidth = diameter * 0.065f
             val cx = width / 2f
             val cy = height / 2f
@@ -351,6 +352,7 @@ class FloatingClipControl(
 
         private fun drawFailureIcon(canvas: Canvas, diameter: Float) {
             detailPaint.color = style.tint.accentColor
+            iconPaint.color = style.tint.accentColor
             detailPaint.strokeWidth = diameter * 0.07f
             canvas.drawLine(
                 width / 2f,
