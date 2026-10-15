@@ -301,3 +301,8 @@ MedPlay keeps only the latest compact recording-session summary in internal app 
 ## Encoder startup cleanup note
 
 Video and AAC startup are transactional. Resources created before full publication are cleaned immediately on failure; do not rely on stop() to find partially initialized MediaCodec/AudioRecord instances that were never assigned to fields.
+
+
+## Capture startup failure note
+
+MediaProjection acquisition/registration, profile probing, encoder startup, VirtualDisplay creation and thermal-guard startup are failure-contained. A startup exception must end in bounded cleanup and service stop; secondary cleanup failures must not block projection teardown.
