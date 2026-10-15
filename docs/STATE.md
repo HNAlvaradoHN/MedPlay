@@ -375,3 +375,15 @@ Video and AAC startup now clean locally owned resources if initialization fails 
 ## Capture startup failure containment
 
 CaptureService startup contains failures from MediaProjection acquisition/callback registration, codec profile probing, video encoder startup, VirtualDisplay creation and thermal-guard startup. Each failure path performs bounded cleanup and stops the service instead of allowing a partially initialized recorder to escape through an exception. Secondary cleanup failures cannot prevent MediaProjection teardown.
+
+
+## Lightweight clip-save feedback
+
+The foreground-service notification now reports clip-save state without adding per-frame work:
+- repeated save requests while one export is active report that a save is already in progress;
+- the notification reports when a requested retroactive clip is being saved;
+- if there is not enough completed rolling data yet, the notification says so;
+- successful export reports the actual saved duration while recording continues;
+- failed export reports failure while explicitly keeping the active recording session running.
+
+Notification updates happen only on save events and do not alter the encoder, segment cadence or remux strategy.
