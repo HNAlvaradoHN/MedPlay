@@ -44,6 +44,30 @@ class MainActivity : Activity() {
             }
         }
 
+        val save15Button = Button(this).apply {
+            text = "Save previous 15 seconds"
+            setOnClickListener {
+                startService(CaptureService.createSaveIntent(this@MainActivity, 15))
+                statusView.text = "Saving previous 15 seconds..."
+            }
+        }
+
+        val save30Button = Button(this).apply {
+            text = "Save previous 30 seconds"
+            setOnClickListener {
+                startService(CaptureService.createSaveIntent(this@MainActivity, 30))
+                statusView.text = "Saving previous 30 seconds..."
+            }
+        }
+
+        val save60Button = Button(this).apply {
+            text = "Save previous 60 seconds"
+            setOnClickListener {
+                startService(CaptureService.createSaveIntent(this@MainActivity, 60))
+                statusView.text = "Saving previous 60 seconds..."
+            }
+        }
+
         val stopButton = Button(this).apply {
             text = "Stop capture service"
             setOnClickListener {
@@ -57,6 +81,9 @@ class MainActivity : Activity() {
             setPadding(32, 32, 32, 32)
             addView(statusView)
             addView(startButton)
+            addView(save15Button)
+            addView(save30Button)
+            addView(save60Button)
             addView(stopButton)
             addView(reportView)
         }
