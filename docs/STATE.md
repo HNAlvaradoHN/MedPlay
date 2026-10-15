@@ -18,7 +18,7 @@ MedPlay session numbering is maintained persistently in this file. Previous Send
 - Product code: initial Android/Kotlin scaffold and encoder capability probe merged to main; public Android CI passed.
 - Stable version: none.
 - Development version: none.
-- Release/APK: none.
+- Development APK: `dev-latest` prerelease generated successfully for real-device validation; includes `MedPlay-debug.apk` and `MedPlay-debug.sha256`.
 - Public CI: REA/JADX smoke workflow exists and passed.
 - Private lab: HNAlvaradoHN/Medplay-Lab.
 - Private Medal analysis workflow: implemented and running successfully with GitHub Actions + JADX.
@@ -97,7 +97,7 @@ This direction is favored because it can preserve quality while reducing CPU wor
 
 ## Next step
 
-Generate the current development APK from main and perform real-device validation using docs/DEVICE_TESTING.md. Validate floating/notification controls, 15/30/60/120/180/300-second saves where retention permits, internal-audio fallback, long-session A/V sync, gameplay smoothness, thermal behavior and the persisted sustainability diagnostics. Treat real-device findings as the evidence for the next recorder changes.
+Install the current `dev-latest` development APK on a real Android device and perform validation using docs/DEVICE_TESTING.md. Validate floating/notification controls, 15/30/60/120/180/300-second saves where retention permits, internal-audio fallback, long-session A/V sync, gameplay smoothness, thermal behavior and the persisted sustainability diagnostics. Treat real-device findings as the evidence for the next recorder changes.
 
 
 ## Sustainable profile selector implementation
@@ -476,3 +476,13 @@ After a capture session is fully started, the foreground notification now shows 
 ## Active capture status in notification
 
 After a capture session is fully started, the foreground notification shows the actual selected video resolution/FPS, the storage-aware rolling retention window in seconds, and whether internal audio is active or the session is video-only. This reuses existing session state and adds no polling or per-frame work. It gives real-device tests an immediate way to confirm the profile MedPlay actually selected.
+
+
+## Session 2 development APK handoff
+
+- The current development APK was generated successfully from main through the existing Manual dev APK release workflow.
+- Release tag: `dev-latest`.
+- Release assets: `MedPlay-debug.apk` and `MedPlay-debug.sha256`.
+- The release workflow was temporarily enabled for one push only because the available GitHub connector cannot dispatch `workflow_dispatch` directly.
+- After successful APK publication, the workflow was restored to manual-only and that restoration passed Android CI.
+- Real-device validation is now the active blocker; CI does not substitute for physical capture, thermal, gameplay or A/V-sync testing.
