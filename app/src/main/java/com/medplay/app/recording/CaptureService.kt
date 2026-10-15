@@ -10,6 +10,8 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
+import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -20,6 +22,8 @@ import com.medplay.app.MainActivity
 class CaptureService : Service() {
 
     private var mediaProjection: MediaProjection? = null
+    private var virtualDisplay: VirtualDisplay? = null
+    private var videoEncoder: HardwareVideoEncoder? = null
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
@@ -61,10 +65,44 @@ class CaptureService : Service() {
             )
         }
 
+        val profile = EncoderCapabilityProbe.chooseSafeStartupProfile()
+        if (profile == null) {
+            stopProjectionAndSelf()
+            return START_NOT_STICKY
+        }
+
+        val encoder = HardwareVideoEncoder(profile)
+        val encoderSurface = runCatching { encoder.start() }.getOrElse {
+            encoder.stop()
+            stopProjectionAndSelf()
+            return START_NOT_STICKY
+        }
+
+        val densityDpi = resources.displayMetrics.densityDpi
+        virtualDisplay = mediaProjection?.createVirtualDisplay(
+            "MedPlayCapture",
+            profile.width,
+            profile.height,
+            densityDpi,
+            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+            encoderSurface,
+            null,
+            null,
+        )
+
+        if (virtualDisplay == null) {
+            encoder.stop()
+            stopProjectionAndSelf()
+            return START_NOT_STICKY
+        }
+
+        videoEncoder = encoder
+
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
+        releaseVideoPipeline()
         mediaProjection?.unregisterCallback(projectionCallback)
         mediaProjection?.stop()
         mediaProjection = null
@@ -74,9 +112,18 @@ class CaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun stopProjectionAndSelf() {
+        releaseVideoPipeline()
         mediaProjection?.unregisterCallback(projectionCallback)
         mediaProjection = null
         stopSelf()
+    }
+
+    private fun releaseVideoPipeline() {
+        virtualDisplay?.release()
+        virtualDisplay = null
+
+        videoEncoder?.stop()
+        videoEncoder = null
     }
 
     private fun startAsProjectionForegroundService() {
