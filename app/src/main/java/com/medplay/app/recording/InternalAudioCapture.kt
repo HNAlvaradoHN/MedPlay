@@ -3,7 +3,6 @@ package com.medplay.app.recording
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioRecord
-import android.media.AudioTimestamp
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
