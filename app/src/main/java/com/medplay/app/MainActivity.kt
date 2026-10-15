@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.provider.Settings
+import android.os.Build
 import android.os.Bundle
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -56,7 +57,7 @@ class MainActivity : Activity() {
         val startButton = Button(this).apply {
             text = "Enable screen capture"
             setOnClickListener {
-                requestCaptureWithOptionalInternalAudio()
+                requestNotificationPermissionThenCapture()
             }
         }
 
@@ -216,6 +217,22 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun requestNotificationPermissionThenCapture() {
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                REQUEST_POST_NOTIFICATIONS,
+            )
+            return
+        }
+
+        requestCaptureWithOptionalInternalAudio()
+    }
+
     private fun requestCaptureWithOptionalInternalAudio() {
         if (!InternalAudioPreference.isEnabled(this)) {
             statusView.text = "Internal audio disabled; continuing video-only."
@@ -248,15 +265,29 @@ class MainActivity : Activity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
-        if (requestCode != REQUEST_RECORD_AUDIO) return
+        when (requestCode) {
+            REQUEST_POST_NOTIFICATIONS -> {
+                val granted =
+                    grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+                statusView.text = if (granted) {
+                    "Notification permission granted."
+                } else {
+                    "Notification permission denied; capture can continue, but notification controls may be hidden."
+                }
+                requestCaptureWithOptionalInternalAudio()
+            }
 
-        val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
-        statusView.text = if (granted) {
-            "Internal audio permission granted."
-        } else {
-            "Internal audio unavailable; continuing video-only."
+            REQUEST_RECORD_AUDIO -> {
+                val granted =
+                    grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+                statusView.text = if (granted) {
+                    "Internal audio permission granted."
+                } else {
+                    "Internal audio unavailable; continuing video-only."
+                }
+                launchMediaProjectionConsent()
+            }
         }
-        launchMediaProjectionConsent()
     }
 
     @Deprecated("Deprecated in Android API, kept here to avoid extra UI dependencies in the prototype.")
@@ -282,5 +313,6 @@ class MainActivity : Activity() {
     companion object {
         private const val REQUEST_MEDIA_PROJECTION = 2001
         private const val REQUEST_RECORD_AUDIO = 2002
+        private const val REQUEST_POST_NOTIFICATIONS = 2003
     }
 }
