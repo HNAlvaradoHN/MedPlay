@@ -266,3 +266,8 @@ Capture replacement now releases the entire old projection-owned pipeline before
 ## Video PTS normalization note
 
 Do not add encoderMonotonicStartUs directly to raw Surface/MediaCodec presentationTimeUs. Raw video PTS may not be zero-based. MedPlay now subtracts the first observed video PTS, then adds the monotonic session anchor. Tests cover both relative and large absolute-looking input PTS domains.
+
+
+## AAC EOS shutdown note
+
+InternalAudioCapture now distinguishes normal stopping from fatal failure, unblocks AudioRecord first, gives the worker time to queue/drain EOS, and only force-stops MediaCodec after a bounded timeout. Output buffers are released in finally, read errors are surfaced, and codec.stop() is not duplicated.
