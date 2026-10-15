@@ -13,22 +13,25 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.Gravity
+import android.view.View
 import android.view.WindowInsets
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import com.medplay.app.recording.AppLanguagePreference
-import com.medplay.app.recording.CaptureScopePreference
 import com.medplay.app.recording.CaptureService
 import com.medplay.app.recording.ClipLengthPreference
 import com.medplay.app.recording.EncoderCapabilityProbe
 import com.medplay.app.recording.FloatingControlStylePreference
+import com.medplay.app.recording.GlassClipView
 import com.medplay.app.recording.InternalAudioPreference
 import com.medplay.app.recording.RecordingQualityPreference
 import kotlin.concurrent.thread
@@ -38,6 +41,7 @@ class MainActivity : Activity() {
     private lateinit var statusView: TextView
     private lateinit var reportView: TextView
     private lateinit var mediaProjectionManager: MediaProjectionManager
+    private var pendingCaptureAfterOverlayPermission = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -97,58 +101,16 @@ class MainActivity : Activity() {
             }
         }
 
-        val captureScopeLabel = TextView(this).apply {
-            text = tr("Qué grabar", "What to capture")
-            textSize = 14f
-        }
-
-        val captureScopeOptions = if (Build.VERSION.SDK_INT >= 34) {
-            listOf(
-                CaptureScopePreference.Mode.APP_ONLY,
-                CaptureScopePreference.Mode.FULL_SCREEN,
-            )
-        } else {
-            listOf(CaptureScopePreference.Mode.FULL_SCREEN)
-        }
-        val captureScopeSpinner = Spinner(this).apply {
-            adapter = ArrayAdapter(
-                this@MainActivity,
-                android.R.layout.simple_spinner_dropdown_item,
-                captureScopeOptions.map(::captureScopeLabel),
-            )
-            val stored = CaptureScopePreference.get(this@MainActivity)
-            setSelection(
-                captureScopeOptions.indexOf(stored)
-                    .takeIf { it >= 0 }
-                    ?: 0
-            )
-            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(
-                    parent: AdapterView<*>?,
-                    view: android.view.View?,
-                    position: Int,
-                    id: Long,
-                ) {
-                    CaptureScopePreference.set(
-                        this@MainActivity,
-                        captureScopeOptions[position],
-                    )
-                }
-
-                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-            }
-        }
-
-        val captureScopeInfoView = TextView(this).apply {
+        val captureChoiceInfoView = TextView(this).apply {
             text = if (Build.VERSION.SDK_INT >= 34) {
                 tr(
-                    "Solo juego es recomendado: Android te pedirá elegir la app del juego y excluirá notificaciones y otros elementos del sistema.",
-                    "Game only is recommended: Android will ask you to choose the game app and excludes notifications and other system UI.",
+                    "Al iniciar, Android te preguntará qué grabar. Elige una app para grabar solo el juego; Pantalla completa graba todo lo que aparece en el teléfono.",
+                    "When you start, Android will ask what to capture. Choose one app to record only the game; Full screen records everything shown on the phone.",
                 )
             } else {
                 tr(
-                    "Este Android no admite captura de una sola app; se usará pantalla completa.",
-                    "This Android version does not support single-app capture; full screen will be used.",
+                    "Este Android grabará la pantalla completa.",
+                    "This Android version will record the full screen.",
                 )
             }
             textSize = 13f
@@ -185,7 +147,7 @@ class MainActivity : Activity() {
         val startButton = Button(this).apply {
             text = tr("Iniciar grabación", "Start recording")
             setOnClickListener {
-                requestNotificationPermissionThenCapture()
+                requestOverlayPermissionThenCapture()
             }
         }
 
@@ -242,6 +204,43 @@ class MainActivity : Activity() {
             textSize = 14f
         }
 
+        val initialFloatingStyle =
+            FloatingControlStylePreference.get(this@MainActivity)
+        val density = resources.displayMetrics.density
+
+        val floatingPreviewLabel = TextView(this).apply {
+            text = tr("Vista previa", "Preview")
+            textSize = 13f
+        }
+        val floatingPreview = GlassClipView(this).apply {
+            setStyle(initialFloatingStyle)
+            isClickable = false
+        }
+        val previewContainer = FrameLayout(this).apply {
+            val previewSizePx = (initialFloatingStyle.sizeDp * density).toInt()
+            addView(
+                floatingPreview,
+                FrameLayout.LayoutParams(
+                    previewSizePx,
+                    previewSizePx,
+                    Gravity.CENTER,
+                )
+            )
+            minimumHeight = (112f * density).toInt()
+        }
+
+        fun refreshFloatingPreview() {
+            val style = FloatingControlStylePreference.get(this@MainActivity)
+            floatingPreview.setStyle(style)
+            val sizePx = (style.sizeDp * density).toInt()
+            floatingPreview.layoutParams = FrameLayout.LayoutParams(
+                sizePx,
+                sizePx,
+                Gravity.CENTER,
+            )
+            floatingPreview.requestLayout()
+        }
+
         val floatingTintOptions = FloatingControlStylePreference.Tint.entries
         val floatingTintSpinner = Spinner(this).apply {
             adapter = ArrayAdapter(
@@ -249,9 +248,9 @@ class MainActivity : Activity() {
                 android.R.layout.simple_spinner_dropdown_item,
                 floatingTintOptions.map(::floatingTintLabel),
             )
-            val style = FloatingControlStylePreference.get(this@MainActivity)
             setSelection(
-                floatingTintOptions.indexOf(style.tint).coerceAtLeast(0)
+                floatingTintOptions.indexOf(initialFloatingStyle.tint)
+                    .coerceAtLeast(0)
             )
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(
@@ -264,14 +263,12 @@ class MainActivity : Activity() {
                         this@MainActivity,
                         floatingTintOptions[position],
                     )
+                    refreshFloatingPreview()
                 }
 
                 override fun onNothingSelected(parent: AdapterView<*>?) = Unit
             }
         }
-
-        val initialFloatingStyle =
-            FloatingControlStylePreference.get(this@MainActivity)
 
         val floatingSizeLabel = TextView(this).apply {
             text = tr(
@@ -303,6 +300,7 @@ class MainActivity : Activity() {
                                 this@MainActivity,
                                 value,
                             )
+                            refreshFloatingPreview()
                         }
                     }
 
@@ -343,6 +341,7 @@ class MainActivity : Activity() {
                                 this@MainActivity,
                                 value,
                             )
+                            refreshFloatingPreview()
                         }
                     }
 
@@ -354,39 +353,10 @@ class MainActivity : Activity() {
 
         val floatingStyleHint = TextView(this).apply {
             text = tr(
-                "Estilo glass translúcido. Los cambios se aplican al activar o reactivar el botón.",
-                "Translucent glass style. Changes apply when the button is enabled or refreshed.",
+                "El botón aparece automáticamente al comenzar la grabación y confirma visualmente cuando guarda un clip.",
+                "The button appears automatically when capture starts and visually confirms when a clip is saved.",
             )
             textSize = 12f
-        }
-
-        val overlayButton = Button(this).apply {
-            text = tr(
-                "Activar botón flotante",
-                "Enable floating clip button",
-            )
-            setOnClickListener {
-                if (Settings.canDrawOverlays(this@MainActivity)) {
-                    startService(
-                        CaptureService.createShowOverlayIntent(this@MainActivity)
-                    )
-                    statusView.text = tr(
-                        "Botón flotante activado.",
-                        "Floating clip button enabled.",
-                    )
-                } else {
-                    startActivity(
-                        Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:$packageName"),
-                        )
-                    )
-                    statusView.text = tr(
-                        "Concede el permiso para mostrar sobre otras apps y vuelve a tocar este botón.",
-                        "Grant overlay permission, then tap this button again.",
-                    )
-                }
-            }
         }
 
         val stopButton = Button(this).apply {
@@ -444,6 +414,28 @@ class MainActivity : Activity() {
             }
         }
 
+        val advancedContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            addView(stopButton)
+            addView(diagnosticsButton)
+            addView(copyDiagnosticsButton)
+            addView(reportView)
+        }
+
+        val advancedButton = Button(this).apply {
+            text = tr("Opciones avanzadas ▾", "Advanced options ▾")
+            setOnClickListener {
+                val opening = advancedContainer.visibility != View.VISIBLE
+                advancedContainer.visibility = if (opening) View.VISIBLE else View.GONE
+                text = if (opening) {
+                    tr("Opciones avanzadas ▴", "Advanced options ▴")
+                } else {
+                    tr("Opciones avanzadas ▾", "Advanced options ▾")
+                }
+            }
+        }
+
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 32, 32, 32)
@@ -455,10 +447,7 @@ class MainActivity : Activity() {
             addView(qualityLabel)
             addView(qualitySpinner)
             addView(qualityInfoView)
-
-            addView(captureScopeLabel)
-            addView(captureScopeSpinner)
-            addView(captureScopeInfoView)
+            addView(captureChoiceInfoView)
 
             addView(internalAudioToggle)
             addView(startButton)
@@ -468,21 +457,21 @@ class MainActivity : Activity() {
             addView(saveClipButton)
 
             addView(floatingStyleLabel)
+            addView(floatingPreviewLabel)
+            addView(previewContainer)
             addView(floatingTintSpinner)
             addView(floatingSizeLabel)
             addView(floatingSizeSeekBar)
             addView(floatingOpacityLabel)
             addView(floatingOpacitySeekBar)
             addView(floatingStyleHint)
-            addView(overlayButton)
-            addView(stopButton)
-            addView(diagnosticsButton)
-            addView(copyDiagnosticsButton)
-            addView(reportView)
+            addView(advancedButton)
+            addView(advancedContainer)
         }
 
         val rootScrollView = ScrollView(this).apply {
             isFillViewport = true
+            isSaveEnabled = false
             clipToPadding = false
             addView(content)
             setOnApplyWindowInsetsListener { view, insets ->
@@ -527,6 +516,10 @@ class MainActivity : Activity() {
         }
         setContentView(rootScrollView)
         rootScrollView.requestApplyInsets()
+        rootScrollView.post {
+            rootScrollView.scrollTo(0, 0)
+            rootScrollView.fullScroll(View.FOCUS_UP)
+        }
 
         thread(name = "medplay-codec-probe") {
             val supportedModes = runCatching {
@@ -594,15 +587,6 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun captureScopeLabel(mode: CaptureScopePreference.Mode): String {
-        return when (mode) {
-            CaptureScopePreference.Mode.APP_ONLY ->
-                tr("Solo juego (recomendado)", "Game only (recommended)")
-            CaptureScopePreference.Mode.FULL_SCREEN ->
-                tr("Pantalla completa", "Full screen")
-        }
-    }
-
     private fun floatingTintLabel(
         tint: FloatingControlStylePreference.Tint,
     ): String {
@@ -656,6 +640,36 @@ class MainActivity : Activity() {
         return AppLanguagePreference.text(this, spanish, english)
     }
 
+    private fun requestOverlayPermissionThenCapture() {
+        if (Settings.canDrawOverlays(this)) {
+            requestNotificationPermissionThenCapture()
+            return
+        }
+
+        pendingCaptureAfterOverlayPermission = true
+        statusView.text = tr(
+            "Concede el permiso del botón flotante. Al volver, MedPlay continuará automáticamente.",
+            "Grant the floating-button permission. When you return, MedPlay will continue automatically.",
+        )
+        startActivity(
+            Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName"),
+            )
+        )
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (
+            pendingCaptureAfterOverlayPermission &&
+            Settings.canDrawOverlays(this)
+        ) {
+            pendingCaptureAfterOverlayPermission = false
+            requestNotificationPermissionThenCapture()
+        }
+    }
+
     private fun requestNotificationPermissionThenCapture() {
         if (
             Build.VERSION.SDK_INT >= 33 &&
@@ -698,13 +712,9 @@ class MainActivity : Activity() {
 
     private fun launchMediaProjectionConsent() {
         val captureIntent = if (Build.VERSION.SDK_INT >= 34) {
-            val config = when (CaptureScopePreference.get(this)) {
-                CaptureScopePreference.Mode.APP_ONLY ->
-                    MediaProjectionConfig.createConfigForUserChoice()
-                CaptureScopePreference.Mode.FULL_SCREEN ->
-                    MediaProjectionConfig.createConfigForDefaultDisplay()
-            }
-            mediaProjectionManager.createScreenCaptureIntent(config)
+            mediaProjectionManager.createScreenCaptureIntent(
+                MediaProjectionConfig.createConfigForUserChoice()
+            )
         } else {
             mediaProjectionManager.createScreenCaptureIntent()
         }
