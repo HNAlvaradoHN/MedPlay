@@ -1267,3 +1267,25 @@ CI evidence:
 - corrected branch run `38974847658`: success.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN for the new media UI on-device.
+
+
+## Latest validation APK — XRecorder-inspired media UI
+
+A fresh `dev-latest` APK was generated after the first media-first UX slice.
+
+Evidence:
+- release workflow run `38975151735`: build/tests and release steps succeeded;
+- release target: `cf3dd59360305e54e67294ae0b61ec828660ec19`;
+- source main feature state: `07123f6ef90df1c84dbfeb4b34311b50c9307d8f`;
+- published: `2026-10-16T22:21:43Z`;
+- `MedPlay-debug.apk` size: 11,742,786 bytes;
+- SHA-256: `100633bb120b623d8eaf7bec85d8a5572ae4c6269b23cdd3ea4f8067d3230a38`.
+
+Physical validation priority:
+- real thumbnail loading in Mis clips;
+- newest-first card order;
+- Edit/Delete actions;
+- internal-player action bar;
+- editor tool switching between Recorte / Imagen / Audio / Exportar;
+- preview sizing for portrait and landscape clips;
+- existing editor audio/visual/export behavior remains functional.
