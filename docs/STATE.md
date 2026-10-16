@@ -954,3 +954,20 @@ This build includes:
 - game + microphone audio mixing into one AAC soundtrack for normal players.
 
 Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN for the new visual/audio editor pipeline until tested on a real device.
+
+
+## Final editor audio-integrity guard
+
+The final editor export now verifies that the actual demuxed audio-track count matches the ClipLibrary metadata before processing.
+
+Implemented:
+- exact validation of expected game/microphone audio track count;
+- deterministic game/microphone gain mapping;
+- export fails visibly instead of silently dropping or unexpectedly mixing a track when metadata and source disagree;
+- partial audio-demux failures clean already-created temporary files;
+- unit coverage for game-only, microphone-only, dual-track, mismatch and gain-clamping cases.
+
+CI evidence:
+- Android build run `38933653818`: success before documentation-only update.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. Real-device validation of final mixed-audio export remains required.
