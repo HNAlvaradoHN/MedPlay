@@ -197,6 +197,7 @@ class RetroactiveVideoExporter(
                         buffer = buffer,
                         info = info,
                         lastWrittenPtsUs = lastAudioPtsUs,
+                        pauseIntervals = pauseIntervals,
                     )
                     lastAudioPtsUs = result.lastWrittenPtsUs
                     buffer = result.buffer
@@ -217,6 +218,7 @@ class RetroactiveVideoExporter(
                         buffer = buffer,
                         info = info,
                         lastWrittenPtsUs = lastMicrophonePtsUs,
+                        pauseIntervals = pauseIntervals,
                     )
                     lastMicrophonePtsUs = result.lastWrittenPtsUs
                     buffer = result.buffer
