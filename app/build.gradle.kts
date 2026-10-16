@@ -27,6 +27,11 @@ android {
 
 dependencies {
     implementation("androidx.annotation:annotation:1.9.1")
+    implementation("androidx.media3:media3-common:1.8.1")
+    implementation("androidx.media3:media3-effect:1.8.1")
+    implementation("androidx.media3:media3-exoplayer:1.8.1")
+    implementation("androidx.media3:media3-ui:1.8.1")
+    implementation("androidx.media3:media3-transformer:1.8.1")
     testImplementation("junit:junit:4.13.2")
 }
 
