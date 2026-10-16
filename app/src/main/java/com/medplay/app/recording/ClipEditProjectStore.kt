@@ -18,6 +18,7 @@ object ClipEditProjectStore {
         val saturationPercent: Int,
         val brightnessPercent: Int,
         val contrastPercent: Int,
+        val rotationDegrees: Int,
         val updatedAtMs: Long,
     )
 
@@ -40,6 +41,7 @@ object ClipEditProjectStore {
             saturationPercent = 100,
             brightnessPercent = 0,
             contrastPercent = 0,
+            rotationDegrees = 0,
             updatedAtMs = System.currentTimeMillis(),
         )
     }
@@ -85,6 +87,7 @@ object ClipEditProjectStore {
                 saturationPercent = project.saturationPercent,
                 brightnessPercent = project.brightnessPercent,
                 contrastPercent = project.contrastPercent,
+                rotationDegrees = project.rotationDegrees,
             )
         )
 
@@ -97,6 +100,7 @@ object ClipEditProjectStore {
             saturationPercent = visual.saturationPercent,
             brightnessPercent = visual.brightnessPercent,
             contrastPercent = visual.contrastPercent,
+            rotationDegrees = visual.rotationDegrees,
             updatedAtMs = System.currentTimeMillis(),
         )
     }
@@ -135,6 +139,8 @@ object ClipEditProjectStore {
                                 item.optInt(KEY_BRIGHTNESS, 0),
                             contrastPercent =
                                 item.optInt(KEY_CONTRAST, 0),
+                            rotationDegrees =
+                                item.optInt(KEY_ROTATION, 0),
                             updatedAtMs =
                                 item.optLong(KEY_UPDATED_AT_MS, 0L),
                         )
@@ -158,6 +164,7 @@ object ClipEditProjectStore {
                     put(KEY_SATURATION, project.saturationPercent)
                     put(KEY_BRIGHTNESS, project.brightnessPercent)
                     put(KEY_CONTRAST, project.contrastPercent)
+                    put(KEY_ROTATION, project.rotationDegrees)
                     put(KEY_UPDATED_AT_MS, project.updatedAtMs)
                 }
             )
@@ -189,5 +196,6 @@ object ClipEditProjectStore {
     private const val KEY_SATURATION = "saturationPercent"
     private const val KEY_BRIGHTNESS = "brightnessPercent"
     private const val KEY_CONTRAST = "contrastPercent"
+    private const val KEY_ROTATION = "rotationDegrees"
     private const val KEY_UPDATED_AT_MS = "updatedAtMs"
 }
