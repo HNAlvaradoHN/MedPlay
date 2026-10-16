@@ -864,3 +864,16 @@ Physical validation:
 4. inspect diagnostics to confirm AEC availability/enabled state.
 
 If speaker bleed remains objectionable while `microphoneAecEnabled=true`, native vendor AEC is insufficient on that device and the next architectural option is software echo cancellation using the internal captured game audio as the reference signal.
+
+
+## Latest microphone-AEC validation APK
+
+`dev-latest` now contains native Android acoustic echo cancellation attached to the player-voice AudioRecord session when supported.
+
+Release evidence:
+- run `38959116657`;
+- target `331fec252e437b90b5738324ec32b9a47168b00b`;
+- APK SHA-256 `7f3beb8fa6f9157f2468028844763b2e4b8b3a9195401c7b7a9ac531df27d2fb`;
+- published `2026-10-16T20:02:07Z`.
+
+Do not mark speaker-bleed suppression physically resolved until the owner validates it on-device. If bleed remains objectionable while diagnostics show `microphoneAecEnabled=true`, native vendor AEC is insufficient and a software reference-based echo canceller should be considered.
