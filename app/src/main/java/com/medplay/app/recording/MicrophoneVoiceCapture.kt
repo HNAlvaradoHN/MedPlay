@@ -86,7 +86,7 @@ class MicrophoneVoiceCapture(
                 }.getOrNull()
             }
             val aecEnabled = runCatching {
-                echoCanceler?.enabled = true
+                echoCanceler?.setEnabled(true)
                 echoCanceler?.enabled == true
             }.getOrDefault(false)
             onEchoCancellationState(
