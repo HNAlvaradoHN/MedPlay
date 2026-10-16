@@ -724,3 +724,16 @@ The editor preview now separates realtime UI preview from final export:
 This specifically addresses Media3's documented failure mode where frequent `setVideoEffects()` calls can stop playback.
 
 Next device test: start playback, drag intensity/brightness/contrast continuously, and confirm both motion and visual changes remain live. Then verify final export still reflects the chosen settings.
+
+
+## Latest realtime-preview validation APK
+
+`dev-latest` now contains the TextureView/direct ColorMatrix preview architecture that avoids repeated `setVideoEffects()` calls during slider movement.
+
+Release evidence:
+- run `38945841210`: success;
+- target `09c1b029b7ed1d1c3327460c6c53ec08b6c27f4a`;
+- APK SHA-256 `94495d87fa25b1501701f12df0a34d406b69328cbc87807be85cc456fa81c22e`;
+- published `2026-10-16T18:16:08Z`.
+
+Next physical check: video must keep playing while saturation/brightness/contrast are dragged and the preview must visibly update in realtime. Then verify final export keeps the chosen edits.
