@@ -795,3 +795,22 @@ Runtime microphone enable also upgrades the active foreground-service type safel
 Final branch CI: run `38950292280` succeeded on `9fad50aae8b928a347db7dc5c96e774252ea7096`.
 
 Physical validation still required: cold-start MedPlay and enter the selected game several times. If a start is refused, inspect **Mostrar diagnóstico de la última grabación** for the recorded startup stage/error rather than inferring the cause.
+
+
+## Latest stability/audio validation APK
+
+`dev-latest` now contains the complete startup/audio stability pass:
+- guarded Activity and CaptureService foreground-service startup;
+- microphone foreground type only when player voice is actually enabled;
+- safe microphone foreground-type upgrade when enabling voice mid-session;
+- independent synchronized game/microphone editor preview;
+- mono microphone -> stereo normalization before final Media3 mixing;
+- actual PCM microphone signal evidence in `microphonePeakAbs`.
+
+Release evidence:
+- run `38950569036`;
+- target `8157592a92fc98e205d9f38412f410fac8d4b4fc`;
+- APK SHA-256 `aeb426348ef3a6b4f473508901b3a9e295843d78ae8d11e1281776dc22ffbaf0`;
+- published `2026-10-16T18:52:52Z`.
+
+Do not mark these three defects physically resolved until the owner validates game launch, audio preview and exported microphone voice on-device.
