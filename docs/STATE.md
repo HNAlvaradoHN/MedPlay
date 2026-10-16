@@ -880,3 +880,29 @@ Evidence:
 - release includes the visual two-handle trim timeline and fast remux trim export.
 
 The original clip remains immutable. Current fast export applies trim only; saved audio-gain settings are not yet mixed into the exported MP4.
+
+
+## Editor color filters + rotation
+
+Phase 3 now includes a broader local visual-editing pipeline.
+
+Implemented:
+- Media3 1.11.1 editor stack for preview/export;
+- internal editor preview migrated from VideoView to ExoPlayer so visual effects can be previewed live;
+- local filter presets: Natural, Vivo, Cálido, Frío, Cinemático and Blanco y negro;
+- adjustable color intensity/saturation (0–200%);
+- adjustable brightness (-50 to +50);
+- adjustable contrast (-50 to +50);
+- rotation choices 0°/90°/180°/270°;
+- all visual settings persist in the non-destructive edit project;
+- processed export uses Media3 Transformer and creates a new MP4; the source remains immutable;
+- trim + visual effects are applied together during processed export;
+- fast no-reencode trim export remains available separately.
+
+Important audio compatibility guard:
+- Media3 Transformer outputs at most one audio track for a single transformed item;
+- therefore processed visual export is currently disabled for clips carrying a separate microphone track, to avoid silently losing player voice;
+- those clips can still use fast trim export;
+- the next editor block is audio mixing so filtered exports can safely produce one compatible final soundtrack.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN.
