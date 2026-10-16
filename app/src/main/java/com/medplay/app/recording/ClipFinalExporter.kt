@@ -83,7 +83,7 @@ class ClipFinalExporter(
             .build()
 
         val sequences = mutableListOf(
-            EditedMediaItemSequence.withVideoFrom(listOf(videoItem))
+            EditedMediaItemSequence(listOf(videoItem))
         )
 
         extractedAudio.forEachIndexed { ordinal, track ->
@@ -108,7 +108,7 @@ class ClipFinalExporter(
                 )
                 .build()
 
-            sequences += EditedMediaItemSequence.withAudioFrom(
+            sequences += EditedMediaItemSequence(
                 listOf(audioItem)
             )
         }
