@@ -97,6 +97,33 @@ object ClipLibrary {
         return listExisting(context).firstOrNull { it.uri == uri }
     }
 
+    @Synchronized
+    fun delete(context: Context, uri: Uri): Boolean {
+        val deletedRows = runCatching {
+            context.contentResolver.delete(uri, null, null)
+        }.getOrElse {
+            return false
+        }
+
+        if (deletedRows <= 0) {
+            val stillExists = runCatching {
+                context.contentResolver
+                    .openFileDescriptor(uri, "r")
+                    ?.use { true }
+                    ?: false
+            }.getOrDefault(false)
+
+            if (stillExists) {
+                return false
+            }
+        }
+
+        val remaining = readRaw(context).filterNot { it.uri == uri }
+        write(context, remaining)
+        ClipEditProjectStore.deleteForSource(context, uri)
+        return true
+    }
+
     private fun readRaw(context: Context): List<Entry> {
         val file = libraryFile(context)
         if (!file.isFile) return emptyList()
