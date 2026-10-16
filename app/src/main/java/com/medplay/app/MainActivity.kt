@@ -197,14 +197,7 @@ class MainActivity : Activity() {
         val startButton = Button(this).apply {
             text = tr("Iniciar grabación", "Start recording")
             setOnClickListener {
-                if (
-                    RecordingModePreference.get(this@MainActivity) ==
-                    RecordingModePreference.Mode.RETROACTIVE_CLIP
-                ) {
-                    requestOverlayPermissionThenCapture()
-                } else {
-                    requestNotificationPermissionThenCapture()
-                }
+                requestOverlayPermissionThenCapture()
             }
         }
 
@@ -868,12 +861,11 @@ class MainActivity : Activity() {
     }
 
     private fun requestCaptureWithOptionalInternalAudio() {
-        val microphoneRequested =
+        val fullSession =
             RecordingModePreference.get(this) ==
-                RecordingModePreference.Mode.FULL_SESSION &&
-                MicrophoneVoicePreference.isEnabled(this)
+                RecordingModePreference.Mode.FULL_SESSION
         val needsAudioPermission =
-            InternalAudioPreference.isEnabled(this) || microphoneRequested
+            InternalAudioPreference.isEnabled(this) || fullSession
 
         if (!needsAudioPermission) {
             statusView.text = tr(
