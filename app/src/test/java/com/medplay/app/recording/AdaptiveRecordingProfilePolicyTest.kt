@@ -38,6 +38,21 @@ class AdaptiveRecordingProfilePolicyTest {
     }
 
     @Test
+    fun ranksPortraitProfileAgainstLandscapeCandidates() {
+        val current = recording(VideoCodec.HEVC, 1080, 1920, 60, 40_000_000)
+        val supported = listOf(
+            supported(VideoCodec.HEVC, 1920, 1080, 30, 24_000_000),
+            supported(VideoCodec.HEVC, 1280, 720, 60, 20_000_000),
+        )
+
+        val next = AdaptiveRecordingProfilePolicy.nextLowerProfile(current, supported)
+
+        assertEquals(1920, next?.width)
+        assertEquals(1080, next?.height)
+        assertEquals(30, next?.fps)
+    }
+
+    @Test
     fun returnsNullAtLowestValidatedMode() {
         val current = recording(VideoCodec.HEVC, 1280, 720, 30, 12_000_000)
 
