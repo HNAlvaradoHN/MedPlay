@@ -28,7 +28,11 @@ class RetroactiveVideoExporter(
         videoLease: RollingVideoSegmentWriter.SegmentLease,
         audioLease: RollingAudioSegmentWriter.SegmentLease? = null,
         microphoneLease: RollingAudioSegmentWriter.SegmentLease? = null,
+        pauseIntervals: List<RecordingPauseInterval> = emptyList(),
     ): ExportResult {
+        val normalizedPauses = pauseIntervals
+            .sortedBy { it.startUs }
+            .also(::validatePauseIntervals)
         val videoSegments = videoLease.segments
         require(videoSegments.isNotEmpty())
 
@@ -58,6 +62,7 @@ class RetroactiveVideoExporter(
                     videoSegments = videoSegments,
                     audioSegments = audioLease?.segments.orEmpty(),
                     microphoneSegments = microphoneLease?.segments.orEmpty(),
+                    pauseIntervals = normalizedPauses,
                     outputDescriptor = descriptor.fileDescriptor,
                 )
             } ?: error("Unable to open MediaStore destination")
@@ -75,8 +80,14 @@ class RetroactiveVideoExporter(
             return ExportResult(
                 uri = uri,
                 displayName = displayName,
-                durationUs = videoSegments.last().sourceEndUs -
-                    videoSegments.first().sourceStartUs,
+                durationUs =
+                    videoSegments.last().sourceEndUs -
+                        videoSegments.first().sourceStartUs -
+                        RecordingPauseTimeline.removedDurationUs(
+                            clipStartUs = videoSegments.first().sourceStartUs,
+                            clipEndUs = videoSegments.last().sourceEndUs,
+                            pauses = normalizedPauses,
+                        ),
                 videoSegmentCount = videoSegments.size,
                 audioSegmentCount = audioLease?.segments?.size ?: 0,
                 microphoneSegmentCount =
@@ -96,6 +107,7 @@ class RetroactiveVideoExporter(
         videoSegments: List<RollingVideoSegmentWriter.Segment>,
         audioSegments: List<RollingAudioSegmentWriter.Segment>,
         microphoneSegments: List<RollingAudioSegmentWriter.Segment>,
+        pauseIntervals: List<RecordingPauseInterval>,
         outputDescriptor: FileDescriptor,
     ) {
         val videoFormat = readTrackFormat(
@@ -165,6 +177,7 @@ class RetroactiveVideoExporter(
                     buffer = buffer,
                     info = info,
                     lastWrittenPtsUs = lastVideoPtsUs,
+                    pauseIntervals = pauseIntervals,
                 )
                 lastVideoPtsUs = result.lastWrittenPtsUs
                 buffer = result.buffer
@@ -184,6 +197,7 @@ class RetroactiveVideoExporter(
                         buffer = buffer,
                         info = info,
                         lastWrittenPtsUs = lastAudioPtsUs,
+                        pauseIntervals = pauseIntervals,
                     )
                     lastAudioPtsUs = result.lastWrittenPtsUs
                     buffer = result.buffer
@@ -204,6 +218,7 @@ class RetroactiveVideoExporter(
                         buffer = buffer,
                         info = info,
                         lastWrittenPtsUs = lastMicrophonePtsUs,
+                        pauseIntervals = pauseIntervals,
                     )
                     lastMicrophonePtsUs = result.lastWrittenPtsUs
                     buffer = result.buffer
@@ -240,6 +255,7 @@ class RetroactiveVideoExporter(
         buffer: ByteBuffer,
         info: MediaCodec.BufferInfo,
         lastWrittenPtsUs: Long,
+        pauseIntervals: List<RecordingPauseInterval>,
     ): CopyResult {
         val extractor = MediaExtractor()
         var latestWrittenUs = lastWrittenPtsUs
@@ -278,8 +294,16 @@ class RetroactiveVideoExporter(
                 if (absoluteUs > clipEndUs) {
                     break
                 }
+                if (RecordingPauseTimeline.isPaused(absoluteUs, pauseIntervals)) {
+                    extractor.advance()
+                    continue
+                }
 
-                val outputPtsUs = absoluteUs - clipStartUs
+                val outputPtsUs = RecordingPauseTimeline.outputTimeUs(
+                    absoluteUs = absoluteUs,
+                    clipStartUs = clipStartUs,
+                    pauses = pauseIntervals,
+                )
                 check(outputPtsUs > latestWrittenUs) {
                     "Non-monotonic $mimePrefix timestamp during remux"
                 }
@@ -302,6 +326,18 @@ class RetroactiveVideoExporter(
             lastWrittenPtsUs = latestWrittenUs,
             buffer = workingBuffer,
         )
+    }
+
+    private fun validatePauseIntervals(
+        pauses: List<RecordingPauseInterval>,
+    ) {
+        var previousEndUs = Long.MIN_VALUE
+        pauses.forEach { pause ->
+            check(pause.startUs >= previousEndUs) {
+                "Pause intervals overlap"
+            }
+            previousEndUs = pause.endUs
+        }
     }
 
     private fun validateSegments(

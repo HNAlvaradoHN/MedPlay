@@ -227,3 +227,21 @@ Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN until these checks pass on a r
 11. Trigger/observe MODERATE or SEVERE thermal pressure if naturally reached: bitrate protection may apply, but the full-session output should not change video dimensions mid-recording.
 
 Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN until real-device evidence is available.
+
+
+## Full-session floating control / pause validation
+
+1. Start **Grabación completa** and confirm the floating session bubble appears.
+2. Drag it toward the left edge and release; verify it snaps left. Repeat toward the right edge.
+3. Tap the collapsed bubble and verify the panel opens inward without leaving the screen.
+4. Confirm the elapsed timer advances normally.
+5. Tap **Pausar**, wait at least 10 seconds, and verify the timer remains frozen while paused.
+6. Tap **Reanudar** and continue gameplay for at least 15 seconds.
+7. Toggle **Micrófono** ON/OFF and confirm the control reflects the state; if Android/game microphone priority interferes, verify MedPlay reports the status without stopping video/game audio.
+8. Use **Detener y guardar**. Open the final MP4 from Gallery and **Mis clips**.
+9. Verify the paused 10-second interval is absent from the final duration rather than appearing as frozen video/silence.
+10. Verify video resumes cleanly after pause, game audio remains synchronized, and microphone audio (when enabled) stays aligned.
+11. Repeat once with two separate pause intervals.
+12. Verify retroactive Clip mode still uses the original quick Clip bubble and does not show the full-session panel.
+
+Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN until these checks pass on-device.

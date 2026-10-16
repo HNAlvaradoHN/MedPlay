@@ -37,6 +37,7 @@ class CaptureService : Service() {
     private var microphoneVoiceCapture: MicrophoneVoiceCapture? = null
     private var rollingMicrophoneWriter: RollingAudioSegmentWriter? = null
     private var floatingClipControl: FloatingClipControl? = null
+    private var floatingSessionControl: FloatingSessionControl? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private var activeRetentionUs: Long = RollingVideoSegmentWriter.DEFAULT_RETENTION_US
     private var activeRecordingMode =
@@ -56,6 +57,9 @@ class CaptureService : Service() {
     private var sessionMicrophoneWasActive = false
     private var sessionMicrophoneWasSilenced = false
     private var microphoneCurrentlySilenced = false
+    private var fullSessionPaused = false
+    private var activePauseStartedUs = Long.MIN_VALUE
+    private val completedPauseIntervals = mutableListOf<RecordingPauseInterval>()
     @Volatile private var pendingCapturedWidth = 0
     @Volatile private var pendingCapturedHeight = 0
     private val exportInProgress = AtomicBoolean(false)
@@ -157,7 +161,6 @@ class CaptureService : Service() {
         activeRecordingMode = RecordingModePreference.get(applicationContext)
         val microphoneVoiceRequested =
             activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION &&
-                MicrophoneVoicePreference.isEnabled(applicationContext) &&
                 checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
         startAsProjectionForegroundService(
@@ -303,6 +306,9 @@ class CaptureService : Service() {
         sessionMicrophoneWasActive = false
         sessionMicrophoneWasSilenced = false
         microphoneCurrentlySilenced = false
+        fullSessionPaused = false
+        activePauseStartedUs = Long.MIN_VALUE
+        completedPauseIntervals.clear()
 
         val startedThermalGuard = runCatching {
             RuntimeThermalGuard(applicationContext) { action, status ->
@@ -349,9 +355,8 @@ class CaptureService : Service() {
 
         startInternalAudioIfPermitted(mediaProjection)
         startMicrophoneVoiceIfPermitted()
-        if (activeRecordingMode == RecordingModePreference.Mode.RETROACTIVE_CLIP) {
-            showFloatingControl()
-        } else {
+        showFloatingControl()
+        if (activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION) {
             scheduleFullSessionLimit()
         }
         updateCaptureNotification(
@@ -503,6 +508,11 @@ class CaptureService : Service() {
                     videoLease = lease,
                     audioLease = audioLease,
                     microphoneLease = microphoneLease,
+                    pauseIntervals = if (stopAfterExport) {
+                        pauseIntervalsForExport(videoEndUs)
+                    } else {
+                        emptyList()
+                    },
                 )
                 ClipLibrary.recordExport(applicationContext, result)
                 Handler(Looper.getMainLooper()).post {
@@ -636,6 +646,9 @@ class CaptureService : Service() {
         if (started) {
             rollingMicrophoneWriter = voiceWriter
             microphoneVoiceCapture = voiceCapture
+            if (fullSessionPaused) {
+                voiceWriter.setPaused(true)
+            }
             sessionMicrophoneWasActive = true
         } else {
             voiceCapture.stop()
@@ -650,12 +663,12 @@ class CaptureService : Service() {
         microphoneCurrentlySilenced = silenced
         if (silenced) {
             sessionMicrophoneWasSilenced = true
-            floatingClipControl?.showMicrophoneBlocked(
-                tr(
-                    "Micrófono usado por el juego • tu voz no se está grabando",
-                    "Microphone used by the game • your voice is not being recorded",
-                )
+            val message = tr(
+                "Micrófono usado por el juego • tu voz no se está grabando",
+                "Microphone used by the game • your voice is not being recorded",
             )
+            floatingClipControl?.showMicrophoneBlocked(message)
+            floatingSessionControl?.showStatus(message)
             activeProfile?.let { profile ->
                 updateCaptureNotification(
                     buildActiveCaptureStatus(profile) +
@@ -663,12 +676,12 @@ class CaptureService : Service() {
                 )
             }
         } else {
-            floatingClipControl?.showMicrophoneResumed(
-                tr(
-                    "Micrófono disponible • voz reanudada",
-                    "Microphone available • voice resumed",
-                )
+            val message = tr(
+                "Micrófono disponible • voz reanudada",
+                "Microphone available • voice resumed",
             )
+            floatingClipControl?.showMicrophoneResumed(message)
+            floatingSessionControl?.showStatus(message)
             activeProfile?.let { profile ->
                 updateCaptureNotification(buildActiveCaptureStatus(profile))
             }
@@ -999,8 +1012,38 @@ class CaptureService : Service() {
 
     private fun showFloatingControl() {
         if (mediaProjection == null) return
-        if (floatingClipControl != null) return
 
+        if (activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION) {
+            if (floatingSessionControl != null) return
+            val control = FloatingSessionControl(
+                context = applicationContext,
+                elapsedMsProvider = {
+                    fullSessionActiveElapsedUs(
+                        SystemClock.elapsedRealtimeNanos() / 1_000L
+                    ) / 1_000L
+                },
+                microphoneEnabledProvider = {
+                    microphoneVoiceCapture != null
+                },
+                onToggleMicrophone = {
+                    toggleFullSessionMicrophone()
+                },
+                onTogglePause = {
+                    toggleFullSessionPause()
+                },
+                onStop = {
+                    saveFullSessionAndStop()
+                },
+            )
+            if (control.show()) {
+                floatingSessionControl = control
+            } else {
+                control.close()
+            }
+            return
+        }
+
+        if (floatingClipControl != null) return
         val control = FloatingClipControl(applicationContext) {
             saveRetroactiveClip(
                 ClipLengthPreference.get(applicationContext)
@@ -1011,6 +1054,113 @@ class CaptureService : Service() {
         } else {
             control.close()
         }
+    }
+
+    private fun toggleFullSessionPause(): Boolean {
+        if (
+            activeRecordingMode != RecordingModePreference.Mode.FULL_SESSION ||
+            mediaProjection == null
+        ) {
+            return fullSessionPaused
+        }
+
+        val nowUs = SystemClock.elapsedRealtimeNanos() / 1_000L
+        if (!fullSessionPaused) {
+            runCatching { rollingWriter?.finalizeActiveSegmentForPause() }
+            rollingAudioWriter?.setPaused(true)
+            rollingMicrophoneWriter?.setPaused(true)
+            runCatching { virtualDisplay?.setSurface(null) }
+
+            activePauseStartedUs = nowUs
+            fullSessionPaused = true
+            cancelFullSessionLimit()
+            updateCaptureNotification(
+                tr(
+                    "Grabación completa pausada.",
+                    "Full-session recording paused.",
+                )
+            )
+            return true
+        }
+
+        val pauseStartUs = activePauseStartedUs
+        if (pauseStartUs != Long.MIN_VALUE && nowUs > pauseStartUs) {
+            completedPauseIntervals += RecordingPauseInterval(
+                startUs = pauseStartUs,
+                endUs = nowUs,
+            )
+        }
+        activePauseStartedUs = Long.MIN_VALUE
+        fullSessionPaused = false
+
+        rollingAudioWriter?.setPaused(false)
+        rollingMicrophoneWriter?.setPaused(false)
+        val surface = videoEncoder?.captureSurface()
+        if (surface != null) {
+            runCatching { virtualDisplay?.setSurface(surface) }
+            videoEncoder?.requestSyncFrame()
+        }
+        scheduleFullSessionLimit()
+        activeProfile?.let {
+            updateCaptureNotification(buildActiveCaptureStatus(it))
+        }
+        return false
+    }
+
+    private fun toggleFullSessionMicrophone(): Boolean {
+        if (
+            activeRecordingMode != RecordingModePreference.Mode.FULL_SESSION ||
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
+                PackageManager.PERMISSION_GRANTED
+        ) {
+            floatingSessionControl?.showStatus(
+                tr(
+                    "El permiso de micrófono no está disponible.",
+                    "Microphone permission is not available.",
+                )
+            )
+            return false
+        }
+
+        if (microphoneVoiceCapture != null) {
+            MicrophoneVoicePreference.setEnabled(applicationContext, false)
+            disableMicrophoneVoice()
+            return false
+        }
+
+        MicrophoneVoicePreference.setEnabled(applicationContext, true)
+        startMicrophoneVoiceIfPermitted()
+        return microphoneVoiceCapture != null
+    }
+
+    private fun pauseIntervalsForExport(
+        endUs: Long,
+    ): List<RecordingPauseInterval> {
+        val result = completedPauseIntervals.toMutableList()
+        val activeStart = activePauseStartedUs
+        if (
+            fullSessionPaused &&
+            activeStart != Long.MIN_VALUE &&
+            endUs > activeStart
+        ) {
+            result += RecordingPauseInterval(activeStart, endUs)
+        }
+        return result.sortedBy { it.startUs }
+    }
+
+    private fun fullSessionActiveElapsedUs(nowUs: Long): Long {
+        val startedUs = sessionStartedUs
+        if (startedUs == Long.MIN_VALUE || nowUs <= startedUs) return 0L
+
+        val pauses = pauseIntervalsForExport(nowUs)
+        return (
+            nowUs - startedUs -
+                RecordingPauseTimeline.removedDurationUs(
+                    clipStartUs = startedUs,
+                    clipEndUs = nowUs,
+                    pauses = pauses,
+                )
+            ).coerceAtLeast(0L)
     }
 
     override fun onDestroy() {
@@ -1024,7 +1174,12 @@ class CaptureService : Service() {
 
     private fun scheduleFullSessionLimit() {
         fullSessionLimitRunnable?.let(mainHandler::removeCallbacks)
-        val delayMs = (activeRetentionUs / 1_000L).coerceAtLeast(1_000L)
+        if (fullSessionPaused) return
+        val nowUs = SystemClock.elapsedRealtimeNanos() / 1_000L
+        val remainingUs = (
+            activeRetentionUs - fullSessionActiveElapsedUs(nowUs)
+            ).coerceAtLeast(1_000_000L)
+        val delayMs = (remainingUs / 1_000L).coerceAtLeast(1_000L)
         val runnable = Runnable {
             if (
                 activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION &&
@@ -1053,6 +1208,8 @@ class CaptureService : Service() {
 
         floatingClipControl?.close()
         floatingClipControl = null
+        floatingSessionControl?.close()
+        floatingSessionControl = null
 
         thread(
             start = true,
@@ -1120,6 +1277,8 @@ class CaptureService : Service() {
 
         runCatching { floatingClipControl?.close() }
         floatingClipControl = null
+        runCatching { floatingSessionControl?.close() }
+        floatingSessionControl = null
 
         runCatching { internalAudioCapture?.stop() }
         internalAudioCapture = null
@@ -1133,6 +1292,9 @@ class CaptureService : Service() {
         runCatching { rollingMicrophoneWriter?.close() }
         rollingMicrophoneWriter = null
         microphoneCurrentlySilenced = false
+        fullSessionPaused = false
+        activePauseStartedUs = Long.MIN_VALUE
+        completedPauseIntervals.clear()
         pendingCapturedWidth = 0
         pendingCapturedHeight = 0
 
