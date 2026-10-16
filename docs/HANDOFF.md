@@ -594,3 +594,14 @@ Evidence:
 - published `2026-10-16T14:58:34Z`.
 
 Device validation should confirm that **Editar clip** is visibly rendered below the video and that the duration selector contains only 15s, 30s and 1 minute.
+
+
+## Editor trim export handoff
+
+The editor now has a custom two-handle trim timeline plus a fast remux export path.
+
+`ClipTrimExporter` reads the existing MediaStore source with MediaExtractor, snaps the requested start to the previous video sync sample, copies video/audio tracks into a new MediaStore MP4 with MediaMuxer, and preserves rotation metadata where available. No source overwrite and no video re-encode occur.
+
+The exported result is added to `ClipLibrary` as a new derived clip.
+
+Important limitation: per-track gain sliders remain project metadata only in this slice. The next editor block should implement audio mixing/gain export while preserving the video bitstream. Do not claim gain changes are present in the current trimmed MP4.
