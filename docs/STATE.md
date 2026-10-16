@@ -800,3 +800,17 @@ Not yet implemented:
 - final single-track audio mix.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN.
+
+
+## Latest validation APK — editor foundation
+
+A fresh `dev-latest` APK was generated after merging PR #77.
+
+Evidence:
+- release workflow run `38917190060`: success;
+- release target: `5cd80e2e8f1bf46bf9d508efd05da291dcb808b2`;
+- published: `2026-10-16T14:38:10Z`;
+- `MedPlay-debug.apk` size: 2,757,906 bytes;
+- release includes the non-destructive editor foundation with Edit action, trim markers and per-track gain project settings.
+
+The release workflow is restored to manual-only immediately afterward. Editor export/mixing/rotation/color remain pending.
