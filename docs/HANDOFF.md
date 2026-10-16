@@ -832,3 +832,16 @@ The video player now waits for the independent audio preview tracks to be ready 
 CI run `38953175312` passed.
 
 Physical validation required: open a game+voice clip, leave playback running for at least 20–30 seconds, move game and voice sliders repeatedly, and confirm audio remains continuous while volume changes are audible.
+
+
+## Latest audio-preview stutter validation APK
+
+`dev-latest` now contains the event-driven editor audio synchronization fix. The previous 500 ms drift timer and repeated seek correction are gone.
+
+Release evidence:
+- run `38953415852`;
+- target `9bedb1f095dc1cc8f681feba0306f7d0cd5f446e`;
+- APK SHA-256 `2f5d97aaa734845fe1da68259dca6c0953a26c17dc20c0b5b3bcfcd014e34d2a`;
+- published `2026-10-16T19:15:31Z`.
+
+Do not mark the stutter physically resolved until the owner confirms continuous preview audio on-device.
