@@ -2,6 +2,9 @@ name: Manual dev APK release
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ci/build-stability-audio-apk
 
 permissions:
   contents: write
