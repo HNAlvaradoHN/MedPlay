@@ -748,3 +748,17 @@ Pause implementation:
 The full-session foreground service starts with microphone capability when RECORD_AUDIO permission is available so the mic can be enabled later from the overlay without returning to MedPlay.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. PR #74 initial code passed Android CI. Real-device tests must verify left/right snapping, timer, pause/resume A/V continuity, microphone toggling, and Stop & save.
+
+
+## Latest validation APK — portrait/full-session controls
+
+A fresh `dev-latest` APK was generated after merging PR #72, PR #73 and PR #74.
+
+Evidence:
+- release workflow run `38904004611`: success;
+- release target: `7754f43eb0c0875af1a4dee18615dae7a3711219`;
+- published: `2026-10-16T12:56:49Z`;
+- `MedPlay-debug.apk` size: 2,737,274 bytes;
+- release contains the portrait-capture fix, in-app clip player, full-session recording mode, edge-snapping expandable session control, active-time timer, runtime microphone toggle, pause/resume and Stop & save.
+
+The release workflow is restored to manual-only immediately afterward. Physical validation is still required; these features remain IMPLEMENTADO_PENDIENTE_VALIDACIÓN.
