@@ -928,7 +928,11 @@ class MainActivity : Activity() {
             RecordingModePreference.get(this) ==
                 RecordingModePreference.Mode.FULL_SESSION
         val needsAudioPermission =
-            InternalAudioPreference.isEnabled(this) || fullSession
+            InternalAudioPreference.isEnabled(this) ||
+                (
+                    fullSession &&
+                        MicrophoneVoicePreference.isEnabled(this)
+                )
 
         if (!needsAudioPermission) {
             statusView.text = tr(
