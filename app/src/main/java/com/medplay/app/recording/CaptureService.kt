@@ -37,6 +37,7 @@ class CaptureService : Service() {
     private var microphoneVoiceCapture: MicrophoneVoiceCapture? = null
     private var rollingMicrophoneWriter: RollingAudioSegmentWriter? = null
     private var floatingClipControl: FloatingClipControl? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var activeRetentionUs: Long = RollingVideoSegmentWriter.DEFAULT_RETENTION_US
     private var activeRecordingMode =
         RecordingModePreference.Mode.RETROACTIVE_CLIP
@@ -307,8 +308,15 @@ class CaptureService : Service() {
             RuntimeThermalGuard(applicationContext) { action, status ->
                 maxThermalStatus = maxOf(maxThermalStatus, status)
                 if (action.stopCapture) {
-                    Handler(Looper.getMainLooper()).post {
-                        stopProjectionAndSelf()
+                    mainHandler.post {
+                        if (
+                            activeRecordingMode ==
+                            RecordingModePreference.Mode.FULL_SESSION
+                        ) {
+                            saveFullSessionAndStop()
+                        } else {
+                            stopProjectionAndSelf()
+                        }
                     }
                 } else {
                     val currentProfile = activeProfile
@@ -355,6 +363,14 @@ class CaptureService : Service() {
     }
 
     private fun saveFullSessionAndStop(): Boolean {
+        if (profileSwitchInProgress.get()) {
+            mainHandler.postDelayed(
+                { saveFullSessionAndStop() },
+                PROFILE_SWITCH_RETRY_MS,
+            )
+            return true
+        }
+
         val startedUs = sessionStartedUs
         if (startedUs == Long.MIN_VALUE) {
             stopProjectionAndSelf()
@@ -1007,9 +1023,7 @@ class CaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun scheduleFullSessionLimit() {
-        fullSessionLimitRunnable?.let {
-            Handler(Looper.getMainLooper()).removeCallbacks(it)
-        }
+        fullSessionLimitRunnable?.let(mainHandler::removeCallbacks)
         val delayMs = (activeRetentionUs / 1_000L).coerceAtLeast(1_000L)
         val runnable = Runnable {
             if (
@@ -1021,13 +1035,11 @@ class CaptureService : Service() {
             }
         }
         fullSessionLimitRunnable = runnable
-        Handler(Looper.getMainLooper()).postDelayed(runnable, delayMs)
+        mainHandler.postDelayed(runnable, delayMs)
     }
 
     private fun cancelFullSessionLimit() {
-        fullSessionLimitRunnable?.let {
-            Handler(Looper.getMainLooper()).removeCallbacks(it)
-        }
+        fullSessionLimitRunnable?.let(mainHandler::removeCallbacks)
         fullSessionLimitRunnable = null
     }
 
@@ -1319,6 +1331,7 @@ class CaptureService : Service() {
         private const val SAVE_ROLLOVER_WAIT_MS = 750L
         private const val PROFILE_SWITCH_SHUTDOWN_WAIT_MS = 3_000L
         private const val PROFILE_SWITCH_POLL_MS = 25L
+        private const val PROFILE_SWITCH_RETRY_MS = 350L
         private const val FULL_SESSION_ORIENTATION_SETTLE_US = 5_000_000L
         private const val LAST_SESSION_DIAGNOSTICS_FILE =
             "last_session_diagnostics.txt"
