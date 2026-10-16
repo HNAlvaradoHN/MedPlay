@@ -676,3 +676,14 @@ Recommended device validation:
 4. export a final single-audio clip and inspect picture quality/orientation;
 5. when a clip with separate game + microphone audio is available, set deliberately different gains (for example game 50%, voice 150%), export final, and confirm both are audible together and synchronized;
 6. verify the immutable source is unchanged.
+
+
+## Final editor audio-integrity handoff
+
+The final editor export now treats audio-track mismatches as an export error instead of silently producing an output with missing or unexpected audio. The expected layout comes from ClipLibrary metadata: game audio first when present, microphone second when present. Gains are mapped deterministically to that layout and clamped to 0–200%.
+
+ClipAudioTrackDemuxer also removes partial temporary files if extraction fails after one or more tracks were already created.
+
+This change does not alter capture quality, encoder settings, thermal behavior, filters or video processing.
+
+Next evidence step remains physical validation of the expanded editor, especially a clip containing separate game + microphone tracks with deliberately different gains.
