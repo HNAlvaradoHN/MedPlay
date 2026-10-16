@@ -14,6 +14,10 @@ object ClipEditProjectStore {
         val trimEndUs: Long,
         val gameAudioGainPercent: Int,
         val microphoneGainPercent: Int,
+        val filterPreset: EditorVisualSettings.FilterPreset,
+        val saturationPercent: Int,
+        val brightnessPercent: Int,
+        val contrastPercent: Int,
         val updatedAtMs: Long,
     )
 
@@ -32,6 +36,10 @@ object ClipEditProjectStore {
             trimEndUs = sourceDurationUs.coerceAtLeast(0L),
             gameAudioGainPercent = 100,
             microphoneGainPercent = 100,
+            filterPreset = EditorVisualSettings.FilterPreset.NATURAL,
+            saturationPercent = 100,
+            brightnessPercent = 0,
+            contrastPercent = 0,
             updatedAtMs = System.currentTimeMillis(),
         )
     }
@@ -71,11 +79,24 @@ object ClipEditProjectStore {
             microphoneGainPercent = project.microphoneGainPercent,
         )
 
+        val visual = EditorVisualSettings.sanitize(
+            EditorVisualSettings.Values(
+                filterPreset = project.filterPreset,
+                saturationPercent = project.saturationPercent,
+                brightnessPercent = project.brightnessPercent,
+                contrastPercent = project.contrastPercent,
+            )
+        )
+
         return project.copy(
             trimStartUs = values.trimStartUs,
             trimEndUs = values.trimEndUs,
             gameAudioGainPercent = values.gameAudioGainPercent,
             microphoneGainPercent = values.microphoneGainPercent,
+            filterPreset = visual.filterPreset,
+            saturationPercent = visual.saturationPercent,
+            brightnessPercent = visual.brightnessPercent,
+            contrastPercent = visual.contrastPercent,
             updatedAtMs = System.currentTimeMillis(),
         )
     }
@@ -98,6 +119,22 @@ object ClipEditProjectStore {
                                 item.optInt(KEY_GAME_GAIN, 100),
                             microphoneGainPercent =
                                 item.optInt(KEY_MIC_GAIN, 100),
+                            filterPreset = runCatching {
+                                EditorVisualSettings.FilterPreset.valueOf(
+                                    item.optString(
+                                        KEY_FILTER_PRESET,
+                                        EditorVisualSettings.FilterPreset.NATURAL.name,
+                                    )
+                                )
+                            }.getOrDefault(
+                                EditorVisualSettings.FilterPreset.NATURAL
+                            ),
+                            saturationPercent =
+                                item.optInt(KEY_SATURATION, 100),
+                            brightnessPercent =
+                                item.optInt(KEY_BRIGHTNESS, 0),
+                            contrastPercent =
+                                item.optInt(KEY_CONTRAST, 0),
                             updatedAtMs =
                                 item.optLong(KEY_UPDATED_AT_MS, 0L),
                         )
@@ -117,6 +154,10 @@ object ClipEditProjectStore {
                     put(KEY_TRIM_END_US, project.trimEndUs)
                     put(KEY_GAME_GAIN, project.gameAudioGainPercent)
                     put(KEY_MIC_GAIN, project.microphoneGainPercent)
+                    put(KEY_FILTER_PRESET, project.filterPreset.name)
+                    put(KEY_SATURATION, project.saturationPercent)
+                    put(KEY_BRIGHTNESS, project.brightnessPercent)
+                    put(KEY_CONTRAST, project.contrastPercent)
                     put(KEY_UPDATED_AT_MS, project.updatedAtMs)
                 }
             )
@@ -144,5 +185,9 @@ object ClipEditProjectStore {
     private const val KEY_TRIM_END_US = "trimEndUs"
     private const val KEY_GAME_GAIN = "gameGainPercent"
     private const val KEY_MIC_GAIN = "microphoneGainPercent"
+    private const val KEY_FILTER_PRESET = "filterPreset"
+    private const val KEY_SATURATION = "saturationPercent"
+    private const val KEY_BRIGHTNESS = "brightnessPercent"
+    private const val KEY_CONTRAST = "contrastPercent"
     private const val KEY_UPDATED_AT_MS = "updatedAtMs"
 }
