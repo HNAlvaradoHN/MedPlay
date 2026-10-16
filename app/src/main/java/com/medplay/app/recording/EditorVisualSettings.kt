@@ -6,6 +6,7 @@ import androidx.media3.effect.Brightness
 import androidx.media3.effect.Contrast
 import androidx.media3.effect.HslAdjustment
 import androidx.media3.effect.RgbAdjustment
+import androidx.media3.effect.ScaleAndRotateTransformation
 
 object EditorVisualSettings {
 
@@ -23,6 +24,7 @@ object EditorVisualSettings {
         val saturationPercent: Int = 100,
         val brightnessPercent: Int = 0,
         val contrastPercent: Int = 0,
+        val rotationDegrees: Int = 0,
     )
 
     fun sanitize(values: Values): Values {
@@ -30,6 +32,7 @@ object EditorVisualSettings {
             saturationPercent = values.saturationPercent.coerceIn(0, 200),
             brightnessPercent = values.brightnessPercent.coerceIn(-50, 50),
             contrastPercent = values.contrastPercent.coerceIn(-50, 50),
+            rotationDegrees = normalizeRotation(values.rotationDegrees),
         )
     }
 
@@ -37,6 +40,12 @@ object EditorVisualSettings {
     fun buildVideoEffects(values: Values): List<Effect> {
         val safe = sanitize(values)
         val effects = mutableListOf<Effect>()
+
+        if (safe.rotationDegrees != 0) {
+            effects += ScaleAndRotateTransformation.Builder()
+                .setRotationDegrees(safe.rotationDegrees.toFloat())
+                .build()
+        }
 
         when (safe.filterPreset) {
             FilterPreset.NATURAL -> Unit
@@ -102,6 +111,15 @@ object EditorVisualSettings {
         return safe.filterPreset != FilterPreset.NATURAL ||
             safe.saturationPercent != 100 ||
             safe.brightnessPercent != 0 ||
-            safe.contrastPercent != 0
+            safe.contrastPercent != 0 ||
+            safe.rotationDegrees != 0
+    }
+
+    private fun normalizeRotation(degrees: Int): Int {
+        val normalized = ((degrees % 360) + 360) % 360
+        return when (normalized) {
+            0, 90, 180, 270 -> normalized
+            else -> 0
+        }
     }
 }
