@@ -895,3 +895,21 @@ Implemented first slice:
 CI: run `38974847658` passed after correcting a missing import.
 
 Physical validation should check thumbnail loading, card scrolling, Edit/Delete actions, player layout, editor panel switching, portrait/landscape preview fit, and that existing visual/audio/export functions still behave unchanged.
+
+
+## Latest media-UI validation APK
+
+`dev-latest` now contains the first XRecorder-inspired MedPlay media UI:
+- thumbnail-based clip cards;
+- compact video-first internal player;
+- larger editor preview;
+- horizontal modular editor tool rail;
+- only real MedPlay capabilities exposed.
+
+Release evidence:
+- run `38975151735`;
+- target `cf3dd59360305e54e67294ae0b61ec828660ec19`;
+- APK SHA-256 `100633bb120b623d8eaf7bec85d8a5572ae4c6269b23cdd3ea4f8067d3230a38`;
+- published `2026-10-16T22:21:43Z`.
+
+Do not mark the new media UI physically validated until the owner tests it on-device.
