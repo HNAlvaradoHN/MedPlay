@@ -514,3 +514,14 @@ Capture orientation is now driven by MediaProjection captured-content resize cal
 `Mis clips` now launches a private `ClipPlayerActivity` using VideoView + MediaController against the original MediaStore URI.
 
 No claim of physical completion yet. Device test should cover at least one portrait title and one landscape title to ensure portrait fixing does not regress the previously good landscape capture. Also verify opening clips from the in-app library no longer shows the 'no application available' message.
+
+
+## Full-session foundation handoff
+
+PR #73 begins the second recording mode using the existing encoded-segment architecture rather than a second recorder implementation.
+
+`RecordingModePreference` selects retroactive versus full-session mode. Full-session mode calculates a safe maximum duration with `FullSessionStoragePolicy`, reserving 768 MiB and capping automatic sessions at two hours. The same hardware video encoder / internal AAC / optional microphone sources feed bounded segment writers; the full-session bound is the safe session duration rather than the 5-minute rolling clip cap. Stop requests a final keyframe rollover, leases the retained full range, remuxes it through `RetroactiveVideoExporter`, indexes the MediaStore result in `ClipLibrary`, then shuts capture down.
+
+Important compatibility guard: full-session mode does not perform thermal resolution/FPS step-down after recording is underway because the current exporter cannot concatenate incompatible video dimensions/codecs into one final MP4. Bitrate thermal reduction still applies, and CRITICAL requests a final save/stop. Initial orientation correction is limited to the first five seconds.
+
+The next Phase 2 slice is the owner-requested lateral floating control: snap left/right, collapsed/expanded states, elapsed time, microphone action, pause/resume and Stop. Pause must preserve a gapless output timeline; do not implement it by merely dropping arbitrary encoded samples.
