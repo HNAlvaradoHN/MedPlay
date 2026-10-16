@@ -696,3 +696,16 @@ The owner reported that the video preview stayed visually static while adjusting
 The cause was repeated same-position `seekTo` calls on every visual adjustment. The editor now updates Media3 effects without seeking while `playWhenReady` is true. A redraw seek is retained only for intentionally paused preview.
 
 This does not alter final-export effect math or capture quality. Device validation should specifically drag saturation/brightness/contrast while the video is visibly moving and confirm playback continues while the image changes live.
+
+
+## Latest editor live-preview validation APK
+
+`dev-latest` now includes the fix for the editor preview stalling during visual adjustments, plus the final-export audio-layout integrity guard.
+
+Release evidence:
+- run `38939454521`: success;
+- target `34e56b49778f3afc9bc6b827de76a0047a1a5bba`;
+- APK SHA-256 `d21fa8d154c56e7582e315bed070a2143bac34109e8514b91151e5ed2d9f26d3`;
+- published `2026-10-16T17:25:43Z`.
+
+Next physical check: keep the editor video playing and drag saturation/brightness/contrast continuously. Playback should no longer freeze on one frame. Then verify a final export with trim + visual changes; when a two-track source is available, verify game + microphone gains as well.
