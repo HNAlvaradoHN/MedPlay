@@ -1489,7 +1489,7 @@ class CaptureService : Service() {
 
         private const val DEFAULT_SAVE_SECONDS = 30
         private const val MIN_SAVE_SECONDS = 5
-        private const val MAX_SAVE_SECONDS = 300
+        private const val MAX_SAVE_SECONDS = 60
         private const val SAVE_ROLLOVER_WAIT_MS = 750L
         private const val PROFILE_SWITCH_SHUTDOWN_WAIT_MS = 3_000L
         private const val PROFILE_SWITCH_POLL_MS = 25L
