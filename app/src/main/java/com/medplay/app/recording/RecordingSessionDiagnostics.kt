@@ -11,6 +11,8 @@ data class RecordingSessionDiagnostics(
     val microphoneWasActive: Boolean = false,
     val microphoneWasSilenced: Boolean = false,
     val microphonePeakAbs: Int = 0,
+    val microphoneAecAvailable: Boolean = false,
+    val microphoneAecEnabled: Boolean = false,
     val thermalProfileDowngrades: Int = 0,
     val initialProfile: RecordingProfile? = null,
 ) {
@@ -45,6 +47,8 @@ data class RecordingSessionDiagnostics(
             appendLine("microphoneWasActive=$microphoneWasActive")
             appendLine("microphoneWasSilenced=$microphoneWasSilenced")
             appendLine("microphonePeakAbs=$microphonePeakAbs")
+            appendLine("microphoneAecAvailable=$microphoneAecAvailable")
+            appendLine("microphoneAecEnabled=$microphoneAecEnabled")
             appendLine("maxThermalStatus=$maxThermalStatus")
             appendLine("sustainabilityVerdict=$sustainabilityVerdict")
             appendLine("encodedSamples=${encoderHealth.encodedSamples}")
