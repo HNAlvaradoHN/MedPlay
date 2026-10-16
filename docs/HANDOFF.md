@@ -605,3 +605,15 @@ The editor now has a custom two-handle trim timeline plus a fast remux export pa
 The exported result is added to `ClipLibrary` as a new derived clip.
 
 Important limitation: per-track gain sliders remain project metadata only in this slice. The next editor block should implement audio mixing/gain export while preserving the video bitstream. Do not claim gain changes are present in the current trimmed MP4.
+
+
+## Latest trim-export validation APK
+
+`dev-latest` now includes the visual trim timeline and fast no-video-reencode export.
+
+Evidence:
+- run `38924068103`: success;
+- target `6589d32e466adbbe5e01779f589b97c58a8bb6c6`;
+- published `2026-10-16T15:28:20Z`.
+
+Recommended device test: open a clip -> Editar clip -> drag both timeline handles -> Exportar recorte -> confirm a new clip appears in Mis clips/Gallery, the original remains unchanged, and the exported start may move slightly earlier to the previous keyframe.
