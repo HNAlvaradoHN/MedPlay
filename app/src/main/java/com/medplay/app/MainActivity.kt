@@ -13,6 +13,8 @@ import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
@@ -1035,10 +1037,45 @@ class MainActivity : Activity() {
             resultCode = resultCode,
             resultData = data,
         )
-        startForegroundService(serviceIntent)
+        startCaptureServiceSafely(serviceIntent)
+    }
+
+    private fun startCaptureServiceSafely(
+        serviceIntent: Intent,
+        attempt: Int = 0,
+    ) {
+        val started = runCatching {
+            startForegroundService(serviceIntent)
+        }.isSuccess
+
+        if (started) {
+            statusView.text = tr(
+                "Grabación iniciándose.",
+                "Recording is starting.",
+            )
+            return
+        }
+
+        if (attempt < 1) {
+            statusView.text = tr(
+                "Android retrasó el inicio de MedPlay; reintentando...",
+                "Android delayed MedPlay startup; retrying...",
+            )
+            Handler(Looper.getMainLooper()).postDelayed(
+                {
+                    startCaptureServiceSafely(
+                        serviceIntent,
+                        attempt + 1,
+                    )
+                },
+                350L,
+            )
+            return
+        }
+
         statusView.text = tr(
-            "Grabación iniciándose.",
-            "Recording is starting.",
+            "Android no permitió iniciar la grabación. MedPlay siguió abierto; vuelve a intentar Iniciar grabación.",
+            "Android did not allow capture to start. MedPlay stayed open; try Start recording again.",
         )
     }
 
