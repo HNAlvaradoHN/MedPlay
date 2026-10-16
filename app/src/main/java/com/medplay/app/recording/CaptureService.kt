@@ -329,6 +329,7 @@ class CaptureService : Service() {
         sessionMicrophoneWasSilenced = false
         sessionMicrophonePeakAbs = 0
         microphoneCurrentlySilenced = false
+        microphoneForegroundTypeActive = false
         fullSessionPaused = false
         activePauseStartedUs = Long.MIN_VALUE
         completedPauseIntervals.clear()
@@ -1164,9 +1165,32 @@ class CaptureService : Service() {
             return false
         }
 
+        if (!ensureMicrophoneForegroundType()) {
+            MicrophoneVoicePreference.setEnabled(applicationContext, false)
+            floatingSessionControl?.showStatus(
+                tr(
+                    "Android no permitió activar el micrófono en este momento.",
+                    "Android did not allow microphone capture at this moment.",
+                )
+            )
+            return false
+        }
+
         MicrophoneVoicePreference.setEnabled(applicationContext, true)
         startMicrophoneVoiceIfPermitted()
         return microphoneVoiceCapture != null
+    }
+
+    private fun ensureMicrophoneForegroundType(): Boolean {
+        if (microphoneForegroundTypeActive) return true
+        if (mediaProjection == null) return false
+
+        val enabled = runCatching {
+            startAsProjectionForegroundService(includeMicrophone = true)
+        }.isSuccess
+
+        microphoneForegroundTypeActive = enabled
+        return enabled
     }
 
     private fun pauseIntervalsForExport(
