@@ -60,6 +60,20 @@ class ClipFinalExporter(
             return
         }
 
+        val audioGains = runCatching {
+            FinalExportAudioPolicy.gainsForTracks(
+                audioTrackCount = extractedAudio.size,
+                hasGameAudio = hasGameAudio,
+                hasMicrophone = hasMicrophone,
+                gameGainPercent = gameGainPercent,
+                microphoneGainPercent = microphoneGainPercent,
+            )
+        }.getOrElse {
+            cleanup(temporaryOutput, extractedAudio)
+            onError(it)
+            return
+        }
+
         val videoMediaItem = MediaItem.Builder()
             .setUri(sourceUri)
             .setClippingConfiguration(
@@ -87,13 +101,7 @@ class ClipFinalExporter(
         )
 
         extractedAudio.forEachIndexed { ordinal, track ->
-            val gainPercent = when {
-                ordinal == 0 && hasGameAudio -> gameGainPercent
-                ordinal == 0 && !hasGameAudio && hasMicrophone ->
-                    microphoneGainPercent
-                ordinal == 1 && hasMicrophone -> microphoneGainPercent
-                else -> 100
-            }
+            val gainPercent = audioGains[ordinal]
 
             val audioItem = EditedMediaItem.Builder(
                 MediaItem.fromUri(Uri.fromFile(track.file))
@@ -117,8 +125,7 @@ class ClipFinalExporter(
         val visualProcessing =
             EditorVisualSettings.hasVisualChanges(visualSettings)
         val mixedAudio = extractedAudio.size > 1 ||
-            gameGainPercent != 100 ||
-            microphoneGainPercent != 100
+            audioGains.any { it != 100 }
 
         val transformer = Transformer.Builder(context)
             .setAudioMimeType(MimeTypes.AUDIO_AAC)
