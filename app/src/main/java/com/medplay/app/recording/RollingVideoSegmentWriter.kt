@@ -121,6 +121,14 @@ class RollingVideoSegmentWriter(
         rolloverRequested = true
     }
 
+    @Synchronized
+    fun finalizeActiveSegmentForPause(): Boolean {
+        if (muxer == null) return false
+        finishCurrentSegment()
+        rolloverRequested = false
+        return true
+    }
+
     fun completionVersion(): Long {
         return synchronized(completionMonitor) { completionVersion }
     }
