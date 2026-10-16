@@ -6,7 +6,8 @@ import org.junit.Test
 class ClipLengthPreferenceTest {
 
     @Test
-    fun keepsSupportedDurations() {
+    fun exposesOnlyShortRetroactiveDurations() {
+        assertEquals(listOf(15, 30, 60), ClipLengthPreference.allowedSeconds)
         ClipLengthPreference.allowedSeconds.forEach { seconds ->
             assertEquals(seconds, ClipLengthPreference.sanitize(seconds))
         }
