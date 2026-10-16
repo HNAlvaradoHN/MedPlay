@@ -24,6 +24,7 @@ import com.medplay.app.recording.ClipEditProjectStore
 import com.medplay.app.recording.ClipLibrary
 import com.medplay.app.recording.ClipFinalExporter
 import com.medplay.app.recording.ClipTrimExporter
+import com.medplay.app.recording.EditorPreviewPolicy
 import com.medplay.app.recording.EditorVisualSettings
 import kotlin.concurrent.thread
 
@@ -271,8 +272,14 @@ class ClipEditorActivity : Activity() {
 
         fun applyPreviewEffects() {
             player.setVideoEffects(currentVideoEffects())
-            val position = player.currentPosition
-            player.seekTo(position)
+
+            if (
+                EditorPreviewPolicy.shouldForcePausedRedraw(
+                    playWhenReady = player.playWhenReady,
+                )
+            ) {
+                player.seekTo(player.currentPosition)
+            }
         }
 
         filterSpinner.onItemSelectedListener =
