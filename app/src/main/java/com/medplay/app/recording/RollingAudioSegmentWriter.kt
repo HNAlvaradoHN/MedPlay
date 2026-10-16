@@ -48,6 +48,7 @@ class RollingAudioSegmentWriter(
     private var currentEndUs = Long.MIN_VALUE
     private var latestCompletedEndUs = Long.MIN_VALUE
     private var sequence = 0L
+    private var paused = false
 
     init {
         require(retentionUs >= targetSegmentUs)
@@ -77,6 +78,7 @@ class RollingAudioSegmentWriter(
         if (info.size <= 0) return
         if ((info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) return
         if (captureMonotonicStartUs == Long.MIN_VALUE) return
+        if (paused) return
 
         val absolutePtsUs = captureMonotonicStartUs + info.presentationTimeUs
 
@@ -109,6 +111,15 @@ class RollingAudioSegmentWriter(
         if (muxer == null) return false
         finishCurrentSegment()
         return true
+    }
+
+    @Synchronized
+    fun setPaused(value: Boolean) {
+        if (paused == value) return
+        if (value && muxer != null) {
+            finishCurrentSegment()
+        }
+        paused = value
     }
 
     @Synchronized
