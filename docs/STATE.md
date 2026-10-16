@@ -762,3 +762,41 @@ Evidence:
 - release contains the portrait-capture fix, in-app clip player, full-session recording mode, edge-snapping expandable session control, active-time timer, runtime microphone toggle, pause/resume and Stop & save.
 
 The release workflow is restored to manual-only immediately afterward. Physical validation is still required; these features remain IMPLEMENTADO_PENDIENTE_VALIDACIÓN.
+
+
+## Physical validation — portrait capture and internal player
+
+Owner-provided device evidence on 2026-10-16 confirms:
+- a portrait game now fills a portrait video frame instead of appearing as a tiny vertical image inside a landscape canvas;
+- the same clip opens and plays inside MedPlay through the internal player;
+- playback controls and portrait framing are visible and usable.
+
+Status update:
+- portrait capture adaptation: VALIDATED_ON_DEVICE for the tested device/title;
+- internal clip player: VALIDATED_ON_DEVICE for the tested clip.
+
+This does not yet validate every device/game orientation combination.
+
+## Editor project foundation
+
+Phase 3 has started.
+
+Implemented:
+- non-destructive edit projects stored privately by source MediaStore URI;
+- original clip remains immutable;
+- internal player exposes an Edit action;
+- editor reuses the original MediaStore video for preview;
+- trim start/end can be marked from the current playback position;
+- trim can be reset to the full source duration;
+- game-audio gain project setting supports 0–200%;
+- microphone gain setting is shown only when the clip metadata says a microphone track exists;
+- edit settings are persisted separately from the source video.
+
+Not yet implemented:
+- exporting the edited result;
+- realtime gain mixing in preview;
+- rotation;
+- saturation/color;
+- final single-track audio mix.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN.

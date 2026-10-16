@@ -149,3 +149,11 @@ Automatic summary:
 - No API dependency for highlights.
 - Keep originals immutable.
 - Never claim physical validation from CI alone.
+
+
+## Progress update — 2026-10-16
+
+- Phase 1 portrait capture: physically validated on the owner's tested vertical game.
+- Phase 1 internal player: physically validated on-device.
+- Phase 2 full-session backend/overlay: implemented, still pending physical validation.
+- Phase 3 editor foundation: implementation started with immutable-source edit projects, trim markers and per-track gain settings.
