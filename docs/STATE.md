@@ -1183,3 +1183,18 @@ CI evidence:
 - Android build run `38953175312`: success.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on the owner's device.
+
+
+## Latest validation APK — continuous editor audio preview
+
+A fresh `dev-latest` APK was generated after removing periodic audio-preview reseeks.
+
+Evidence:
+- release workflow run `38953415852`: build/tests and release steps succeeded;
+- release target: `9bedb1f095dc1cc8f681feba0306f7d0cd5f446e`;
+- source main feature state: `477ca1c334e9d0d13b6516623ccb1b7950684bcd`;
+- published: `2026-10-16T19:15:31Z`;
+- `MedPlay-debug.apk` size: 11,722,182 bytes;
+- SHA-256: `2f5d97aaa734845fe1da68259dca6c0953a26c17dc20c0b5b3bcfcd014e34d2a`.
+
+Physical validation priority: play a game+voice clip continuously for at least 20–30 seconds while repeatedly moving game and microphone volume sliders. Audio should remain continuous rather than chopped.
