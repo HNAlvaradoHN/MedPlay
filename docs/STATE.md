@@ -1121,3 +1121,20 @@ UX documentation:
 - gallery/player/editor remain Medal-inspired, media-first references without copying proprietary assets.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN for startup stability, audible dual-track preview, and final microphone mix.
+
+
+## Final startup boundary hardening
+
+The stability branch now also guards the Activity -> foreground-service boundary. `MainActivity` no longer allows a foreground-service launch rejection to escape and crash the process during the transition to the selected game.
+
+Behavior:
+- first foreground-service start is wrapped;
+- one short retry is made after 350 ms for a transient vendor/background transition rejection;
+- if both attempts fail, MedPlay remains open and shows a retry message instead of crashing;
+- failure stage, exception type and message are persisted through `CaptureService.recordStartupFailure()`;
+- enabling microphone mid-full-session now safely upgrades the foreground-service type before starting microphone capture; if Android rejects the upgrade, microphone remains off and the recording continues.
+
+Final CI evidence:
+- Android build run `38950292280`: success on branch head `9fad50aae8b928a347db7dc5c96e774252ea7096`.
+
+This does not prove the photographed device crash had exactly this exception without a device stack trace, but it closes two concrete uncaught foreground-service startup paths matching the reported transition.
