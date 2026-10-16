@@ -163,9 +163,15 @@ class CaptureService : Service() {
         }
         mediaProjection = projection
 
+        val displayMetrics = resources.displayMetrics
+        val portraitCapture = RecordingOrientationPolicy.isPortrait(
+            displayMetrics.widthPixels,
+            displayMetrics.heightPixels,
+        )
         val profile = runCatching {
             EncoderCapabilityProbe.chooseSafeStartupProfile(
-                RecordingQualityPreference.get(applicationContext)
+                mode = RecordingQualityPreference.get(applicationContext),
+                portrait = portraitCapture,
             )
         }.getOrNull()
         if (profile == null) {
@@ -595,11 +601,15 @@ class CaptureService : Service() {
                 val supported = EncoderCapabilityProbe.supportedStartupProfiles()
                 if (shutdownStarted.get()) return@thread
 
-                val nextProfile =
+                val lowerProfile =
                     AdaptiveRecordingProfilePolicy.nextLowerProfile(
                         current = currentProfile,
                         supported = supported,
                     ) ?: return@thread
+                val nextProfile = EncoderCapabilityProbe.orientLike(
+                    profile = lowerProfile,
+                    reference = currentProfile,
+                ) ?: return@thread
 
                 replacementDirectory = nextVideoEpochDirectory()
                 replacementWriter = RollingVideoSegmentWriter(
