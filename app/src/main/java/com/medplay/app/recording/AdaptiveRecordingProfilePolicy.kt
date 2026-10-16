@@ -68,8 +68,12 @@ object AdaptiveRecordingProfilePolicy {
     )
 
     private fun rankOf(width: Int, height: Int, fps: Int): Int? {
+        val longSide = maxOf(width, height)
+        val shortSide = minOf(width, height)
         return modes.firstOrNull {
-            it.width == width && it.height == height && it.fps == fps
+            it.width == longSide &&
+                it.height == shortSide &&
+                it.fps == fps
         }?.rank
     }
 }

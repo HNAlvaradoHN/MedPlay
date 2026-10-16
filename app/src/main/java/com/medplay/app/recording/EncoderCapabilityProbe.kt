@@ -108,6 +108,67 @@ object EncoderCapabilityProbe {
         )
     }
 
+    fun chooseSafeStartupProfile(
+        mode: RecordingQualityPreference.Mode,
+        portrait: Boolean,
+    ): RecordingProfile? {
+        val supported = supportedStartupProfiles()
+            .filter { candidate ->
+                val recording = candidate.toRecordingProfile()
+                val oriented = RecordingOrientationPolicy.orient(
+                    recording,
+                    portrait = portrait,
+                )
+                supportsProfile(oriented)
+            }
+
+        val selected = RecordingQualityPreference.choose(
+            mode = mode,
+            supported = supported,
+        ) ?: return null
+
+        return RecordingOrientationPolicy.orient(
+            selected,
+            portrait = portrait,
+        )
+    }
+
+    fun orientLike(
+        profile: RecordingProfile,
+        reference: RecordingProfile,
+    ): RecordingProfile? {
+        val portrait = reference.height > reference.width
+        val oriented = RecordingOrientationPolicy.orient(profile, portrait)
+        return oriented.takeIf(::supportsProfile)
+    }
+
+    fun supportsProfile(profile: RecordingProfile): Boolean {
+        val info = encoderInfos().firstOrNull { it.name == profile.encoderName }
+            ?: return false
+        if (!isHardwareAccelerated(info)) return false
+
+        val caps = capabilities(info, profile.codec) ?: return false
+        if (
+            !caps.colorFormats.contains(
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface,
+            )
+        ) {
+            return false
+        }
+
+        val videoCaps = caps.videoCapabilities ?: return false
+        val sizeRateSupported = runCatching {
+            videoCaps.areSizeAndRateSupported(
+                profile.width,
+                profile.height,
+                profile.fps.toDouble(),
+            )
+        }.getOrDefault(false)
+        if (!sizeRateSupported) return false
+
+        return profile.bitrate in videoCaps.bitrateRange
+    }
+
     fun supportedQualityModes(): List<RecordingQualityPreference.Mode> {
         return RecordingQualityPreference.supportedModes(
             supportedStartupProfiles()

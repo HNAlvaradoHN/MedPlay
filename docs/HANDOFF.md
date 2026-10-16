@@ -503,3 +503,14 @@ Evidence:
 - release workflow restored to manual-only afterward; main restoration merge `cddbf1e7b23ebf2a540e20e784bc135faf6faab8`.
 
 Recommended physical test sequence: play a sustained session with voice capture enabled, toggle the game's voice-chat microphone OFF -> ON -> OFF, save clips, verify `Mis clips`, and inspect diagnostics for thermal status/profile downgrade evidence.
+
+
+## Portrait capture / internal player handoff
+
+PR #72 fixes the reported portrait-letterboxing and external-player dependency.
+
+Capture orientation is now driven by MediaProjection captured-content resize callbacks. The active profile is swapped to portrait dimensions only when the same hardware encoder validates that width/height/FPS/bitrate combination. The transition uses the existing encoder-epoch strategy so incompatible MP4 dimensions are never concatenated into one rolling segment set. Thermal step-down remains compatible with portrait profiles.
+
+`Mis clips` now launches a private `ClipPlayerActivity` using VideoView + MediaController against the original MediaStore URI.
+
+No claim of physical completion yet. Device test should cover at least one portrait title and one landscape title to ensure portrait fixing does not regress the previously good landscape capture. Also verify opening clips from the in-app library no longer shows the 'no application available' message.

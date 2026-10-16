@@ -673,18 +673,14 @@ class MainActivity : Activity() {
                 Button(this).apply {
                     text = "${durationSeconds}s • $audioLabel • $capturedAt"
                     setOnClickListener {
-                        val openIntent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(clip.uri, "video/mp4")
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        if (openIntent.resolveActivity(packageManager) != null) {
-                            startActivity(openIntent)
-                        } else {
-                            statusView.text = tr(
-                                "No hay una aplicación disponible para abrir este clip.",
-                                "No application is available to open this clip.",
-                            )
-                        }
+                        startActivity(
+                            Intent(
+                                this@MainActivity,
+                                ClipPlayerActivity::class.java,
+                            ).apply {
+                                data = clip.uri
+                            }
+                        )
                     }
                 }
             )

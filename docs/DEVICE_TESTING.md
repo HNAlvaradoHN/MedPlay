@@ -197,3 +197,16 @@ Expected behavior:
 6. After a downgrade, save a clip and verify that video is decodable, audio remains synchronized and no incompatible-format export error occurs.
 
 Also compare a similar-length game session with MedPlay OFF. The goal is not a cold phone during heavy gaming; the goal is to avoid MedPlay adding unnecessary heat and to reduce its load automatically before Android reaches critical pressure.
+
+
+## Portrait capture and internal-player validation
+
+1. Start MedPlay and choose a portrait game in Android's app-capture chooser.
+2. Record long enough to complete several rolling segments and save a clip.
+3. In Gallery and in MedPlay, verify the saved MP4 uses portrait dimensions (for example 1080x1920 when that profile is hardware-supported) and the game is not a small portrait image centered in a wide 1920x1080 canvas.
+4. Repeat with a landscape game and confirm the prior landscape framing/quality remains unchanged.
+5. Open the portrait and landscape clips from **Mis clips**. They should open inside MedPlay's player rather than requiring an external video application.
+6. Verify play/pause/seek controls work and returning from the player brings the user back to MedPlay.
+7. If the encoder does not support the swapped portrait profile, record the device/model/profile evidence rather than treating fallback to the safe landscape profile as an encoder failure.
+
+Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN until these checks pass on a real device.

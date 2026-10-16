@@ -52,6 +52,8 @@ class CaptureService : Service() {
     private var sessionMicrophoneWasActive = false
     private var sessionMicrophoneWasSilenced = false
     private var microphoneCurrentlySilenced = false
+    @Volatile private var pendingCapturedWidth = 0
+    @Volatile private var pendingCapturedHeight = 0
     private val exportInProgress = AtomicBoolean(false)
     private val profileSwitchInProgress = AtomicBoolean(false)
     private val shutdownStarted = AtomicBoolean(false)
@@ -60,6 +62,15 @@ class CaptureService : Service() {
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
             stopProjectionAndSelf()
+        }
+
+        override fun onCapturedContentResize(width: Int, height: Int) {
+            if (width <= 0 || height <= 0) return
+            pendingCapturedWidth = width
+            pendingCapturedHeight = height
+            Handler(Looper.getMainLooper()).post {
+                applyCapturedContentOrientation()
+            }
         }
     }
 
@@ -296,6 +307,7 @@ class CaptureService : Service() {
         updateCaptureNotification(
             buildActiveCaptureStatus(profile)
         )
+        applyCapturedContentOrientation()
 
         return START_NOT_STICKY
     }
@@ -553,6 +565,139 @@ class CaptureService : Service() {
         microphoneCurrentlySilenced = false
     }
 
+    private fun applyCapturedContentOrientation() {
+        val width = pendingCapturedWidth
+        val height = pendingCapturedHeight
+        if (width <= 0 || height <= 0) return
+
+        val current = activeProfile ?: return
+        val portrait = RecordingOrientationPolicy.isPortrait(width, height)
+        val currentlyPortrait = current.height > current.width
+        if (portrait == currentlyPortrait) return
+
+        val target = RecordingOrientationPolicy.orient(current, portrait)
+        if (!EncoderCapabilityProbe.supportsProfile(target)) {
+            return
+        }
+        requestOrientationProfileSwitch(target)
+    }
+
+    private fun requestOrientationProfileSwitch(nextProfile: RecordingProfile) {
+        if (shutdownStarted.get() || mediaProjection == null) return
+        if (!profileSwitchInProgress.compareAndSet(false, true)) return
+        if (exportInProgress.get()) {
+            profileSwitchInProgress.set(false)
+            return
+        }
+
+        val currentProfile = activeProfile
+        val currentEncoder = videoEncoder
+        val currentWriter = rollingWriter
+        val display = virtualDisplay
+        val oldDirectory = activeVideoDirectory
+        val oldSurface = currentEncoder?.captureSurface()
+
+        if (
+            currentProfile == null ||
+            currentEncoder == null ||
+            currentWriter == null ||
+            display == null ||
+            oldSurface == null
+        ) {
+            profileSwitchInProgress.set(false)
+            return
+        }
+        if (
+            currentProfile.width == nextProfile.width &&
+            currentProfile.height == nextProfile.height
+        ) {
+            profileSwitchInProgress.set(false)
+            return
+        }
+
+        thread(
+            start = true,
+            isDaemon = true,
+            name = "medplay-orientation-profile-switch",
+        ) {
+            var replacementWriter: RollingVideoSegmentWriter? = null
+            var replacementEncoder: HardwareVideoEncoder? = null
+            var replacementDirectory: File? = null
+            var displayMoved = false
+
+            try {
+                if (shutdownStarted.get()) return@thread
+
+                replacementDirectory = nextVideoEpochDirectory()
+                replacementWriter = RollingVideoSegmentWriter(
+                    directory = replacementDirectory,
+                    retentionUs = activeRetentionUs,
+                )
+                replacementEncoder = HardwareVideoEncoder(
+                    profile = nextProfile,
+                    sampleConsumer = replacementWriter,
+                    onFatalError = {
+                        Handler(Looper.getMainLooper()).post {
+                            stopProjectionAndSelf()
+                        }
+                    },
+                )
+                val replacementSurface = replacementEncoder.start()
+                if (shutdownStarted.get()) return@thread
+
+                display.setSurface(null)
+                display.resize(
+                    nextProfile.width,
+                    nextProfile.height,
+                    resources.displayMetrics.densityDpi,
+                )
+                display.setSurface(replacementSurface)
+                displayMoved = true
+                replacementEncoder.requestSyncFrame()
+
+                accumulateEncoderHealth(currentEncoder)
+
+                rollingWriter = replacementWriter
+                videoEncoder = replacementEncoder
+                activeProfile = nextProfile
+                activeVideoDirectory = replacementDirectory
+
+                runCatching { currentEncoder.stop() }
+                runCatching { currentWriter.close() }
+                runCatching { oldDirectory?.deleteRecursively() }
+
+                Handler(Looper.getMainLooper()).post {
+                    updateCaptureNotification(
+                        tr(
+                            "Captura ajustada a " +
+                                "${nextProfile.width}x${nextProfile.height}. " +
+                                "La grabación continúa.",
+                            "Capture adjusted to " +
+                                "${nextProfile.width}x${nextProfile.height}. " +
+                                "Recording continues.",
+                        )
+                    )
+                }
+            } catch (_: Throwable) {
+                if (displayMoved) {
+                    runCatching {
+                        display.resize(
+                            currentProfile.width,
+                            currentProfile.height,
+                            resources.displayMetrics.densityDpi,
+                        )
+                        display.setSurface(oldSurface)
+                    }
+                }
+                runCatching { replacementEncoder?.stop() }
+                runCatching { replacementWriter?.close() }
+                runCatching { replacementDirectory?.deleteRecursively() }
+            } finally {
+                profileSwitchInProgress.set(false)
+            }
+        }
+    }
+
     private fun requestThermalProfileDowngrade(
         bitratePercent: Int,
     ) {
@@ -595,11 +740,15 @@ class CaptureService : Service() {
                 val supported = EncoderCapabilityProbe.supportedStartupProfiles()
                 if (shutdownStarted.get()) return@thread
 
-                val nextProfile =
+                val lowerProfile =
                     AdaptiveRecordingProfilePolicy.nextLowerProfile(
                         current = currentProfile,
                         supported = supported,
                     ) ?: return@thread
+                val nextProfile = EncoderCapabilityProbe.orientLike(
+                    profile = lowerProfile,
+                    reference = currentProfile,
+                ) ?: return@thread
 
                 replacementDirectory = nextVideoEpochDirectory()
                 replacementWriter = RollingVideoSegmentWriter(
@@ -835,6 +984,8 @@ class CaptureService : Service() {
         runCatching { rollingMicrophoneWriter?.close() }
         rollingMicrophoneWriter = null
         microphoneCurrentlySilenced = false
+        pendingCapturedWidth = 0
+        pendingCapturedHeight = 0
 
         runCatching { thermalGuard?.close() }
         thermalGuard = null
