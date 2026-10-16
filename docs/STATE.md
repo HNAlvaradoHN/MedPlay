@@ -1198,3 +1198,30 @@ Evidence:
 - SHA-256: `2f5d97aaa734845fe1da68259dca6c0953a26c17dc20c0b5b3bcfcd014e34d2a`.
 
 Physical validation priority: play a game+voice clip continuously for at least 20–30 seconds while repeatedly moving game and microphone volume sliders. Audio should remain continuous rather than chopped.
+
+
+## Microphone speaker-bleed suppression
+
+Owner feedback established that the microphone track must not intentionally duplicate game audio that MedPlay already captures internally.
+
+Audit finding:
+- player voice used `MediaRecorder.AudioSource.MIC`;
+- no `AcousticEchoCanceler` was attached to the microphone AudioRecord session;
+- therefore speaker playback could acoustically re-enter the microphone track.
+
+Implemented:
+- MedPlay now checks `AcousticEchoCanceler.isAvailable()`;
+- when supported, it creates AEC for the actual microphone `AudioRecord.audioSessionId`;
+- AEC is enabled before voice recording starts;
+- the effect is released with the microphone recorder lifecycle;
+- session diagnostics now persist `microphoneAecAvailable` and `microphoneAecEnabled`.
+
+Important limitation:
+- Android AEC is device/vendor dependent and cannot guarantee perfect separation on every phone or at every speaker volume;
+- if AEC is unavailable or fails to enable, MedPlay records that fact rather than claiming echo suppression is active;
+- software reference-based echo cancellation using internal game audio remains a possible future fallback if native AEC proves insufficient on target devices.
+
+CI evidence:
+- Android build run `38958855256`: success.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on the owner's device.
