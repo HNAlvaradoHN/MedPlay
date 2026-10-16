@@ -525,3 +525,12 @@ PR #73 begins the second recording mode using the existing encoded-segment archi
 Important compatibility guard: full-session mode does not perform thermal resolution/FPS step-down after recording is underway because the current exporter cannot concatenate incompatible video dimensions/codecs into one final MP4. Bitrate thermal reduction still applies, and CRITICAL requests a final save/stop. Initial orientation correction is limited to the first five seconds.
 
 The next Phase 2 slice is the owner-requested lateral floating control: snap left/right, collapsed/expanded states, elapsed time, microphone action, pause/resume and Stop. Pause must preserve a gapless output timeline; do not implement it by merely dropping arbitrary encoded samples.
+
+
+## Full-session overlay / pause handoff
+
+PR #74 implements the first complete full-session overlay interaction: edge-snapping collapsed bubble, expandable panel, active-time timer, microphone toggle, pause/resume and Stop & save.
+
+Pause is represented as monotonic `RecordingPauseInterval` ranges. Video writing is cut at pause, VirtualDisplay is detached, AAC writers ignore samples, and resume reattaches the same encoder surface with a requested sync frame. `RetroactiveVideoExporter` now accepts optional pause intervals and remaps each track timestamp by subtracting elapsed paused duration; samples inside a pause are skipped defensively. Retroactive Clip exports pass an empty pause list and remain unchanged.
+
+Next Phase 2 work after physical validation: polish the session overlay visuals/interaction if needed, then move to Phase 3 editor/player capabilities. Do not add highlight analysis until full-session output and pause behavior are stable on-device.
