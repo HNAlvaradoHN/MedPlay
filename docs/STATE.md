@@ -1045,3 +1045,34 @@ Evidence:
 - SHA-256: `94495d87fa25b1501701f12df0a34d406b69328cbc87807be85cc456fa81c22e`.
 
 Device validation priority: play a clip and continuously drag saturation/brightness/contrast. Playback should continue moving while color changes appear immediately. Final export must still reflect the persisted edit settings.
+
+
+## Physical validation — realtime editor preview
+
+The owner physically confirmed on-device that the realtime editor preview now works after the TextureView/direct ColorMatrix architecture change.
+
+Validated on the owner's device:
+- video playback continues in the editor;
+- visual editing changes are visible in realtime.
+
+Do not generalize this validation to every device/model, but the previously reported frozen-preview defect is resolved on the tested device.
+
+
+## Confirmed clip deletion
+
+Clip deletion is now implemented from both **Mis clips** and the internal player.
+
+Behavior:
+- deletion always requires an explicit confirmation dialog;
+- confirmation states that the video will be removed from both MedPlay and the device Gallery and cannot be undone by MedPlay;
+- confirmed deletion removes the actual MediaStore video;
+- ClipLibrary metadata is removed;
+- any non-destructive edit project for that source URI is removed;
+- failed deletion leaves the library entry intact and reports failure.
+
+A persistent visual/product direction is now stored in `docs/UX_DIRECTION.md`. It records the owner-supplied Medal-inspired direction for gallery/player/editor polish and explicitly marks the current text-button gallery/control stack as functional scaffolding rather than final design.
+
+CI evidence:
+- Android build run `38947464943`: success.
+
+Status: deletion is IMPLEMENTADO_PENDIENTE_VALIDACIÓN on the owner's device.
