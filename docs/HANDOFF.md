@@ -814,3 +814,21 @@ Release evidence:
 - published `2026-10-16T18:52:52Z`.
 
 Do not mark these three defects physically resolved until the owner validates game launch, audio preview and exported microphone voice on-device.
+
+
+## Editor audio-preview stutter handoff
+
+The previous dual-audio preview implementation was functionally wrong for continuous listening because it attempted drift correction every 500 ms and could repeatedly seek the auxiliary audio ExoPlayers.
+
+That polling loop has been removed. Preview synchronization is now event-driven:
+- align before starting playback;
+- align on explicit seek/discontinuity;
+- align at pause/resume transitions;
+- never seek because a volume slider moved;
+- never run periodic drift-correction seeks.
+
+The video player now waits for the independent audio preview tracks to be ready before playback starts, preventing the old catch-up cycle.
+
+CI run `38953175312` passed.
+
+Physical validation required: open a game+voice clip, leave playback running for at least 20–30 seconds, move game and voice sliders repeatedly, and confirm audio remains continuous while volume changes are audible.
