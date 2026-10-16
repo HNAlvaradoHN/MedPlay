@@ -41,6 +41,7 @@ class ClipEditorActivity : Activity() {
     private var saturationPercent = 100
     private var brightnessPercent = 0
     private var contrastPercent = 0
+    private var rotationDegrees = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,6 +73,7 @@ class ClipEditorActivity : Activity() {
         saturationPercent = project.saturationPercent
         brightnessPercent = project.brightnessPercent
         contrastPercent = project.contrastPercent
+        rotationDegrees = project.rotationDegrees
 
         player = ExoPlayer.Builder(this).build()
         val playerView = PlayerView(this).apply {
@@ -238,6 +240,20 @@ class ClipEditorActivity : Activity() {
             progress = contrastPercent + 50
         }
 
+        val rotationOptions = listOf(0, 90, 180, 270)
+        val rotationSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(
+                this@ClipEditorActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                rotationOptions.map { degrees ->
+                    tr("Rotación $degrees°", "Rotation $degrees°")
+                },
+            )
+            setSelection(
+                rotationOptions.indexOf(rotationDegrees).coerceAtLeast(0)
+            )
+        }
+
         fun refreshVisualLabels() {
             saturationLabel.text = tr(
                 "Intensidad de color: $saturationPercent%",
@@ -299,6 +315,24 @@ class ClipEditorActivity : Activity() {
             }
         )
 
+        rotationSpinner.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: View?,
+                    position: Int,
+                    id: Long,
+                ) {
+                    val selected = rotationOptions[position]
+                    if (selected != rotationDegrees) {
+                        rotationDegrees = selected
+                        applyPreviewEffects()
+                    }
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+
         val audioTitle = TextView(this).apply {
             text = tr("Audio", "Audio")
             setTextColor(Color.WHITE)
@@ -356,6 +390,7 @@ class ClipEditorActivity : Activity() {
                     saturationPercent = saturationPercent,
                     brightnessPercent = brightnessPercent,
                     contrastPercent = contrastPercent,
+                    rotationDegrees = rotationDegrees,
                     updatedAtMs = System.currentTimeMillis(),
                 ),
                 sourceDurationUs = sourceDurationUs,
@@ -516,6 +551,7 @@ class ClipEditorActivity : Activity() {
         controls.addView(brightnessSeek)
         controls.addView(contrastLabel)
         controls.addView(contrastSeek)
+        controls.addView(rotationSpinner)
         controls.addView(audioTitle)
         controls.addView(gameGainLabel)
         controls.addView(gameGainSeek)
@@ -550,6 +586,7 @@ class ClipEditorActivity : Activity() {
             saturationPercent = saturationPercent,
             brightnessPercent = brightnessPercent,
             contrastPercent = contrastPercent,
+            rotationDegrees = rotationDegrees,
         )
     }
 
