@@ -1,6 +1,7 @@
 package com.medplay.app
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -13,6 +14,7 @@ import android.widget.MediaController
 import android.widget.TextView
 import android.widget.VideoView
 import com.medplay.app.recording.AppLanguagePreference
+import com.medplay.app.recording.ClipLibrary
 
 class ClipPlayerActivity : Activity() {
 
@@ -81,6 +83,74 @@ class ClipPlayerActivity : Activity() {
                             data = source
                         }
                     )
+                }
+            },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+        )
+
+        root.addView(
+            Button(this).apply {
+                text = AppLanguagePreference.text(
+                    this@ClipPlayerActivity,
+                    "Borrar video",
+                    "Delete video",
+                )
+                setOnClickListener {
+                    AlertDialog.Builder(this@ClipPlayerActivity)
+                        .setTitle(
+                            AppLanguagePreference.text(
+                                this@ClipPlayerActivity,
+                                "¿Borrar este video?",
+                                "Delete this video?",
+                            )
+                        )
+                        .setMessage(
+                            AppLanguagePreference.text(
+                                this@ClipPlayerActivity,
+                                "Se eliminará de MedPlay y de la Galería. Esta acción no se puede deshacer.",
+                                "It will be removed from MedPlay and the Gallery. This action cannot be undone.",
+                            )
+                        )
+                        .setNegativeButton(
+                            AppLanguagePreference.text(
+                                this@ClipPlayerActivity,
+                                "Cancelar",
+                                "Cancel",
+                            ),
+                            null,
+                        )
+                        .setPositiveButton(
+                            AppLanguagePreference.text(
+                                this@ClipPlayerActivity,
+                                "Borrar",
+                                "Delete",
+                            )
+                        ) { _, _ ->
+                            videoView.stopPlayback()
+                            val deleted = ClipLibrary.delete(
+                                this@ClipPlayerActivity,
+                                source,
+                            )
+                            if (deleted) {
+                                setResult(RESULT_OK)
+                                finish()
+                            } else {
+                                AlertDialog.Builder(this@ClipPlayerActivity)
+                                    .setMessage(
+                                        AppLanguagePreference.text(
+                                            this@ClipPlayerActivity,
+                                            "No se pudo borrar el video.",
+                                            "The video could not be deleted.",
+                                        )
+                                    )
+                                    .setPositiveButton("OK", null)
+                                    .show()
+                            }
+                        }
+                        .show()
                 }
             },
             LinearLayout.LayoutParams(

@@ -2,6 +2,7 @@ package com.medplay.app
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -15,6 +16,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -742,7 +744,11 @@ class MainActivity : Activity() {
                     tr("Sin audio", "No audio")
             }
 
-            clipLibraryContainer.addView(
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+
+            row.addView(
                 Button(this).apply {
                     text = "${durationSeconds}s • $audioLabel • $capturedAt"
                     setOnClickListener {
@@ -755,8 +761,65 @@ class MainActivity : Activity() {
                             }
                         )
                     }
-                }
+                },
+                LinearLayout.LayoutParams(
+                    0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    1f,
+                )
             )
+
+            row.addView(
+                Button(this).apply {
+                    text = tr("Borrar", "Delete")
+                    setOnClickListener {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle(
+                                tr(
+                                    "¿Borrar este video?",
+                                    "Delete this video?",
+                                )
+                            )
+                            .setMessage(
+                                tr(
+                                    "Se eliminará de MedPlay y de la Galería. Esta acción no se puede deshacer.",
+                                    "It will be removed from MedPlay and the Gallery. This action cannot be undone.",
+                                )
+                            )
+                            .setNegativeButton(
+                                tr("Cancelar", "Cancel"),
+                                null,
+                            )
+                            .setPositiveButton(
+                                tr("Borrar", "Delete"),
+                            ) { _, _ ->
+                                val deleted = ClipLibrary.delete(
+                                    this@MainActivity,
+                                    clip.uri,
+                                )
+                                statusView.text = if (deleted) {
+                                    tr(
+                                        "Video borrado.",
+                                        "Video deleted.",
+                                    )
+                                } else {
+                                    tr(
+                                        "No se pudo borrar el video.",
+                                        "The video could not be deleted.",
+                                    )
+                                }
+                                refreshClipLibrary()
+                            }
+                            .show()
+                    }
+                },
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                )
+            )
+
+            clipLibraryContainer.addView(row)
         }
     }
 

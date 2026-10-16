@@ -737,3 +737,18 @@ Release evidence:
 - published `2026-10-16T18:16:08Z`.
 
 Next physical check: video must keep playing while saturation/brightness/contrast are dragged and the preview must visibly update in realtime. Then verify final export keeps the chosen edits.
+
+
+## Clip deletion + media UX direction handoff
+
+The owner confirmed the realtime editor preview fix works physically on-device.
+
+Next implemented slice adds destructive clip management:
+- Delete is available from Mis clips and from the internal player;
+- every delete presents a confirmation dialog;
+- confirmed deletion removes the MediaStore/Gallery file, ClipLibrary entry and source edit project;
+- failed deletion reports failure and does not silently discard the library entry.
+
+The repository now contains `docs/UX_DIRECTION.md` because the visual gallery/player/editor direction had previously only been captured piecemeal. The document preserves the Medal-inspired, media-first direction while making clear that the current text-button gallery and vertically stacked editor controls are scaffolding, not final visual polish.
+
+Next device check: delete a disposable clip, confirm the prompt appears, confirm Cancel preserves it, then confirm Delete removes it from both Mis clips and the device Gallery.
