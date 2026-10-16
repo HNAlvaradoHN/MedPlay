@@ -59,6 +59,31 @@ Target direction:
 
 Current editor functionality is ahead of its final visual polish. The present control stack is acceptable as implementation scaffolding, not the final desired layout.
 
+
+## Recording configuration
+
+Target direction:
+- configuration should feel like a clean gaming-recorder setup screen, not a developer/debug panel;
+- primary choices should be visually grouped: recording mode, quality, audio, clip duration/full-session behavior, and floating control;
+- the most common choices should be reachable without scrolling through diagnostics or implementation details;
+- advanced/diagnostic controls should stay secondary or collapsed;
+- the floating control customization should keep a live visual preview;
+- labels should explain outcomes in user language (for example, game audio versus player voice) rather than expose codec/internal implementation jargon;
+- Android's own screen-capture chooser remains the single place to choose one app versus full screen; MedPlay should not duplicate that selector;
+- configuration and gallery are distinct product areas: settings should not visually dominate the media library;
+- use a modern dark gaming/media presentation consistent with the owner-provided Medal references, while retaining MedPlay's own identity.
+
+Known functional groups that must remain represented:
+- clip retroactive versus full-session recording;
+- recording quality / automatic recommended mode;
+- internal game audio;
+- player microphone voice when supported by the selected mode;
+- retroactive clip duration (15 / 30 / 60 seconds);
+- floating control appearance and behavior;
+- advanced stop/diagnostics tools.
+
+The exact final pixel layout of the configuration screen has not yet been owner-approved as a finished mockup. Do not invent or claim an exact Medal screen clone. Preserve these structure decisions and refine the visual layout from future owner feedback/screenshots.
+
 ## Visual references and future refinement
 
 Owner-provided Medal screenshots are the reference for the intended level of polish, media emphasis, gallery organization and editor discoverability.
