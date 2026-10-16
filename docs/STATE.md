@@ -1138,3 +1138,23 @@ Final CI evidence:
 - Android build run `38950292280`: success on branch head `9fad50aae8b928a347db7dc5c96e774252ea7096`.
 
 This does not prove the photographed device crash had exactly this exception without a device stack trace, but it closes two concrete uncaught foreground-service startup paths matching the reported transition.
+
+
+## Latest validation APK — startup stability + dual-audio editor/export
+
+A fresh `dev-latest` APK was generated after the startup-stability and dual-audio audit.
+
+Evidence:
+- release workflow run `38950569036`: build/tests and release steps successful;
+- release target: `8157592a92fc98e205d9f38412f410fac8d4b4fc`;
+- source main feature state: `365fd08bf22b539468828e9a060faae2873f5905`;
+- published: `2026-10-16T18:52:52Z`;
+- `MedPlay-debug.apk` size: 11,723,506 bytes;
+- SHA-256: `aeb426348ef3a6b4f473508901b3a9e295843d78ae8d11e1281776dc22ffbaf0`.
+
+Physical validation priority:
+1. cold-start MedPlay -> Start recording -> choose the game; repeat several times and confirm the process does not crash;
+2. record full-session with player voice enabled and speak clearly;
+3. in editor, lower game audio to 0–20% and leave voice near 100%, then confirm both independent controls are audible;
+4. export final and confirm microphone + game audio are both present and synchronized;
+5. if voice is still absent, inspect last-session diagnostics and report `microphonePeakAbs`.
