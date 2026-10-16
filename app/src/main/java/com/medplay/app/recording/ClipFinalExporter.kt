@@ -5,6 +5,8 @@ import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
 import androidx.media3.common.MediaItem
+import androidx.media3.common.audio.ChannelMixingAudioProcessor
+import androidx.media3.common.audio.ChannelMixingMatrix
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Composition
@@ -86,8 +88,12 @@ class ClipFinalExporter(
             )
             .build()
 
+        val outputDurationUs =
+            (trimEndUs - trimStartUs).coerceAtLeast(1L)
+
         val videoItem = EditedMediaItem.Builder(videoMediaItem)
             .setRemoveAudio(true)
+            .setDurationUs(outputDurationUs)
             .setEffects(
                 Effects(
                     emptyList(),
@@ -103,13 +109,30 @@ class ClipFinalExporter(
         extractedAudio.forEachIndexed { ordinal, track ->
             val gainPercent = audioGains[ordinal]
 
+            val channelMixer = ChannelMixingAudioProcessor().apply {
+                putChannelMixingMatrix(
+                    ChannelMixingMatrix.createForConstantGain(
+                        1,
+                        2,
+                    )
+                )
+                putChannelMixingMatrix(
+                    ChannelMixingMatrix.createForConstantGain(
+                        2,
+                        2,
+                    )
+                )
+            }
+
             val audioItem = EditedMediaItem.Builder(
                 MediaItem.fromUri(Uri.fromFile(track.file))
             )
+                .setDurationUs(outputDurationUs)
                 .setEffects(
                     Effects(
                         listOf(
-                            ConstantGainAudioProcessor(gainPercent)
+                            channelMixer,
+                            ConstantGainAudioProcessor(gainPercent),
                         ),
                         emptyList(),
                     )

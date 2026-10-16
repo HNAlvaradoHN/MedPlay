@@ -56,7 +56,9 @@ class CaptureService : Service() {
     private var sessionAudioWasActive = false
     private var sessionMicrophoneWasActive = false
     private var sessionMicrophoneWasSilenced = false
+    private var sessionMicrophonePeakAbs = 0
     private var microphoneCurrentlySilenced = false
+    private var microphoneForegroundTypeActive = false
     private var fullSessionPaused = false
     private var activePauseStartedUs = Long.MIN_VALUE
     private val completedPauseIntervals = mutableListOf<RecordingPauseInterval>()
@@ -161,11 +163,36 @@ class CaptureService : Service() {
         activeRecordingMode = RecordingModePreference.get(applicationContext)
         val microphoneVoiceRequested =
             activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION &&
+                MicrophoneVoicePreference.isEnabled(applicationContext) &&
                 checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
-        startAsProjectionForegroundService(
-            includeMicrophone = microphoneVoiceRequested,
-        )
+
+        val foregroundResult = runCatching {
+            startAsProjectionForegroundService(
+                includeMicrophone = microphoneVoiceRequested,
+            )
+            microphoneForegroundTypeActive = microphoneVoiceRequested
+        }.recoverCatching { microphoneError ->
+            if (!microphoneVoiceRequested) {
+                throw microphoneError
+            }
+
+            // Some Android/vendor builds can reject a microphone FGS during
+            // the app-selection transition. Keep screen capture alive rather
+            // than crashing the process; voice stays disabled for this session.
+            startAsProjectionForegroundService(includeMicrophone = false)
+            microphoneForegroundTypeActive = false
+        }
+
+        if (foregroundResult.isFailure) {
+            recordStartupFailure(
+                applicationContext,
+                "capture_service_foreground",
+                foregroundResult.exceptionOrNull(),
+            )
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Int.MIN_VALUE)
         val resultData = intent.getParcelableExtraCompat(EXTRA_RESULT_DATA)
@@ -305,7 +332,9 @@ class CaptureService : Service() {
         sessionAudioWasActive = false
         sessionMicrophoneWasActive = false
         sessionMicrophoneWasSilenced = false
+        sessionMicrophonePeakAbs = 0
         microphoneCurrentlySilenced = false
+        microphoneForegroundTypeActive = false
         fullSessionPaused = false
         activePauseStartedUs = Long.MIN_VALUE
         completedPauseIntervals.clear()
@@ -613,6 +642,15 @@ class CaptureService : Service() {
     private fun startMicrophoneVoiceIfPermitted() {
         if (activeRecordingMode != RecordingModePreference.Mode.FULL_SESSION) return
         if (!MicrophoneVoicePreference.isEnabled(applicationContext)) return
+        if (!microphoneForegroundTypeActive) {
+            updateCaptureNotification(
+                tr(
+                    "Grabación activa • Android no permitió iniciar la voz en esta sesión.",
+                    "Recording active • Android did not allow voice capture for this session.",
+                )
+            )
+            return
+        }
         if (
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
             PackageManager.PERMISSION_GRANTED
@@ -631,6 +669,10 @@ class CaptureService : Service() {
                 Handler(Looper.getMainLooper()).post {
                     handleMicrophoneSilencedChanged(silenced)
                 }
+            },
+            onPcmPeak = { peak ->
+                sessionMicrophonePeakAbs =
+                    maxOf(sessionMicrophonePeakAbs, peak)
             },
             onFatalError = {
                 Handler(Looper.getMainLooper()).post {
@@ -1128,9 +1170,32 @@ class CaptureService : Service() {
             return false
         }
 
+        if (!ensureMicrophoneForegroundType()) {
+            MicrophoneVoicePreference.setEnabled(applicationContext, false)
+            floatingSessionControl?.showStatus(
+                tr(
+                    "Android no permitió activar el micrófono en este momento.",
+                    "Android did not allow microphone capture at this moment.",
+                )
+            )
+            return false
+        }
+
         MicrophoneVoicePreference.setEnabled(applicationContext, true)
         startMicrophoneVoiceIfPermitted()
         return microphoneVoiceCapture != null
+    }
+
+    private fun ensureMicrophoneForegroundType(): Boolean {
+        if (microphoneForegroundTypeActive) return true
+        if (mediaProjection == null) return false
+
+        val enabled = runCatching {
+            startAsProjectionForegroundService(includeMicrophone = true)
+        }.isSuccess
+
+        microphoneForegroundTypeActive = enabled
+        return enabled
     }
 
     private fun pauseIntervalsForExport(
@@ -1331,6 +1396,7 @@ class CaptureService : Service() {
             encoderHealth = combinedEncoderHealth(encoder),
             microphoneWasActive = sessionMicrophoneWasActive,
             microphoneWasSilenced = sessionMicrophoneWasSilenced,
+            microphonePeakAbs = sessionMicrophonePeakAbs,
             thermalProfileDowngrades = thermalProfileDowngrades,
             initialProfile = initialSessionProfile,
         )
@@ -1339,6 +1405,7 @@ class CaptureService : Service() {
         sessionAudioWasActive = false
         sessionMicrophoneWasActive = false
         sessionMicrophoneWasSilenced = false
+        sessionMicrophonePeakAbs = 0
         initialSessionProfile = null
         thermalProfileDowngrades = 0
         accumulatedEncodedSamples = 0L
@@ -1529,6 +1596,30 @@ class CaptureService : Service() {
         fun createStopIntent(context: Context): Intent {
             return Intent(context, CaptureService::class.java).apply {
                 action = ACTION_STOP
+            }
+        }
+
+        fun recordStartupFailure(
+            context: Context,
+            stage: String,
+            error: Throwable?,
+        ) {
+            runCatching {
+                File(context.filesDir, LAST_SESSION_DIAGNOSTICS_FILE)
+                    .writeText(
+                        buildString {
+                            appendLine("MedPlay startup failure")
+                            appendLine("stage=$stage")
+                            appendLine(
+                                "errorType=" +
+                                    (error?.javaClass?.name ?: "unknown")
+                            )
+                            appendLine(
+                                "errorMessage=" +
+                                    (error?.message ?: "unknown")
+                            )
+                        }
+                    )
             }
         }
 

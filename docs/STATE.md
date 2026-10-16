@@ -1091,3 +1091,50 @@ Evidence:
 - SHA-256: `67e21a9b1563ab8a08756d01a51549944e201441ffe1da9359f387b58714ba18`.
 
 Device validation priority: verify Cancel preserves a disposable clip, then confirm Delete removes it from Mis clips and the device Gallery.
+
+
+## Stability/audio audit after device crash + missing microphone report
+
+Owner device evidence:
+- MedPlay process visibly crashed during the first transition into the selected game; reopening and starting again was required.
+- visual editor preview is already physically validated as working.
+- editor game/microphone gain controls were not audible in preview.
+- microphone voice was not heard in a final export.
+
+Audit findings and fixes:
+- capture startup previously requested the microphone foreground-service type for every full-session recording with RECORD_AUDIO permission, even when player-voice capture was disabled;
+- microphone foreground-service startup was unguarded and could crash the MedPlay process if Android/vendor policy rejected it during the app-selection/game transition;
+- startup now requests microphone FGS only when voice capture is actually enabled and falls back to screen-capture-only rather than crashing if microphone FGS is rejected;
+- editor gain sliders previously persisted values but ordinary ExoPlayer playback selected only one audio track, so independent game/voice gain was not actually previewed;
+- editor now creates synchronized audio-only ExoPlayer instances, selects each source audio track independently, mutes the main video player's default audio after successful preparation, and applies game/voice preview gains in realtime;
+- preview gains above 100% are capped at unity for realtime listening; final export still supports 0–200%;
+- final game audio is stereo while microphone capture is mono; Media3 mixing requires compatible channel counts, so final export now normalizes every audio source to stereo before applying gain and mixing;
+- microphone diagnostics now record `microphonePeakAbs` from actual PCM input so a future silent-voice report can distinguish Android-delivered silence from an export/mix defect.
+
+CI evidence:
+- earlier branch runs failed only because static sequence helpers were unavailable in Media3 1.8.1;
+- those calls were removed;
+- Android build run `38949778931`: success on commit `b8b861457120320b2be1a54978be593f066fe2ba`.
+
+UX documentation:
+- `docs/UX_DIRECTION.md` now includes the known recording-configuration structure and clearly states that the exact final settings pixel layout has not yet been owner-approved.
+- gallery/player/editor remain Medal-inspired, media-first references without copying proprietary assets.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN for startup stability, audible dual-track preview, and final microphone mix.
+
+
+## Final startup boundary hardening
+
+The stability branch now also guards the Activity -> foreground-service boundary. `MainActivity` no longer allows a foreground-service launch rejection to escape and crash the process during the transition to the selected game.
+
+Behavior:
+- first foreground-service start is wrapped;
+- one short retry is made after 350 ms for a transient vendor/background transition rejection;
+- if both attempts fail, MedPlay remains open and shows a retry message instead of crashing;
+- failure stage, exception type and message are persisted through `CaptureService.recordStartupFailure()`;
+- enabling microphone mid-full-session now safely upgrades the foreground-service type before starting microphone capture; if Android rejects the upgrade, microphone remains off and the recording continues.
+
+Final CI evidence:
+- Android build run `38950292280`: success on branch head `9fad50aae8b928a347db7dc5c96e774252ea7096`.
+
+This does not prove the photographed device crash had exactly this exception without a device stack trace, but it closes two concrete uncaught foreground-service startup paths matching the reported transition.

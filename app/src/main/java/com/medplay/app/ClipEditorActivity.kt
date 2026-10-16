@@ -26,6 +26,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.medplay.app.recording.AppLanguagePreference
 import com.medplay.app.recording.ClipEditProjectStore
+import com.medplay.app.recording.EditorAudioPreviewController
 import com.medplay.app.recording.ClipLibrary
 import com.medplay.app.recording.ClipFinalExporter
 import com.medplay.app.recording.ClipTrimExporter
@@ -37,6 +38,7 @@ class ClipEditorActivity : Activity() {
 
     private lateinit var sourceUri: Uri
     private lateinit var player: ExoPlayer
+    private var audioPreviewController: EditorAudioPreviewController? = null
     private var sourceDurationUs: Long = 0L
     private var trimStartUs: Long = 0L
     private var trimEndUs: Long = 0L
@@ -173,6 +175,7 @@ class ClipEditorActivity : Activity() {
                         trimEndUs
                     }
                     player.seekTo((targetUs / 1_000L).coerceAtLeast(0L))
+                    audioPreviewController?.syncNow(force = true)
                 }
             }
         )
@@ -358,6 +361,14 @@ class ClipEditorActivity : Activity() {
             textSize = 18f
             setPadding(0, 20, 0, 8)
         }
+        val audioPreviewStatus = TextView(this).apply {
+            setTextColor(Color.LTGRAY)
+            textSize = 12f
+            text = tr(
+                "Preparando vista previa de audio...",
+                "Preparing audio preview...",
+            )
+        }
         val gameGainLabel = TextView(this).apply {
             setTextColor(Color.WHITE)
             textSize = 14f
@@ -371,6 +382,10 @@ class ClipEditorActivity : Activity() {
                     gameGainLabel.text = tr(
                         "Audio del juego: $value%",
                         "Game audio: $value%",
+                    )
+                    audioPreviewController?.setGains(
+                        gameGainPercent = gameGain,
+                        microphoneGainPercent = micGain,
                     )
                 }
             )
@@ -391,6 +406,10 @@ class ClipEditorActivity : Activity() {
                     micGainLabel.text = tr(
                         "Mi voz: $value%",
                         "My voice: $value%",
+                    )
+                    audioPreviewController?.setGains(
+                        gameGainPercent = gameGain,
+                        microphoneGainPercent = micGain,
                     )
                 }
             )
@@ -568,6 +587,7 @@ class ClipEditorActivity : Activity() {
         controls.addView(contrastSeek)
         controls.addView(rotationSpinner)
         controls.addView(audioTitle)
+        controls.addView(audioPreviewStatus)
         controls.addView(gameGainLabel)
         controls.addView(gameGainSeek)
         controls.addView(micGainLabel)
@@ -594,6 +614,43 @@ class ClipEditorActivity : Activity() {
             "El original siempre permanece intacto.",
             "The original always remains intact.",
         )
+
+        val expectedAudioTracks =
+            (if (clip.hasGameAudio) 1 else 0) +
+                (if (clip.hasMicrophone) 1 else 0)
+
+        audioPreviewController = EditorAudioPreviewController(
+            context = this,
+            sourceUri = sourceUri,
+            videoPlayer = player,
+            expectedTrackCount = expectedAudioTracks,
+            hasGameAudio = clip.hasGameAudio,
+            hasMicrophone = clip.hasMicrophone,
+            onReady = {
+                audioPreviewStatus.text = if (clip.hasMicrophone) {
+                    tr(
+                        "Vista previa activa: juego y voz se escuchan juntos.",
+                        "Preview active: game and voice are mixed for listening.",
+                    )
+                } else {
+                    tr(
+                        "Vista previa de volumen activa.",
+                        "Volume preview active.",
+                    )
+                }
+            },
+            onUnavailable = {
+                audioPreviewStatus.text = tr(
+                    "No se pudo preparar la vista previa independiente de audio; el video seguirá usando su audio normal.",
+                    "Independent audio preview is unavailable; normal video audio will continue.",
+                )
+            },
+        ).also {
+            it.setGains(
+                gameGainPercent = gameGain,
+                microphoneGainPercent = micGain,
+            )
+        }
     }
 
     private fun currentVisualSettings(): EditorVisualSettings.Values {
@@ -729,6 +786,8 @@ class ClipEditorActivity : Activity() {
     }
 
     override fun onDestroy() {
+        audioPreviewController?.release()
+        audioPreviewController = null
         if (::player.isInitialized) {
             player.release()
         }

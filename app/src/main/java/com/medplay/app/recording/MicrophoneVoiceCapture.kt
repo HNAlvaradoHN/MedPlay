@@ -11,6 +11,7 @@ import android.media.MediaFormat
 import android.media.MediaRecorder
 import android.os.SystemClock
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
@@ -26,6 +27,7 @@ class MicrophoneVoiceCapture(
     private val context: Context,
     private val consumer: InternalAudioCapture.EncodedAudioConsumer,
     private val onSilencedChanged: (Boolean) -> Unit = {},
+    private val onPcmPeak: (Int) -> Unit = {},
     private val onFatalError: (Throwable) -> Unit = {},
 ) {
 
@@ -217,6 +219,7 @@ class MicrophoneVoiceCapture(
     ) {
         val outputInfo = MediaCodec.BufferInfo()
         var totalFramesSubmitted = 0L
+        var nextSignalProbeFrame = 0L
 
         while (running.get()) {
             val inputIndex = encoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
@@ -233,6 +236,12 @@ class MicrophoneVoiceCapture(
                     if (bytesRead < 0) {
                         error("Microphone AudioRecord read failed: $bytesRead")
                     } else if (bytesRead > 0) {
+                        if (totalFramesSubmitted >= nextSignalProbeFrame) {
+                            publishPcmPeak(input, bytesRead)
+                            nextSignalProbeFrame =
+                                totalFramesSubmitted + SAMPLE_RATE / 2L
+                        }
+
                         val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
                         encoder.queueInputBuffer(
                             inputIndex,
@@ -311,6 +320,31 @@ class MicrophoneVoiceCapture(
                 }
             }
         }
+    }
+
+    private fun publishPcmPeak(
+        input: ByteBuffer,
+        bytesRead: Int,
+    ) {
+        val probe = input.duplicate()
+            .order(ByteOrder.nativeOrder())
+        probe.position(0)
+        probe.limit(bytesRead.coerceAtMost(probe.capacity()))
+
+        var peak = 0
+        var sampleIndex = 0
+        while (probe.remaining() >= 2) {
+            val sample = kotlin.math.abs(probe.short.toInt())
+            if (sample > peak) peak = sample
+
+            // Sampling every fourth PCM value is sufficient for diagnostics
+            // and keeps this evidence path cheap.
+            sampleIndex++
+            if (sampleIndex % 4 == 0 && probe.remaining() >= 6) {
+                probe.position(probe.position() + 6)
+            }
+        }
+        onPcmPeak(peak)
     }
 
     private fun selectAacEncoder(): MediaCodecInfo? {
