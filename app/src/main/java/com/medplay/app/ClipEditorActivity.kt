@@ -107,7 +107,7 @@ class ClipEditorActivity : Activity() {
         val scroll = ScrollView(this).apply {
             addView(
                 controls,
-                ScrollView.LayoutParams(
+                ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                 )
