@@ -677,3 +677,21 @@ Release evidence:
 - current main after restoring the release workflow to manual-only: `cddbf1e7b23ebf2a540e20e784bc135faf6faab8`
 
 Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN for the new microphone contention behavior, thermal profile switching, and in-app library flow.
+
+
+## Portrait capture + internal clip playback
+
+PR #72 addresses two physical-device findings from the latest validation build.
+
+### Portrait game capture
+- Android MediaProjection `onCapturedContentResize(width, height)` is now used as the source of truth for captured-content orientation instead of assuming the recorder UI/device orientation at capture start.
+- When the selected captured app is portrait and the active hardware profile is landscape, MedPlay validates the swapped profile (for example 1920x1080 -> 1080x1920) against the same named hardware encoder, Surface input, FPS and bitrate.
+- If valid, MedPlay starts a replacement hardware encoder and rolling-video epoch, resizes/rebinds the existing VirtualDisplay, requests a sync frame, then retires the old epoch. No CPU frame conversion or mandatory re-encode was added.
+- Thermal profile ranking now treats portrait and landscape forms of the same resolution class equivalently and re-orients thermal downgrade candidates back to the current content orientation when supported.
+- If a portrait-swapped hardware mode is not supported by the device encoder, MedPlay keeps the current safe profile rather than forcing an invalid encoder configuration.
+
+### Internal clip playback
+- `Mis clips / My clips` now opens `ClipPlayerActivity` inside MedPlay instead of relying on an external ACTION_VIEW-capable video app.
+- The player uses Android VideoView/MediaController and reads the existing MediaStore URI; the clip is not duplicated.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. CI passed on PR #72. Required device validation: record a portrait game, confirm it fills a portrait output rather than appearing small inside a landscape canvas, then open the resulting clip from `Mis clips` and verify playback starts inside MedPlay.
