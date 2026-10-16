@@ -1030,3 +1030,18 @@ CI evidence:
 - Android build run `38945577792`: success.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on the owner's device.
+
+
+## Latest validation APK — realtime editor preview surface
+
+A fresh `dev-latest` APK was generated after replacing repeated Media3 preview-effect rebuilds with direct realtime preview-surface color processing.
+
+Evidence:
+- release workflow run `38945841210`: success;
+- release target: `09c1b029b7ed1d1c3327460c6c53ec08b6c27f4a`;
+- source main feature state: `96ad25a53492a0b9a71bff37c8f85e30d51b5914`;
+- published: `2026-10-16T18:16:08Z`;
+- `MedPlay-debug.apk` size: 11,692,770 bytes;
+- SHA-256: `94495d87fa25b1501701f12df0a34d406b69328cbc87807be85cc456fa81c22e`.
+
+Device validation priority: play a clip and continuously drag saturation/brightness/contrast. Playback should continue moving while color changes appear immediately. Final export must still reflect the persisted edit settings.
