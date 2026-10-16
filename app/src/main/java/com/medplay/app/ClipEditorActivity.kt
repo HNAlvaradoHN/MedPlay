@@ -15,6 +15,8 @@ import android.widget.VideoView
 import com.medplay.app.recording.AppLanguagePreference
 import com.medplay.app.recording.ClipEditProjectStore
 import com.medplay.app.recording.ClipLibrary
+import com.medplay.app.recording.ClipTrimExporter
+import kotlin.concurrent.thread
 
 class ClipEditorActivity : Activity() {
 
@@ -70,13 +72,49 @@ class ClipEditorActivity : Activity() {
             textSize = 15f
             gravity = Gravity.CENTER_HORIZONTAL
         }
+        val trimTimeline = ClipTrimTimelineView(this).apply {
+            setRange(
+                startUs = trimStartUs,
+                endUs = trimEndUs,
+                durationUs = sourceDurationUs,
+            )
+        }
 
         fun refreshTrimStatus() {
             trimStatus.text = tr(
                 "Recorte: ${formatTime(trimStartUs)} → ${formatTime(trimEndUs)}",
                 "Trim: ${formatTime(trimStartUs)} → ${formatTime(trimEndUs)}",
             )
+            trimTimeline.setRange(
+                startUs = trimStartUs,
+                endUs = trimEndUs,
+                durationUs = sourceDurationUs,
+            )
         }
+
+        trimTimeline.setListener(
+            ClipTrimTimelineView.Listener { startUs, endUs, fromUser ->
+                val previousStart = trimStartUs
+                val previousEnd = trimEndUs
+                trimStartUs = startUs
+                trimEndUs = endUs
+                trimStatus.text = tr(
+                    "Recorte: ${formatTime(trimStartUs)} → ${formatTime(trimEndUs)}",
+                    "Trim: ${formatTime(trimStartUs)} → ${formatTime(trimEndUs)}",
+                )
+                if (fromUser) {
+                    val targetUs = if (
+                        kotlin.math.abs(trimStartUs - previousStart) >=
+                        kotlin.math.abs(trimEndUs - previousEnd)
+                    ) {
+                        trimStartUs
+                    } else {
+                        trimEndUs
+                    }
+                    videoView.seekTo((targetUs / 1_000L).toInt())
+                }
+            }
+        )
 
         val setStartButton = Button(this).apply {
             text = tr("Marcar inicio aquí", "Set start here")
@@ -169,22 +207,102 @@ class ClipEditorActivity : Activity() {
             )
         }
 
+        fun persistProject() {
+            ClipEditProjectStore.save(
+                context = this@ClipEditorActivity,
+                project = ClipEditProjectStore.Project(
+                    sourceUri = sourceUri,
+                    trimStartUs = trimStartUs,
+                    trimEndUs = trimEndUs,
+                    gameAudioGainPercent = gameGain,
+                    microphoneGainPercent = micGain,
+                    updatedAtMs = System.currentTimeMillis(),
+                ),
+                sourceDurationUs = sourceDurationUs,
+            )
+        }
+
         val saveButton = Button(this).apply {
             text = tr("Guardar edición", "Save edit")
             setOnClickListener {
-                ClipEditProjectStore.save(
-                    context = this@ClipEditorActivity,
-                    project = ClipEditProjectStore.Project(
-                        sourceUri = sourceUri,
-                        trimStartUs = trimStartUs,
-                        trimEndUs = trimEndUs,
-                        gameAudioGainPercent = gameGain,
-                        microphoneGainPercent = micGain,
-                        updatedAtMs = System.currentTimeMillis(),
-                    ),
-                    sourceDurationUs = sourceDurationUs,
-                )
+                persistProject()
                 text = tr("Edición guardada ✓", "Edit saved ✓")
+            }
+        }
+
+        val exportStatus = TextView(this).apply {
+            setTextColor(Color.LTGRAY)
+            textSize = 13f
+            gravity = Gravity.CENTER_HORIZONTAL
+            text = tr(
+                "El recorte se exporta como un video nuevo. El original no se modifica.",
+                "Trim exports as a new video. The original is not modified.",
+            )
+        }
+
+        val exportButton = Button(this).apply {
+            text = tr("Exportar recorte", "Export trim")
+            setOnClickListener {
+                if (trimEndUs <= trimStartUs) {
+                    exportStatus.text = tr(
+                        "Selecciona un tramo válido para exportar.",
+                        "Select a valid range to export.",
+                    )
+                    return@setOnClickListener
+                }
+
+                persistProject()
+                isEnabled = false
+                exportStatus.text = tr(
+                    "Exportando sin recodificar el video...",
+                    "Exporting without re-encoding video...",
+                )
+
+                thread(name = "medplay-editor-trim-export") {
+                    val result = runCatching {
+                        ClipTrimExporter(this@ClipEditorActivity).export(
+                            sourceUri = sourceUri,
+                            requestedStartUs = trimStartUs,
+                            requestedEndUs = trimEndUs,
+                        )
+                    }
+
+                    runOnUiThread {
+                        isEnabled = true
+                        result.onSuccess { exported ->
+                            ClipLibrary.recordDerivedExport(
+                                context = this@ClipEditorActivity,
+                                uri = exported.uri,
+                                displayName = exported.displayName,
+                                durationUs = exported.durationUs,
+                                hasGameAudio = clip.hasGameAudio,
+                                hasMicrophone = clip.hasMicrophone,
+                            )
+                            val adjustmentUs =
+                                trimStartUs - exported.actualStartUs
+                            exportStatus.text = if (adjustmentUs > 100_000L) {
+                                tr(
+                                    "Exportado ✓ • inicio ajustado " +
+                                        "${formatPreciseTime(exported.actualStartUs)} " +
+                                        "para conservar calidad sin recodificar.",
+                                    "Exported ✓ • start adjusted to " +
+                                        "${formatPreciseTime(exported.actualStartUs)} " +
+                                        "to preserve quality without re-encoding.",
+                                )
+                            } else {
+                                tr(
+                                    "Exportado ✓ • disponible en Mis clips y Galería.",
+                                    "Exported ✓ • available in My clips and Gallery.",
+                                )
+                            }
+                        }.onFailure {
+                            exportStatus.text = tr(
+                                "No se pudo exportar el recorte.",
+                                "The trim could not be exported.",
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -197,6 +315,7 @@ class ClipEditorActivity : Activity() {
             )
         )
         root.addView(trimStatus)
+        root.addView(trimTimeline)
         root.addView(setStartButton)
         root.addView(setEndButton)
         root.addView(resetTrimButton)
@@ -205,6 +324,8 @@ class ClipEditorActivity : Activity() {
         root.addView(micGainLabel)
         root.addView(micGainSeek)
         root.addView(saveButton)
+        root.addView(exportStatus)
+        root.addView(exportButton)
 
         setContentView(root)
         refreshTrimStatus()
@@ -230,6 +351,14 @@ class ClipEditorActivity : Activity() {
         val minutes = totalSeconds / 60L
         val seconds = totalSeconds % 60L
         return "%02d:%02d".format(minutes, seconds)
+    }
+
+    private fun formatPreciseTime(us: Long): String {
+        val totalTenths = (us / 100_000L).coerceAtLeast(0L)
+        val minutes = totalTenths / 600L
+        val seconds = (totalTenths % 600L) / 10L
+        val tenths = totalTenths % 10L
+        return "%02d:%02d.%d".format(minutes, seconds, tenths)
     }
 
     private fun tr(spanish: String, english: String): String {
