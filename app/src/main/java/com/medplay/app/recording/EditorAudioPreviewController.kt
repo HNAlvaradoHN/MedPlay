@@ -22,6 +22,8 @@ class EditorAudioPreviewController(
     sourceUri: Uri,
     private val videoPlayer: ExoPlayer,
     private val expectedTrackCount: Int,
+    private val hasGameAudio: Boolean,
+    private val hasMicrophone: Boolean,
     private val onReady: () -> Unit = {},
     private val onUnavailable: () -> Unit = {},
 ) {
@@ -196,12 +198,13 @@ class EditorAudioPreviewController(
     }
 
     private fun applyVolumes() {
+        val orderedGains = buildList {
+            if (hasGameAudio) add(gameGainPercent)
+            if (hasMicrophone) add(microphoneGainPercent)
+        }
+
         slots.forEach { slot ->
-            val percent = when (slot.ordinal) {
-                0 -> gameGainPercent
-                1 -> microphoneGainPercent
-                else -> 100
-            }
+            val percent = orderedGains.getOrElse(slot.ordinal) { 100 }
 
             // ExoPlayer preview volume is limited to unity gain. Export still
             // supports 0..200% through ConstantGainAudioProcessor.
