@@ -548,3 +548,16 @@ Evidence:
 - published `2026-10-16T12:56:49Z`.
 
 Recommended device test order: portrait game framing -> open from Mis clips -> full-session start -> drag/snap overlay -> pause/resume -> mic toggle -> Stop & save -> inspect complete MP4 and A/V continuity. Do not move the implementation status beyond IMPLEMENTADO_PENDIENTE_VALIDACIÓN until the owner reports real-device evidence.
+
+
+## Device evidence and editor handoff
+
+The owner physically confirmed the portrait-capture correction and internal MedPlay player on the current validation APK. The tested vertical clip fills the expected portrait frame and opens inside MedPlay with working playback controls. Treat those two specific findings as validated on that device, without generalizing to all devices/games.
+
+Phase 3 now begins with a non-destructive project model:
+- `ClipEditProjectStore` persists trim and per-track gain instructions keyed by immutable source URI;
+- `ClipEditorActivity` previews the original and lets the user mark trim start/end plus game/microphone gain values;
+- no source media is overwritten;
+- no edited MP4 export is claimed yet.
+
+Next safe editor slice: compatible trim export by remux where possible, then audio-mix export while preserving the video bitstream. Rotation/color should remain separate because they have different encoding costs.
