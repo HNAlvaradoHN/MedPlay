@@ -844,3 +844,25 @@ Evidence:
 - CaptureService enforces a 60-second maximum.
 
 The release workflow is restored to manual-only afterward.
+
+
+## Editor trim timeline + fast export
+
+Phase 3 now includes a visual trim timeline with two draggable range handles.
+
+Implemented:
+- draggable visual start/end trim handles;
+- timeline changes seek the preview to the handle being adjusted;
+- existing mark-start/mark-end buttons remain as shortcuts;
+- **Exportar recorte** creates a new MP4 in MediaStore/Gallery and indexes it in **Mis clips**;
+- original source clip remains immutable;
+- export copies encoded video/audio tracks through MediaExtractor/MediaMuxer with no video decode/re-encode;
+- trim start is snapped backward to the previous video sync frame when needed so the exported MP4 remains independently decodable;
+- source rotation metadata is preserved when available;
+- derived clips preserve the source library's game-audio/microphone metadata.
+
+Current limitation:
+- game/microphone gain values are still non-destructive project settings only and are NOT yet applied to this fast trim export;
+- exact arbitrary-frame start would require video re-encode, so the current fast path may begin slightly earlier at the prior keyframe.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN.
