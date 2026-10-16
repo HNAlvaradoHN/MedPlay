@@ -687,3 +687,12 @@ ClipAudioTrackDemuxer also removes partial temporary files if extraction fails a
 This change does not alter capture quality, encoder settings, thermal behavior, filters or video processing.
 
 Next evidence step remains physical validation of the expanded editor, especially a clip containing separate game + microphone tracks with deliberately different gains.
+
+
+## Editor live-preview handoff
+
+The owner reported that the video preview stayed visually static while adjusting color controls even though playback was active.
+
+The cause was repeated same-position `seekTo` calls on every visual adjustment. The editor now updates Media3 effects without seeking while `playWhenReady` is true. A redraw seek is retained only for intentionally paused preview.
+
+This does not alter final-export effect math or capture quality. Device validation should specifically drag saturation/brightness/contrast while the video is visibly moving and confirm playback continues while the image changes live.
