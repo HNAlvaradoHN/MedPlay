@@ -765,3 +765,22 @@ Release evidence:
 - published `2026-10-16T18:30:27Z`.
 
 Next physical check: confirm the delete prompt, Cancel behavior, and actual removal from both MedPlay and Gallery. After that, the next UI slice is replacing the functional text-button library with the media-first thumbnail/card gallery described in `docs/UX_DIRECTION.md`.
+
+
+## Stability/audio audit handoff
+
+The owner reported three concrete defects: first-start crash when transitioning into a game, no audible effect from editor game/voice sliders, and no microphone voice in final export.
+
+Implemented corrections:
+1. Microphone FGS is requested only when voice capture is enabled. A vendor/Android rejection no longer escapes as an uncaught startup failure; screen capture can continue without voice for that session.
+2. Editor audio preview is now real rather than metadata-only. Auxiliary synchronized ExoPlayers select the individual encoded audio tracks, while the main video player's default audio is muted once those players are ready.
+3. Final export normalizes mono microphone and stereo game audio to the same stereo channel layout before gain processing/mixing. This addresses Media3's same-channel-count requirement for mixed composition audio.
+4. Recording diagnostics include `microphonePeakAbs`, which indicates whether the microphone PCM actually contained a non-zero signal before encoding.
+
+Important validation:
+- start capture from a cold MedPlay launch and choose the game; repeat multiple times to confirm no process crash;
+- in an editor source containing game + microphone, set game near 0–20% and voice 100%, verify voice is audible during preview;
+- export with deliberately different gains and verify both sources are audible and synchronized;
+- inspect last-session diagnostics if voice is still absent. A near-zero `microphonePeakAbs` means Android delivered silence before export.
+
+`docs/UX_DIRECTION.md` now also records the configuration-screen direction. The media/gallery direction is known from the owner's Medal references; the exact final settings mockup/pixel layout is not yet fixed and must not be invented.
