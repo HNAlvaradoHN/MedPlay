@@ -5,27 +5,42 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.MediaController
+import android.widget.ScrollView
 import android.widget.SeekBar
+import android.widget.Spinner
 import android.widget.TextView
-import android.widget.VideoView
+import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import com.medplay.app.recording.AppLanguagePreference
 import com.medplay.app.recording.ClipEditProjectStore
 import com.medplay.app.recording.ClipLibrary
 import com.medplay.app.recording.ClipTrimExporter
+import com.medplay.app.recording.ClipVisualExporter
+import com.medplay.app.recording.EditorVisualSettings
 import kotlin.concurrent.thread
 
+@OptIn(UnstableApi::class)
 class ClipEditorActivity : Activity() {
 
     private lateinit var sourceUri: Uri
+    private lateinit var player: ExoPlayer
     private var sourceDurationUs: Long = 0L
     private var trimStartUs: Long = 0L
     private var trimEndUs: Long = 0L
     private var gameGain = 100
     private var micGain = 100
+    private var filterPreset = EditorVisualSettings.FilterPreset.NATURAL
+    private var saturationPercent = 100
+    private var brightnessPercent = 0
+    private var contrastPercent = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,19 +68,57 @@ class ClipEditorActivity : Activity() {
         trimEndUs = project.trimEndUs
         gameGain = project.gameAudioGainPercent
         micGain = project.microphoneGainPercent
+        filterPreset = project.filterPreset
+        saturationPercent = project.saturationPercent
+        brightnessPercent = project.brightnessPercent
+        contrastPercent = project.contrastPercent
+
+        player = ExoPlayer.Builder(this).build()
+        val playerView = PlayerView(this).apply {
+            player = this@ClipEditorActivity.player
+            useController = true
+            setBackgroundColor(Color.BLACK)
+        }
+        player.setMediaItem(MediaItem.fromUri(source))
+        player.setVideoEffects(currentVideoEffects())
+        player.prepare()
+        player.seekTo((trimStartUs / 1_000L).coerceAtLeast(0L))
+        player.playWhenReady = true
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.BLACK)
-            setPadding(24, 24, 24, 24)
         }
+        root.addView(
+            playerView,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                0.48f,
+            )
+        )
 
-        val videoView = VideoView(this)
-        val controller = MediaController(this).apply {
-            setAnchorView(videoView)
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 16, 24, 32)
         }
-        videoView.setMediaController(controller)
-        videoView.setVideoURI(source)
+        val scroll = ScrollView(this).apply {
+            addView(
+                controls,
+                ScrollView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                )
+            )
+        }
+        root.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                0.52f,
+            )
+        )
 
         val trimStatus = TextView(this).apply {
             setTextColor(Color.WHITE)
@@ -111,7 +164,7 @@ class ClipEditorActivity : Activity() {
                     } else {
                         trimEndUs
                     }
-                    videoView.seekTo((targetUs / 1_000L).toInt())
+                    player.seekTo((targetUs / 1_000L).coerceAtLeast(0L))
                 }
             }
         )
@@ -119,21 +172,19 @@ class ClipEditorActivity : Activity() {
         val setStartButton = Button(this).apply {
             text = tr("Marcar inicio aquí", "Set start here")
             setOnClickListener {
-                val currentUs = videoView.currentPosition.toLong() * 1_000L
+                val currentUs = player.currentPosition * 1_000L
                 trimStartUs = currentUs.coerceIn(0L, trimEndUs)
                 refreshTrimStatus()
             }
         }
-
         val setEndButton = Button(this).apply {
             text = tr("Marcar final aquí", "Set end here")
             setOnClickListener {
-                val currentUs = videoView.currentPosition.toLong() * 1_000L
+                val currentUs = player.currentPosition * 1_000L
                 trimEndUs = currentUs.coerceIn(trimStartUs, sourceDurationUs)
                 refreshTrimStatus()
             }
         }
-
         val resetTrimButton = Button(this).apply {
             text = tr("Restablecer recorte", "Reset trim")
             setOnClickListener {
@@ -143,6 +194,117 @@ class ClipEditorActivity : Activity() {
             }
         }
 
+        val visualTitle = TextView(this).apply {
+            text = tr("Color y filtros", "Color & filters")
+            setTextColor(Color.WHITE)
+            textSize = 18f
+            setPadding(0, 20, 0, 8)
+        }
+
+        val filterOptions = EditorVisualSettings.FilterPreset.entries
+        val filterSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(
+                this@ClipEditorActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                filterOptions.map(::filterLabel),
+            )
+            setSelection(filterOptions.indexOf(filterPreset).coerceAtLeast(0))
+        }
+
+        val saturationLabel = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 14f
+        }
+        val saturationSeek = SeekBar(this).apply {
+            max = 200
+            progress = saturationPercent
+        }
+
+        val brightnessLabel = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 14f
+        }
+        val brightnessSeek = SeekBar(this).apply {
+            max = 100
+            progress = brightnessPercent + 50
+        }
+
+        val contrastLabel = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 14f
+        }
+        val contrastSeek = SeekBar(this).apply {
+            max = 100
+            progress = contrastPercent + 50
+        }
+
+        fun refreshVisualLabels() {
+            saturationLabel.text = tr(
+                "Intensidad de color: $saturationPercent%",
+                "Color intensity: $saturationPercent%",
+            )
+            brightnessLabel.text = tr(
+                "Brillo: ${signed(brightnessPercent)}",
+                "Brightness: ${signed(brightnessPercent)}",
+            )
+            contrastLabel.text = tr(
+                "Contraste: ${signed(contrastPercent)}",
+                "Contrast: ${signed(contrastPercent)}",
+            )
+        }
+
+        fun applyPreviewEffects() {
+            player.setVideoEffects(currentVideoEffects())
+            val position = player.currentPosition
+            player.seekTo(position)
+        }
+
+        filterSpinner.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: View?,
+                    position: Int,
+                    id: Long,
+                ) {
+                    val selected = filterOptions[position]
+                    if (selected != filterPreset) {
+                        filterPreset = selected
+                        applyPreviewEffects()
+                    }
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+
+        saturationSeek.setOnSeekBarChangeListener(
+            simpleSeekListener { value, fromUser ->
+                saturationPercent = value
+                refreshVisualLabels()
+                if (fromUser) applyPreviewEffects()
+            }
+        )
+        brightnessSeek.setOnSeekBarChangeListener(
+            simpleSeekListener { value, fromUser ->
+                brightnessPercent = value - 50
+                refreshVisualLabels()
+                if (fromUser) applyPreviewEffects()
+            }
+        )
+        contrastSeek.setOnSeekBarChangeListener(
+            simpleSeekListener { value, fromUser ->
+                contrastPercent = value - 50
+                refreshVisualLabels()
+                if (fromUser) applyPreviewEffects()
+            }
+        )
+
+        val audioTitle = TextView(this).apply {
+            text = tr("Audio", "Audio")
+            setTextColor(Color.WHITE)
+            textSize = 18f
+            setPadding(0, 20, 0, 8)
+        }
         val gameGainLabel = TextView(this).apply {
             setTextColor(Color.WHITE)
             textSize = 14f
@@ -151,21 +313,12 @@ class ClipEditorActivity : Activity() {
             max = 200
             progress = gameGain
             setOnSeekBarChangeListener(
-                object : SeekBar.OnSeekBarChangeListener {
-                    override fun onProgressChanged(
-                        seekBar: SeekBar?,
-                        progress: Int,
-                        fromUser: Boolean,
-                    ) {
-                        gameGain = progress
-                        gameGainLabel.text = tr(
-                            "Audio del juego: $progress%",
-                            "Game audio: $progress%",
-                        )
-                    }
-
-                    override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-                    override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+                simpleSeekListener { value, _ ->
+                    gameGain = value
+                    gameGainLabel.text = tr(
+                        "Audio del juego: $value%",
+                        "Game audio: $value%",
+                    )
                 }
             )
         }
@@ -173,36 +326,19 @@ class ClipEditorActivity : Activity() {
         val micGainLabel = TextView(this).apply {
             setTextColor(Color.WHITE)
             textSize = 14f
-            visibility = if (clip.hasMicrophone) {
-                android.view.View.VISIBLE
-            } else {
-                android.view.View.GONE
-            }
+            visibility = if (clip.hasMicrophone) View.VISIBLE else View.GONE
         }
         val micGainSeek = SeekBar(this).apply {
             max = 200
             progress = micGain
-            visibility = if (clip.hasMicrophone) {
-                android.view.View.VISIBLE
-            } else {
-                android.view.View.GONE
-            }
+            visibility = if (clip.hasMicrophone) View.VISIBLE else View.GONE
             setOnSeekBarChangeListener(
-                object : SeekBar.OnSeekBarChangeListener {
-                    override fun onProgressChanged(
-                        seekBar: SeekBar?,
-                        progress: Int,
-                        fromUser: Boolean,
-                    ) {
-                        micGain = progress
-                        micGainLabel.text = tr(
-                            "Mi voz: $progress%",
-                            "My voice: $progress%",
-                        )
-                    }
-
-                    override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-                    override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+                simpleSeekListener { value, _ ->
+                    micGain = value
+                    micGainLabel.text = tr(
+                        "Mi voz: $value%",
+                        "My voice: $value%",
+                    )
                 }
             )
         }
@@ -216,6 +352,10 @@ class ClipEditorActivity : Activity() {
                     trimEndUs = trimEndUs,
                     gameAudioGainPercent = gameGain,
                     microphoneGainPercent = micGain,
+                    filterPreset = filterPreset,
+                    saturationPercent = saturationPercent,
+                    brightnessPercent = brightnessPercent,
+                    contrastPercent = contrastPercent,
                     updatedAtMs = System.currentTimeMillis(),
                 ),
                 sourceDurationUs = sourceDurationUs,
@@ -223,10 +363,10 @@ class ClipEditorActivity : Activity() {
         }
 
         val saveButton = Button(this).apply {
-            text = tr("Guardar edición", "Save edit")
+            text = tr("Guardar proyecto", "Save project")
             setOnClickListener {
                 persistProject()
-                text = tr("Edición guardada ✓", "Edit saved ✓")
+                text = tr("Proyecto guardado ✓", "Project saved ✓")
             }
         }
 
@@ -234,14 +374,13 @@ class ClipEditorActivity : Activity() {
             setTextColor(Color.LTGRAY)
             textSize = 13f
             gravity = Gravity.CENTER_HORIZONTAL
-            text = tr(
-                "El recorte se exporta como un video nuevo. El original no se modifica.",
-                "Trim exports as a new video. The original is not modified.",
-            )
         }
 
-        val exportButton = Button(this).apply {
-            text = tr("Exportar recorte", "Export trim")
+        val quickExportButton = Button(this).apply {
+            text = tr(
+                "Exportar rápido (sin filtros)",
+                "Fast export (no filters)",
+            )
             setOnClickListener {
                 if (trimEndUs <= trimStartUs) {
                     exportStatus.text = tr(
@@ -250,7 +389,6 @@ class ClipEditorActivity : Activity() {
                     )
                     return@setOnClickListener
                 }
-
                 persistProject()
                 isEnabled = false
                 exportStatus.text = tr(
@@ -266,7 +404,6 @@ class ClipEditorActivity : Activity() {
                             requestedEndUs = trimEndUs,
                         )
                     }
-
                     runOnUiThread {
                         isEnabled = true
                         result.onSuccess { exported ->
@@ -278,23 +415,10 @@ class ClipEditorActivity : Activity() {
                                 hasGameAudio = clip.hasGameAudio,
                                 hasMicrophone = clip.hasMicrophone,
                             )
-                            val adjustmentUs =
-                                trimStartUs - exported.actualStartUs
-                            exportStatus.text = if (adjustmentUs > 100_000L) {
-                                tr(
-                                    "Exportado ✓ • inicio ajustado " +
-                                        "${formatPreciseTime(exported.actualStartUs)} " +
-                                        "para conservar calidad sin recodificar.",
-                                    "Exported ✓ • start adjusted to " +
-                                        "${formatPreciseTime(exported.actualStartUs)} " +
-                                        "to preserve quality without re-encoding.",
-                                )
-                            } else {
-                                tr(
-                                    "Exportado ✓ • disponible en Mis clips y Galería.",
-                                    "Exported ✓ • available in My clips and Gallery.",
-                                )
-                            }
+                            exportStatus.text = tr(
+                                "Exportado ✓ • Mis clips y Galería.",
+                                "Exported ✓ • My clips and Gallery.",
+                            )
                         }.onFailure {
                             exportStatus.text = tr(
                                 "No se pudo exportar el recorte.",
@@ -306,29 +430,106 @@ class ClipEditorActivity : Activity() {
             }
         }
 
-        root.addView(
-            videoView,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f,
+        val visualExportButton = Button(this).apply {
+            text = tr(
+                "Exportar con color y filtros",
+                "Export with color & filters",
             )
-        )
-        root.addView(trimStatus)
-        root.addView(trimTimeline)
-        root.addView(setStartButton)
-        root.addView(setEndButton)
-        root.addView(resetTrimButton)
-        root.addView(gameGainLabel)
-        root.addView(gameGainSeek)
-        root.addView(micGainLabel)
-        root.addView(micGainSeek)
-        root.addView(saveButton)
-        root.addView(exportStatus)
-        root.addView(exportButton)
+            isEnabled = !clip.hasMicrophone
+            setOnClickListener {
+                if (trimEndUs <= trimStartUs) {
+                    exportStatus.text = tr(
+                        "Selecciona un tramo válido para exportar.",
+                        "Select a valid range to export.",
+                    )
+                    return@setOnClickListener
+                }
+                if (!EditorVisualSettings.hasVisualChanges(currentVisualSettings())) {
+                    exportStatus.text = tr(
+                        "No hay cambios visuales. Usa Exportar rápido.",
+                        "No visual changes. Use Fast export.",
+                    )
+                    return@setOnClickListener
+                }
+
+                persistProject()
+                isEnabled = false
+                quickExportButton.isEnabled = false
+                exportStatus.text = tr(
+                    "Procesando color con aceleración del dispositivo...",
+                    "Processing color with device acceleration...",
+                )
+
+                ClipVisualExporter(this@ClipEditorActivity).start(
+                    sourceUri = sourceUri,
+                    trimStartUs = trimStartUs,
+                    trimEndUs = trimEndUs,
+                    visualSettings = currentVisualSettings(),
+                    onSuccess = { exported ->
+                        ClipLibrary.recordDerivedExport(
+                            context = this@ClipEditorActivity,
+                            uri = exported.uri,
+                            displayName = exported.displayName,
+                            durationUs = exported.durationUs,
+                            hasGameAudio = clip.hasGameAudio,
+                            hasMicrophone = false,
+                        )
+                        isEnabled = true
+                        quickExportButton.isEnabled = true
+                        exportStatus.text = tr(
+                            "Exportado con filtros ✓ • Mis clips y Galería.",
+                            "Filtered export complete ✓ • My clips and Gallery.",
+                        )
+                    },
+                    onError = {
+                        isEnabled = true
+                        quickExportButton.isEnabled = true
+                        exportStatus.text = tr(
+                            "No se pudo exportar con filtros.",
+                            "Filtered export failed.",
+                        )
+                    },
+                )
+            }
+        }
+
+        val microphoneExportNote = TextView(this).apply {
+            setTextColor(Color.LTGRAY)
+            textSize = 12f
+            visibility = if (clip.hasMicrophone) View.VISIBLE else View.GONE
+            text = tr(
+                "Este clip tiene voz separada. La exportación con filtros se habilitará al completar la mezcla de audio para no perder esa pista.",
+                "This clip has a separate voice track. Filtered export will be enabled after audio mixing is completed so that track is not lost.",
+            )
+        }
+
+        controls.addView(trimStatus)
+        controls.addView(trimTimeline)
+        controls.addView(setStartButton)
+        controls.addView(setEndButton)
+        controls.addView(resetTrimButton)
+        controls.addView(visualTitle)
+        controls.addView(filterSpinner)
+        controls.addView(saturationLabel)
+        controls.addView(saturationSeek)
+        controls.addView(brightnessLabel)
+        controls.addView(brightnessSeek)
+        controls.addView(contrastLabel)
+        controls.addView(contrastSeek)
+        controls.addView(audioTitle)
+        controls.addView(gameGainLabel)
+        controls.addView(gameGainSeek)
+        controls.addView(micGainLabel)
+        controls.addView(micGainSeek)
+        controls.addView(saveButton)
+        controls.addView(exportStatus)
+        controls.addView(quickExportButton)
+        controls.addView(visualExportButton)
+        controls.addView(microphoneExportNote)
 
         setContentView(root)
         refreshTrimStatus()
+        refreshVisualLabels()
         gameGainLabel.text = tr(
             "Audio del juego: $gameGain%",
             "Game audio: $gameGain%",
@@ -337,13 +538,62 @@ class ClipEditorActivity : Activity() {
             "Mi voz: $micGain%",
             "My voice: $micGain%",
         )
+        exportStatus.text = tr(
+            "El original siempre permanece intacto.",
+            "The original always remains intact.",
+        )
+    }
 
-        videoView.setOnPreparedListener { player ->
-            player.isLooping = false
-            val startMs = (trimStartUs / 1_000L).toInt()
-            videoView.seekTo(startMs)
-            videoView.start()
+    private fun currentVisualSettings(): EditorVisualSettings.Values {
+        return EditorVisualSettings.Values(
+            filterPreset = filterPreset,
+            saturationPercent = saturationPercent,
+            brightnessPercent = brightnessPercent,
+            contrastPercent = contrastPercent,
+        )
+    }
+
+    private fun currentVideoEffects() =
+        EditorVisualSettings.buildVideoEffects(currentVisualSettings())
+
+    private fun simpleSeekListener(
+        onChange: (value: Int, fromUser: Boolean) -> Unit,
+    ): SeekBar.OnSeekBarChangeListener {
+        return object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(
+                seekBar: SeekBar?,
+                progress: Int,
+                fromUser: Boolean,
+            ) {
+                onChange(progress, fromUser)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         }
+    }
+
+    private fun filterLabel(
+        preset: EditorVisualSettings.FilterPreset,
+    ): String {
+        return when (preset) {
+            EditorVisualSettings.FilterPreset.NATURAL ->
+                tr("Natural", "Natural")
+            EditorVisualSettings.FilterPreset.VIVID ->
+                tr("Vivo", "Vivid")
+            EditorVisualSettings.FilterPreset.WARM ->
+                tr("Cálido", "Warm")
+            EditorVisualSettings.FilterPreset.COOL ->
+                tr("Frío", "Cool")
+            EditorVisualSettings.FilterPreset.CINEMATIC ->
+                tr("Cinemático", "Cinematic")
+            EditorVisualSettings.FilterPreset.MONO ->
+                tr("Blanco y negro", "Black & white")
+        }
+    }
+
+    private fun signed(value: Int): String {
+        return if (value > 0) "+$value" else value.toString()
     }
 
     private fun formatTime(us: Long): String {
@@ -353,12 +603,11 @@ class ClipEditorActivity : Activity() {
         return "%02d:%02d".format(minutes, seconds)
     }
 
-    private fun formatPreciseTime(us: Long): String {
-        val totalTenths = (us / 100_000L).coerceAtLeast(0L)
-        val minutes = totalTenths / 600L
-        val seconds = (totalTenths % 600L) / 10L
-        val tenths = totalTenths % 10L
-        return "%02d:%02d.%d".format(minutes, seconds, tenths)
+    override fun onDestroy() {
+        if (::player.isInitialized) {
+            player.release()
+        }
+        super.onDestroy()
     }
 
     private fun tr(spanish: String, english: String): String {
