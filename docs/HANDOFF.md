@@ -534,3 +534,17 @@ PR #74 implements the first complete full-session overlay interaction: edge-snap
 Pause is represented as monotonic `RecordingPauseInterval` ranges. Video writing is cut at pause, VirtualDisplay is detached, AAC writers ignore samples, and resume reattaches the same encoder surface with a requested sync frame. `RetroactiveVideoExporter` now accepts optional pause intervals and remaps each track timestamp by subtracting elapsed paused duration; samples inside a pause are skipped defensively. Retroactive Clip exports pass an empty pause list and remain unchanged.
 
 Next Phase 2 work after physical validation: polish the session overlay visuals/interaction if needed, then move to Phase 3 editor/player capabilities. Do not add highlight analysis until full-session output and pause behavior are stable on-device.
+
+
+## Latest full-session validation APK
+
+`dev-latest` was regenerated from main after the portrait/internal-player and full-session work.
+
+Evidence:
+- run `38904004611`: success;
+- target `7754f43eb0c0875af1a4dee18615dae7a3711219`;
+- APK asset: `MedPlay-debug.apk`;
+- checksum asset: `MedPlay-debug.sha256`;
+- published `2026-10-16T12:56:49Z`.
+
+Recommended device test order: portrait game framing -> open from Mis clips -> full-session start -> drag/snap overlay -> pause/resume -> mic toggle -> Stop & save -> inspect complete MP4 and A/V continuity. Do not move the implementation status beyond IMPLEMENTADO_PENDIENTE_VALIDACIÓN until the owner reports real-device evidence.
