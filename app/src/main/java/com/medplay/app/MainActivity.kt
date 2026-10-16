@@ -35,6 +35,7 @@ import com.medplay.app.recording.FloatingControlStylePreference
 import com.medplay.app.recording.GlassClipView
 import com.medplay.app.recording.InternalAudioPreference
 import com.medplay.app.recording.MicrophoneVoicePreference
+import com.medplay.app.recording.RecordingModePreference
 import com.medplay.app.recording.RecordingQualityPreference
 import java.text.DateFormat
 import java.util.Date
@@ -121,6 +122,31 @@ class MainActivity : Activity() {
             textSize = 13f
         }
 
+        val recordingModeLabel = TextView(this).apply {
+            text = tr("Modo de grabación", "Recording mode")
+            textSize = 14f
+        }
+
+        val recordingModes = listOf(
+            RecordingModePreference.Mode.RETROACTIVE_CLIP,
+            RecordingModePreference.Mode.FULL_SESSION,
+        )
+        val recordingModeSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(
+                this@MainActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                listOf(
+                    tr("Clip retroactivo", "Retroactive clip"),
+                    tr("Grabación completa", "Full-session recording"),
+                ),
+            )
+            setSelection(
+                recordingModes.indexOf(
+                    RecordingModePreference.get(this@MainActivity)
+                ).coerceAtLeast(0)
+            )
+        }
+
         val internalAudioToggle = CheckBox(this).apply {
             text = tr("Grabar audio interno", "Capture internal audio")
             isChecked = InternalAudioPreference.isEnabled(this@MainActivity)
@@ -171,7 +197,14 @@ class MainActivity : Activity() {
         val startButton = Button(this).apply {
             text = tr("Iniciar grabación", "Start recording")
             setOnClickListener {
-                requestOverlayPermissionThenCapture()
+                if (
+                    RecordingModePreference.get(this@MainActivity) ==
+                    RecordingModePreference.Mode.RETROACTIVE_CLIP
+                ) {
+                    requestOverlayPermissionThenCapture()
+                } else {
+                    requestNotificationPermissionThenCapture()
+                }
             }
         }
 
@@ -222,6 +255,51 @@ class MainActivity : Activity() {
                 )
             }
         }
+
+        fun refreshRecordingModeUi(mode: RecordingModePreference.Mode) {
+            val fullSession =
+                mode == RecordingModePreference.Mode.FULL_SESSION
+            microphoneVoiceToggle.visibility =
+                if (fullSession) View.VISIBLE else View.GONE
+            microphoneVoiceInfo.visibility =
+                if (fullSession) View.VISIBLE else View.GONE
+            clipLengthLabel.visibility =
+                if (fullSession) View.GONE else View.VISIBLE
+            clipLengthSpinner.visibility =
+                if (fullSession) View.GONE else View.VISIBLE
+            saveClipButton.visibility =
+                if (fullSession) View.GONE else View.VISIBLE
+            startButton.text = if (fullSession) {
+                tr(
+                    "Iniciar grabación completa",
+                    "Start full-session recording",
+                )
+            } else {
+                tr(
+                    "Iniciar grabación de clips",
+                    "Start clip recording",
+                )
+            }
+        }
+
+        recordingModeSpinner.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: android.view.View?,
+                    position: Int,
+                    id: Long,
+                ) {
+                    val mode = recordingModes[position]
+                    RecordingModePreference.set(this@MainActivity, mode)
+                    refreshRecordingModeUi(mode)
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+        refreshRecordingModeUi(
+            RecordingModePreference.get(this@MainActivity)
+        )
 
         val clipLibraryLabel = TextView(this).apply {
             text = tr("Mis clips", "My clips")
@@ -489,6 +567,8 @@ class MainActivity : Activity() {
             addView(qualityInfoView)
             addView(captureChoiceInfoView)
 
+            addView(recordingModeLabel)
+            addView(recordingModeSpinner)
             addView(internalAudioToggle)
             addView(microphoneVoiceToggle)
             addView(microphoneVoiceInfo)
@@ -788,9 +868,12 @@ class MainActivity : Activity() {
     }
 
     private fun requestCaptureWithOptionalInternalAudio() {
-        val needsAudioPermission =
-            InternalAudioPreference.isEnabled(this) ||
+        val microphoneRequested =
+            RecordingModePreference.get(this) ==
+                RecordingModePreference.Mode.FULL_SESSION &&
                 MicrophoneVoicePreference.isEnabled(this)
+        val needsAudioPermission =
+            InternalAudioPreference.isEnabled(this) || microphoneRequested
 
         if (!needsAudioPermission) {
             statusView.text = tr(

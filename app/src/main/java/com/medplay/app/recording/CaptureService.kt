@@ -37,7 +37,11 @@ class CaptureService : Service() {
     private var microphoneVoiceCapture: MicrophoneVoiceCapture? = null
     private var rollingMicrophoneWriter: RollingAudioSegmentWriter? = null
     private var floatingClipControl: FloatingClipControl? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var activeRetentionUs: Long = RollingVideoSegmentWriter.DEFAULT_RETENTION_US
+    private var activeRecordingMode =
+        RecordingModePreference.Mode.RETROACTIVE_CLIP
+    private var fullSessionLimitRunnable: Runnable? = null
     private var activeProfile: RecordingProfile? = null
     private var initialSessionProfile: RecordingProfile? = null
     private var activeVideoDirectory: File? = null
@@ -87,6 +91,15 @@ class CaptureService : Service() {
         when (intent?.action) {
             ACTION_START -> return startCapture(intent)
             ACTION_SAVE -> {
+                if (activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION) {
+                    updateCaptureNotification(
+                        tr(
+                            "La grabación completa sigue activa.",
+                            "Full-session recording is still active.",
+                        )
+                    )
+                    return START_NOT_STICKY
+                }
                 if (rollingWriter == null) {
                     if (mediaProjection == null) stopSelf(startId)
                     return START_NOT_STICKY
@@ -110,7 +123,11 @@ class CaptureService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_STOP -> {
-                stopProjectionAndSelf()
+                if (activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION) {
+                    saveFullSessionAndStop()
+                } else {
+                    stopProjectionAndSelf()
+                }
                 return START_NOT_STICKY
             }
             else -> {
@@ -137,8 +154,10 @@ class CaptureService : Service() {
             return START_NOT_STICKY
         }
 
+        activeRecordingMode = RecordingModePreference.get(applicationContext)
         val microphoneVoiceRequested =
-            MicrophoneVoicePreference.isEnabled(applicationContext) &&
+            activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION &&
+                MicrophoneVoicePreference.isEnabled(applicationContext) &&
                 checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
         startAsProjectionForegroundService(
@@ -189,26 +208,42 @@ class CaptureService : Service() {
                 checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
         val microphoneVoiceEnabled =
-            MicrophoneVoicePreference.isEnabled(applicationContext) &&
+            activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION &&
+                MicrophoneVoicePreference.isEnabled(applicationContext) &&
                 checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
+        val audioBitrate =
+            (if (internalAudioEnabled) InternalAudioCapture.AAC_BITRATE else 0) +
+                (if (microphoneVoiceEnabled) MicrophoneVoiceCapture.AAC_BITRATE else 0)
+        val availableBytes = StatFs(cacheDir.absolutePath).availableBytes
 
-        val retention = RecordingRetentionPolicy.choose(
-            videoBitrate = profile.bitrate,
-            audioBitrate =
-                (if (internalAudioEnabled) InternalAudioCapture.AAC_BITRATE else 0) +
-                    (if (microphoneVoiceEnabled) {
-                        MicrophoneVoiceCapture.AAC_BITRATE
-                    } else {
-                        0
-                    }),
-            usableBytes = StatFs(cacheDir.absolutePath).availableBytes,
-        )
-        if (retention.retentionSeconds == 0) {
-            stopProjectionAndSelf()
-            return START_NOT_STICKY
+        activeRetentionUs = when (activeRecordingMode) {
+            RecordingModePreference.Mode.RETROACTIVE_CLIP -> {
+                val retention = RecordingRetentionPolicy.choose(
+                    videoBitrate = profile.bitrate,
+                    audioBitrate = audioBitrate,
+                    usableBytes = availableBytes,
+                )
+                if (retention.retentionSeconds == 0) {
+                    stopProjectionAndSelf()
+                    return START_NOT_STICKY
+                }
+                retention.retentionSeconds * 1_000_000L
+            }
+
+            RecordingModePreference.Mode.FULL_SESSION -> {
+                val sessionBudget = FullSessionStoragePolicy.choose(
+                    videoBitrate = profile.bitrate,
+                    audioBitrate = audioBitrate,
+                    availableBytes = availableBytes,
+                )
+                if (sessionBudget.maxDurationSeconds == 0) {
+                    stopProjectionAndSelf()
+                    return START_NOT_STICKY
+                }
+                sessionBudget.maxDurationSeconds * 1_000_000L
+            }
         }
-        activeRetentionUs = retention.retentionSeconds * 1_000_000L
 
         clearStaleVideoEpochDirectories()
         val videoDirectory = nextVideoEpochDirectory()
@@ -273,8 +308,15 @@ class CaptureService : Service() {
             RuntimeThermalGuard(applicationContext) { action, status ->
                 maxThermalStatus = maxOf(maxThermalStatus, status)
                 if (action.stopCapture) {
-                    Handler(Looper.getMainLooper()).post {
-                        stopProjectionAndSelf()
+                    mainHandler.post {
+                        if (
+                            activeRecordingMode ==
+                            RecordingModePreference.Mode.FULL_SESSION
+                        ) {
+                            saveFullSessionAndStop()
+                        } else {
+                            stopProjectionAndSelf()
+                        }
                     }
                 } else {
                     val currentProfile = activeProfile
@@ -286,7 +328,11 @@ class CaptureService : Service() {
                         ).toInt()
                         currentEncoder.updateBitrate(targetBitrate)
                     }
-                    if (action.requestProfileStepDown) {
+                    if (
+                        action.requestProfileStepDown &&
+                        activeRecordingMode ==
+                            RecordingModePreference.Mode.RETROACTIVE_CLIP
+                    ) {
                         requestThermalProfileDowngrade(
                             bitratePercent = action.bitratePercent,
                         )
@@ -303,7 +349,11 @@ class CaptureService : Service() {
 
         startInternalAudioIfPermitted(mediaProjection)
         startMicrophoneVoiceIfPermitted()
-        showFloatingControl()
+        if (activeRecordingMode == RecordingModePreference.Mode.RETROACTIVE_CLIP) {
+            showFloatingControl()
+        } else {
+            scheduleFullSessionLimit()
+        }
         updateCaptureNotification(
             buildActiveCaptureStatus(profile)
         )
@@ -312,7 +362,48 @@ class CaptureService : Service() {
         return START_NOT_STICKY
     }
 
+    private fun saveFullSessionAndStop(): Boolean {
+        if (profileSwitchInProgress.get()) {
+            mainHandler.postDelayed(
+                { saveFullSessionAndStop() },
+                PROFILE_SWITCH_RETRY_MS,
+            )
+            return true
+        }
+
+        val startedUs = sessionStartedUs
+        if (startedUs == Long.MIN_VALUE) {
+            stopProjectionAndSelf()
+            return false
+        }
+
+        val nowUs = SystemClock.elapsedRealtimeNanos() / 1_000L
+        val requestedUs = (nowUs - startedUs)
+            .coerceAtLeast(MIN_SAVE_SECONDS * 1_000_000L)
+            .coerceAtMost(activeRetentionUs)
+        val requestedSeconds =
+            ((requestedUs + 999_999L) / 1_000_000L).toInt()
+
+        return saveBufferedRecording(
+            requestedSeconds = requestedSeconds,
+            maxSeconds = (activeRetentionUs / 1_000_000L).toInt(),
+            stopAfterExport = true,
+        )
+    }
+
     private fun saveRetroactiveClip(seconds: Int): Boolean {
+        return saveBufferedRecording(
+            requestedSeconds = seconds,
+            maxSeconds = MAX_SAVE_SECONDS,
+            stopAfterExport = false,
+        )
+    }
+
+    private fun saveBufferedRecording(
+        requestedSeconds: Int,
+        maxSeconds: Int,
+        stopAfterExport: Boolean,
+    ): Boolean {
         if (profileSwitchInProgress.get()) {
             updateCaptureNotification(
                 tr(
@@ -339,12 +430,22 @@ class CaptureService : Service() {
             return false
         }
 
-        val safeSeconds = seconds.coerceIn(MIN_SAVE_SECONDS, MAX_SAVE_SECONDS)
+        val safeSeconds = requestedSeconds.coerceIn(
+            MIN_SAVE_SECONDS,
+            maxSeconds.coerceAtLeast(MIN_SAVE_SECONDS),
+        )
         updateCaptureNotification(
-            tr(
-                "Guardando los últimos " + safeSeconds + " segundos...",
-                "Saving previous " + safeSeconds + " seconds...",
-            )
+            if (stopAfterExport) {
+                tr(
+                    "Finalizando y guardando la partida completa...",
+                    "Finalizing and saving the full session...",
+                )
+            } else {
+                tr(
+                    "Guardando los últimos " + safeSeconds + " segundos...",
+                    "Saving previous " + safeSeconds + " seconds...",
+                )
+            }
         )
         val completionVersion = writer.completionVersion()
         writer.requestRolloverOnNextSyncFrame()
@@ -408,10 +509,21 @@ class CaptureService : Service() {
                     floatingClipControl?.showSavedFeedback()
                     val durationSeconds = result.durationUs / 1_000_000L
                     updateCaptureNotification(
-                        tr(
-                            "Clip guardado (" + durationSeconds + "s). La grabación continúa.",
-                            "Clip saved (" + durationSeconds + "s). Recording continues.",
-                        )
+                        if (stopAfterExport) {
+                            tr(
+                                "Partida completa guardada (" +
+                                    durationSeconds + "s).",
+                                "Full session saved (" +
+                                    durationSeconds + "s).",
+                            )
+                        } else {
+                            tr(
+                                "Clip guardado (" + durationSeconds +
+                                    "s). La grabación continúa.",
+                                "Clip saved (" + durationSeconds +
+                                    "s). Recording continues.",
+                            )
+                        }
                     )
                 }
             } catch (_: Throwable) {
@@ -429,7 +541,13 @@ class CaptureService : Service() {
                 lease?.close()
             } finally {
                 exportInProgress.set(false)
-                finishServiceIfShutdownReady()
+                if (stopAfterExport) {
+                    Handler(Looper.getMainLooper()).post {
+                        stopProjectionAndSelf()
+                    }
+                } else {
+                    finishServiceIfShutdownReady()
+                }
             }
         }
 
@@ -483,6 +601,7 @@ class CaptureService : Service() {
     }
 
     private fun startMicrophoneVoiceIfPermitted() {
+        if (activeRecordingMode != RecordingModePreference.Mode.FULL_SESSION) return
         if (!MicrophoneVoicePreference.isEnabled(applicationContext)) return
         if (
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
@@ -571,6 +690,14 @@ class CaptureService : Service() {
         if (width <= 0 || height <= 0) return
 
         val current = activeProfile ?: return
+        if (
+            activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION &&
+            sessionStartedUs != Long.MIN_VALUE &&
+            SystemClock.elapsedRealtimeNanos() / 1_000L - sessionStartedUs >
+                FULL_SESSION_ORIENTATION_SETTLE_US
+        ) {
+            return
+        }
         val portrait = RecordingOrientationPolicy.isPortrait(width, height)
         val currentlyPortrait = current.height > current.width
         if (portrait == currentlyPortrait) return
@@ -895,8 +1022,30 @@ class CaptureService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    private fun scheduleFullSessionLimit() {
+        fullSessionLimitRunnable?.let(mainHandler::removeCallbacks)
+        val delayMs = (activeRetentionUs / 1_000L).coerceAtLeast(1_000L)
+        val runnable = Runnable {
+            if (
+                activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION &&
+                mediaProjection != null &&
+                !shutdownStarted.get()
+            ) {
+                saveFullSessionAndStop()
+            }
+        }
+        fullSessionLimitRunnable = runnable
+        mainHandler.postDelayed(runnable, delayMs)
+    }
+
+    private fun cancelFullSessionLimit() {
+        fullSessionLimitRunnable?.let(mainHandler::removeCallbacks)
+        fullSessionLimitRunnable = null
+    }
+
     private fun stopProjectionAndSelf() {
         if (!shutdownStarted.compareAndSet(false, true)) return
+        cancelFullSessionLimit()
 
         val projection = mediaProjection
         mediaProjection = null
@@ -1052,9 +1201,15 @@ class CaptureService : Service() {
             else ->
                 tr("solo video", "video only")
         }
-        return profile.width.toString() + "x" + profile.height +
-            " @ " + profile.fps + " FPS • " + retentionSeconds +
-            "s • " + audioLabel
+        return if (activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION) {
+            profile.width.toString() + "x" + profile.height +
+                " @ " + profile.fps + " FPS • " +
+                tr("partida completa", "full session") + " • " + audioLabel
+        } else {
+            profile.width.toString() + "x" + profile.height +
+                " @ " + profile.fps + " FPS • " + retentionSeconds +
+                "s • " + audioLabel
+        }
     }
 
     private fun updateCaptureNotification(text: String) {
@@ -1115,18 +1270,23 @@ class CaptureService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-        return Notification.Builder(this, CHANNEL_ID)
+        val builder = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("MedPlay")
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.presence_video_online)
             .setContentIntent(openIntent)
-            .addAction(
+
+        if (activeRecordingMode == RecordingModePreference.Mode.RETROACTIVE_CLIP) {
+            builder.addAction(
                 Notification.Action.Builder(
                     null,
                     "Clip",
                     saveIntent,
                 ).build()
             )
+        }
+
+        return builder
             .addAction(
                 Notification.Action.Builder(
                     null,
@@ -1171,6 +1331,8 @@ class CaptureService : Service() {
         private const val SAVE_ROLLOVER_WAIT_MS = 750L
         private const val PROFILE_SWITCH_SHUTDOWN_WAIT_MS = 3_000L
         private const val PROFILE_SWITCH_POLL_MS = 25L
+        private const val PROFILE_SWITCH_RETRY_MS = 350L
+        private const val FULL_SESSION_ORIENTATION_SETTLE_US = 5_000_000L
         private const val LAST_SESSION_DIAGNOSTICS_FILE =
             "last_session_diagnostics.txt"
 
