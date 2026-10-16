@@ -91,3 +91,18 @@ Owner-provided Medal screenshots are the reference for the intended level of pol
 If later owner screenshots or explicit instructions conflict with this document, the newer owner direction wins and this document should be updated in the same session.
 
 Do not claim the gallery/editor visual design is finished merely because the underlying functionality exists.
+
+
+## XRecorder interaction reference
+
+The owner supplied XRecorder 2.5.5.1 as an additional concrete reference for the media workflow.
+
+Adopt these structural ideas where they improve MedPlay:
+- visual media cards and thumbnails instead of text-only clip rows;
+- persistent video preview in the editor;
+- horizontal editor tool selector;
+- one focused panel per editing task rather than a single long control list;
+- compact secondary actions around the media;
+- dedicated media/player/editor experiences that do not feel like recorder diagnostics.
+
+Do not copy XRecorder assets, source, branding, paid packs or exact pixel layouts. MedPlay keeps its own dark gaming/media visual identity and only exposes tools that actually work.

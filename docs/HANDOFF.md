@@ -877,3 +877,21 @@ Release evidence:
 - published `2026-10-16T20:02:07Z`.
 
 Do not mark speaker-bleed suppression physically resolved until the owner validates it on-device. If bleed remains objectionable while diagnostics show `microphoneAecEnabled=true`, native vendor AEC is insufficient and a software reference-based echo canceller should be considered.
+
+
+## XRecorder-inspired media UX handoff
+
+The owner asked for a full XRecorder reference review and for MedPlay to adopt a similar media/editor interaction structure without copying proprietary assets/code.
+
+Reference findings are persisted in `docs/XRECORDER_REFERENCE_AUDIT.md`.
+
+Implemented first slice:
+1. My clips is no longer a text-button list. It now shows thumbnail cards with duration, date/audio metadata, Edit and confirmed Delete.
+2. The internal player is video-first with compact metadata/actions.
+3. The editor keeps a larger persistent preview and exposes a horizontal tool rail.
+4. Current editor panels map only to actual MedPlay functionality: Trim, Visual, Audio, Export.
+5. Future features such as Music/Text/Stickers/Speed should plug into this panel architecture only when they are actually implemented.
+
+CI: run `38974847658` passed after correcting a missing import.
+
+Physical validation should check thumbnail loading, card scrolling, Edit/Delete actions, player layout, editor panel switching, portrait/landscape preview fit, and that existing visual/audio/export functions still behave unchanged.

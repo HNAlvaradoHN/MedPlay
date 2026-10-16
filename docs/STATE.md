@@ -1240,3 +1240,30 @@ Evidence:
 - SHA-256: `7f3beb8fa6f9157f2468028844763b2e4b8b3a9195401c7b7a9ac531df27d2fb`.
 
 Physical validation priority: record with phone speakers audible and player voice enabled, then inspect whether speaker bleed is materially reduced and confirm diagnostics report `microphoneAecAvailable` / `microphoneAecEnabled`.
+
+
+## XRecorder reference audit + first media UI slice
+
+The owner supplied XRecorder 2.5.5.1 as a reference for both audio behavior and media/editor UX.
+
+Static package audit verified:
+- dedicated gallery/draft, player/result, recording settings and modular video editor resources;
+- editor panels for preview, timeline/track, trim, crop, speed, volume, filters, HSL, transitions, background, text, stickers, music and compression/export;
+- native WebRTC NS/AGC/resampling functions and custom audio mix/volume JNI;
+- FFmpeg/native video processing components.
+
+Reference usage is behavioral/structural only. MedPlay must not copy XRecorder proprietary source, branding, artwork, filter packs, music, stickers or templates. See `docs/XRECORDER_REFERENCE_AUDIT.md`.
+
+First implemented UX slice:
+- Mis clips now renders newest-first media cards with real video thumbnails, duration badge, audio/date metadata, direct Edit and confirmed Delete;
+- internal player now keeps video dominant and uses a compact media action bar with metadata, primary Edit and secondary Delete;
+- editor preview area is larger and persistent;
+- the previous long editor settings stack is replaced by a horizontal tool rail with four real MedPlay capability groups: Recorte / Imagen / Audio / Exportar;
+- only the selected tool panel is expanded;
+- no nonfunctional XRecorder-like tools are exposed.
+
+CI evidence:
+- initial run `38974671910` failed only because `HorizontalScrollView` import was missing;
+- corrected branch run `38974847658`: success.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN for the new media UI on-device.

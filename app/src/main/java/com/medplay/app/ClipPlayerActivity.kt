@@ -7,6 +7,8 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewGroup
+import java.text.DateFormat
+import java.util.Date
 import android.widget.FrameLayout
 import android.widget.Button
 import android.widget.LinearLayout
@@ -26,10 +28,11 @@ class ClipPlayerActivity : Activity() {
             finish()
             return
         }
+        val clip = ClipLibrary.find(this, source)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(MediaUiStyle.BACKGROUND)
         }
 
         val videoContainer = FrameLayout(this).apply {
@@ -67,36 +70,148 @@ class ClipPlayerActivity : Activity() {
                 1f,
             )
         )
-        root.addView(
-            Button(this).apply {
-                text = AppLanguagePreference.text(
+
+        val details = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                MediaUiStyle.dp(this@ClipPlayerActivity, 18),
+                MediaUiStyle.dp(this@ClipPlayerActivity, 14),
+                MediaUiStyle.dp(this@ClipPlayerActivity, 18),
+                MediaUiStyle.dp(this@ClipPlayerActivity, 18),
+            )
+            setBackgroundColor(MediaUiStyle.SURFACE)
+        }
+
+        details.addView(
+            TextView(this).apply {
+                text = clip?.createdAtMs?.let {
+                    DateFormat.getDateTimeInstance(
+                        DateFormat.MEDIUM,
+                        DateFormat.SHORT,
+                    ).format(Date(it))
+                } ?: AppLanguagePreference.text(
                     this@ClipPlayerActivity,
-                    "Editar clip",
-                    "Edit clip",
+                    "Video de MedPlay",
+                    "MedPlay video",
                 )
-                setOnClickListener {
-                    startActivity(
-                        android.content.Intent(
-                            this@ClipPlayerActivity,
-                            ClipEditorActivity::class.java,
-                        ).apply {
-                            data = source
-                        }
+                setTextColor(Color.WHITE)
+                textSize = 16f
+            }
+        )
+
+        clip?.let {
+            details.addView(
+                TextView(this).apply {
+                    val durationSeconds =
+                        (it.durationUs / 1_000_000L).coerceAtLeast(0L)
+                    val audio = when {
+                        it.hasGameAudio && it.hasMicrophone ->
+                            AppLanguagePreference.text(
+                                this@ClipPlayerActivity,
+                                "Juego + voz",
+                                "Game + voice",
+                            )
+                        it.hasGameAudio ->
+                            AppLanguagePreference.text(
+                                this@ClipPlayerActivity,
+                                "Audio del juego",
+                                "Game audio",
+                            )
+                        it.hasMicrophone ->
+                            AppLanguagePreference.text(
+                                this@ClipPlayerActivity,
+                                "Voz",
+                                "Voice",
+                            )
+                        else ->
+                            AppLanguagePreference.text(
+                                this@ClipPlayerActivity,
+                                "Sin audio",
+                                "No audio",
+                            )
+                    }
+                    text = "%02d:%02d • %s".format(
+                        durationSeconds / 60L,
+                        durationSeconds % 60L,
+                        audio,
                     )
+                    setTextColor(MediaUiStyle.SECONDARY_TEXT)
+                    textSize = 12f
                 }
-            },
+            )
+        }
+
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(
+                0,
+                MediaUiStyle.dp(this@ClipPlayerActivity, 14),
+                0,
+                0,
+            )
+        }
+
+        val editButton = TextView(this).apply {
+            text = AppLanguagePreference.text(
+                this@ClipPlayerActivity,
+                "Editar",
+                "Edit",
+            )
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            textSize = 15f
+            setPadding(
+                MediaUiStyle.dp(this@ClipPlayerActivity, 18),
+                MediaUiStyle.dp(this@ClipPlayerActivity, 11),
+                MediaUiStyle.dp(this@ClipPlayerActivity, 18),
+                MediaUiStyle.dp(this@ClipPlayerActivity, 11),
+            )
+            background = MediaUiStyle.rounded(
+                MediaUiStyle.ACCENT,
+                14,
+                this@ClipPlayerActivity,
+            )
+            setOnClickListener {
+                startActivity(
+                    android.content.Intent(
+                        this@ClipPlayerActivity,
+                        ClipEditorActivity::class.java,
+                    ).apply {
+                        data = source
+                    }
+                )
+            }
+        }
+        actions.addView(
+            editButton,
             LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f,
             )
         )
 
-        root.addView(
-            Button(this).apply {
+        actions.addView(
+            TextView(this).apply {
                 text = AppLanguagePreference.text(
                     this@ClipPlayerActivity,
-                    "Borrar video",
-                    "Delete video",
+                    "Borrar",
+                    "Delete",
+                )
+                setTextColor(MediaUiStyle.DANGER)
+                gravity = Gravity.CENTER
+                textSize = 14f
+                setPadding(
+                    MediaUiStyle.dp(this@ClipPlayerActivity, 18),
+                    MediaUiStyle.dp(this@ClipPlayerActivity, 11),
+                    MediaUiStyle.dp(this@ClipPlayerActivity, 18),
+                    MediaUiStyle.dp(this@ClipPlayerActivity, 11),
+                )
+                background = MediaUiStyle.rounded(
+                    MediaUiStyle.SURFACE_ELEVATED,
+                    14,
+                    this@ClipPlayerActivity,
                 )
                 setOnClickListener {
                     AlertDialog.Builder(this@ClipPlayerActivity)
@@ -153,6 +268,20 @@ class ClipPlayerActivity : Activity() {
                         .show()
                 }
             },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                marginStart = MediaUiStyle.dp(
+                    this@ClipPlayerActivity,
+                    10,
+                )
+            }
+        )
+
+        details.addView(actions)
+        root.addView(
+            details,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,

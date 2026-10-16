@@ -15,6 +15,7 @@ import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -108,7 +109,7 @@ class ClipEditorActivity : Activity() {
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
-                0.48f,
+                0.56f,
             )
         )
 
@@ -130,7 +131,7 @@ class ClipEditorActivity : Activity() {
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
-                0.52f,
+                0.44f,
             )
         )
 
@@ -575,31 +576,158 @@ class ClipEditorActivity : Activity() {
             )
         }
 
-        controls.addView(trimStatus)
-        controls.addView(trimTimeline)
-        controls.addView(setStartButton)
-        controls.addView(setEndButton)
-        controls.addView(resetTrimButton)
-        controls.addView(visualTitle)
-        controls.addView(filterSpinner)
-        controls.addView(saturationLabel)
-        controls.addView(saturationSeek)
-        controls.addView(brightnessLabel)
-        controls.addView(brightnessSeek)
-        controls.addView(contrastLabel)
-        controls.addView(contrastSeek)
-        controls.addView(rotationSpinner)
-        controls.addView(audioTitle)
-        controls.addView(audioPreviewStatus)
-        controls.addView(gameGainLabel)
-        controls.addView(gameGainSeek)
-        controls.addView(micGainLabel)
-        controls.addView(micGainSeek)
-        controls.addView(saveButton)
-        controls.addView(exportStatus)
-        controls.addView(quickExportButton)
-        controls.addView(finalExportButton)
-        controls.addView(finalExportNote)
+        fun makeSection(): LinearLayout {
+            return LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(
+                    0,
+                    MediaUiStyle.dp(this@ClipEditorActivity, 12),
+                    0,
+                    MediaUiStyle.dp(this@ClipEditorActivity, 20),
+                )
+            }
+        }
+
+        val trimSection = makeSection().apply {
+            addView(trimStatus)
+            addView(trimTimeline)
+            addView(setStartButton)
+            addView(setEndButton)
+            addView(resetTrimButton)
+        }
+
+        val visualSection = makeSection().apply {
+            addView(visualTitle)
+            addView(filterSpinner)
+            addView(saturationLabel)
+            addView(saturationSeek)
+            addView(brightnessLabel)
+            addView(brightnessSeek)
+            addView(contrastLabel)
+            addView(contrastSeek)
+            addView(rotationSpinner)
+        }
+
+        val audioSection = makeSection().apply {
+            addView(audioTitle)
+            addView(audioPreviewStatus)
+            addView(gameGainLabel)
+            addView(gameGainSeek)
+            addView(micGainLabel)
+            addView(micGainSeek)
+        }
+
+        val exportSection = makeSection().apply {
+            addView(saveButton)
+            addView(exportStatus)
+            addView(quickExportButton)
+            addView(finalExportButton)
+            addView(finalExportNote)
+        }
+
+        val sections = listOf(
+            trimSection,
+            visualSection,
+            audioSection,
+            exportSection,
+        )
+
+        val toolButtons = mutableListOf<TextView>()
+        fun toolButton(
+            label: String,
+            sectionIndex: Int,
+        ): TextView {
+            return TextView(this).apply {
+                text = label
+                setTextColor(MediaUiStyle.SECONDARY_TEXT)
+                textSize = 14f
+                gravity = Gravity.CENTER
+                setPadding(
+                    MediaUiStyle.dp(this@ClipEditorActivity, 18),
+                    MediaUiStyle.dp(this@ClipEditorActivity, 10),
+                    MediaUiStyle.dp(this@ClipEditorActivity, 18),
+                    MediaUiStyle.dp(this@ClipEditorActivity, 10),
+                )
+                background = MediaUiStyle.rounded(
+                    MediaUiStyle.SURFACE,
+                    14,
+                    this@ClipEditorActivity,
+                )
+                setOnClickListener {
+                    sections.forEachIndexed { index, section ->
+                        section.visibility =
+                            if (index == sectionIndex) View.VISIBLE else View.GONE
+                    }
+                    toolButtons.forEachIndexed { index, button ->
+                        button.setTextColor(
+                            if (index == sectionIndex) {
+                                Color.WHITE
+                            } else {
+                                MediaUiStyle.SECONDARY_TEXT
+                            }
+                        )
+                        button.background = MediaUiStyle.rounded(
+                            if (index == sectionIndex) {
+                                MediaUiStyle.ACCENT
+                            } else {
+                                MediaUiStyle.SURFACE
+                            },
+                            14,
+                            this@ClipEditorActivity,
+                        )
+                    }
+                }
+            }
+        }
+
+        val toolRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        listOf(
+            tr("Recorte", "Trim"),
+            tr("Imagen", "Visual"),
+            tr("Audio", "Audio"),
+            tr("Exportar", "Export"),
+        ).forEachIndexed { index, label ->
+            val button = toolButton(label, index)
+            toolButtons += button
+            toolRow.addView(
+                button,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply {
+                    marginEnd = MediaUiStyle.dp(
+                        this@ClipEditorActivity,
+                        8,
+                    )
+                }
+            )
+        }
+
+        val toolRail = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(toolRow)
+        }
+
+        controls.addView(toolRail)
+        sections.forEach { section ->
+            controls.addView(section)
+        }
+
+        sections.forEachIndexed { index, section ->
+            section.visibility =
+                if (index == 0) View.VISIBLE else View.GONE
+        }
+        toolButtons.firstOrNull()?.let { first ->
+            first.setTextColor(Color.WHITE)
+            first.background = MediaUiStyle.rounded(
+                MediaUiStyle.ACCENT,
+                14,
+                this@ClipEditorActivity,
+            )
+        }
 
         setContentView(root)
         applyPreviewEffects()
