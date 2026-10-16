@@ -906,3 +906,27 @@ Important audio compatibility guard:
 - the next editor block is audio mixing so filtered exports can safely produce one compatible final soundtrack.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN.
+
+
+## Editor final export + audio mixing
+
+Phase 3 now includes a final export path intended to apply the full edit project in one operation.
+
+Implemented:
+- audio tracks are demuxed from the source MP4 for the selected trim range;
+- game and microphone gains are applied as 16-bit PCM gain processing with 0–200% range and clipping protection;
+- multiple audio sources are composed/mixed through Media3 into one final AAC soundtrack;
+- the final export combines trim, visual filters, saturation, brightness, contrast, rotation and audio gain settings;
+- clips with separate game + microphone tracks no longer need to lose the microphone during visual export;
+- output is a new MediaStore MP4 and the original remains untouched;
+- final derived clips are indexed as a single compatible mixed-audio output;
+- fast trim-only remux remains available separately for cases where no processing is wanted.
+
+Implementation notes:
+- source AAC tracks are first demuxed into temporary single-track MP4 assets for composition;
+- video and audio are clipped to the same project range;
+- processed audio is re-encoded to AAC;
+- video can remain effectively pass-through when there are no visual effects, while visual effects/rotation require video processing;
+- temporary export/audio files are deleted after success or failure.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN.
