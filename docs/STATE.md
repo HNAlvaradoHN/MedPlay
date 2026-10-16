@@ -930,3 +930,27 @@ Implementation notes:
 - temporary export/audio files are deleted after success or failure.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN.
+
+
+## Latest validation APK — expanded editor + final mixed-audio export
+
+A fresh `dev-latest` APK was generated after merging PR #86 and PR #87.
+
+Evidence:
+- release workflow run `38930242477`: success;
+- release target: `274fbc785bd75a4334d41ce959ed93e4e4176e73`;
+- published: `2026-10-16T16:15:17Z`;
+- `MedPlay-debug.apk` size: 11,686,163 bytes.
+
+This build includes:
+- live ExoPlayer preview with filters;
+- Natural / Vivo / Cálido / Frío / Cinemático / Blanco y negro presets;
+- color intensity 0–200%;
+- brightness and contrast adjustment;
+- 0°/90°/180°/270° rotation;
+- persisted non-destructive visual project settings;
+- fast trim-only export;
+- final export applying trim + visual settings + per-track audio gain;
+- game + microphone audio mixing into one AAC soundtrack for normal players.
+
+Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN for the new visual/audio editor pipeline until tested on a real device.
