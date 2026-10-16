@@ -56,6 +56,7 @@ class CaptureService : Service() {
     private var sessionAudioWasActive = false
     private var sessionMicrophoneWasActive = false
     private var sessionMicrophoneWasSilenced = false
+    private var sessionMicrophonePeakAbs = 0
     private var microphoneCurrentlySilenced = false
     private var microphoneForegroundTypeActive = false
     private var fullSessionPaused = false
@@ -326,6 +327,7 @@ class CaptureService : Service() {
         sessionAudioWasActive = false
         sessionMicrophoneWasActive = false
         sessionMicrophoneWasSilenced = false
+        sessionMicrophonePeakAbs = 0
         microphoneCurrentlySilenced = false
         fullSessionPaused = false
         activePauseStartedUs = Long.MIN_VALUE
@@ -661,6 +663,10 @@ class CaptureService : Service() {
                 Handler(Looper.getMainLooper()).post {
                     handleMicrophoneSilencedChanged(silenced)
                 }
+            },
+            onPcmPeak = { peak ->
+                sessionMicrophonePeakAbs =
+                    maxOf(sessionMicrophonePeakAbs, peak)
             },
             onFatalError = {
                 Handler(Looper.getMainLooper()).post {
@@ -1361,6 +1367,7 @@ class CaptureService : Service() {
             encoderHealth = combinedEncoderHealth(encoder),
             microphoneWasActive = sessionMicrophoneWasActive,
             microphoneWasSilenced = sessionMicrophoneWasSilenced,
+            microphonePeakAbs = sessionMicrophonePeakAbs,
             thermalProfileDowngrades = thermalProfileDowngrades,
             initialProfile = initialSessionProfile,
         )
@@ -1369,6 +1376,7 @@ class CaptureService : Service() {
         sessionAudioWasActive = false
         sessionMicrophoneWasActive = false
         sessionMicrophoneWasSilenced = false
+        sessionMicrophonePeakAbs = 0
         initialSessionProfile = null
         thermalProfileDowngrades = 0
         accumulatedEncodedSamples = 0L
