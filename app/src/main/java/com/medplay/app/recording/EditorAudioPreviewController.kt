@@ -2,15 +2,12 @@ package com.medplay.app.recording
 
 import android.content.Context
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.ExoPlayer
-import kotlin.math.abs
 
 /**
  * Provides independent realtime preview volume for each encoded audio track in
@@ -35,25 +32,20 @@ class EditorAudioPreviewController(
     )
 
     private val appContext = context.applicationContext
-    private val handler = Handler(Looper.getMainLooper())
     private val slots = mutableListOf<AudioSlot>()
     private var released = false
     private var ready = false
     private var gameGainPercent = 100
     private var microphoneGainPercent = 100
 
-    private val syncRunnable = object : Runnable {
-        override fun run() {
-            if (released || !ready) return
-            syncNow()
-            handler.postDelayed(this, SYNC_INTERVAL_MS)
-        }
-    }
-
     private val videoListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             if (!ready) return
-            syncNow()
+
+            // Align once at a real playback state transition. Re-seeking on a
+            // timer interrupts decoder buffers and produces audible chopping.
+            syncNow(force = true)
+
             slots.forEach { slot ->
                 if (isPlaying) {
                     runCatching { slot.player.play() }
@@ -98,8 +90,8 @@ class EditorAudioPreviewController(
         val targetMs = videoPlayer.currentPosition.coerceAtLeast(0L)
         slots.forEach { slot ->
             val audio = slot.player
-            val driftMs = abs(audio.currentPosition - targetMs)
-            if (force || driftMs > MAX_DRIFT_MS) {
+
+            if (force) {
                 audio.seekTo(targetMs)
             }
 
@@ -114,7 +106,6 @@ class EditorAudioPreviewController(
     fun release() {
         if (released) return
         released = true
-        handler.removeCallbacks(syncRunnable)
         videoPlayer.removeListener(videoListener)
         slots.forEach { runCatching { it.player.release() } }
         slots.clear()
@@ -193,7 +184,6 @@ class EditorAudioPreviewController(
         videoPlayer.volume = 0f
         applyVolumes()
         syncNow(force = true)
-        handler.post(syncRunnable)
         onReady()
     }
 
@@ -219,8 +209,4 @@ class EditorAudioPreviewController(
         onUnavailable()
     }
 
-    companion object {
-        private const val SYNC_INTERVAL_MS = 500L
-        private const val MAX_DRIFT_MS = 140L
-    }
 }

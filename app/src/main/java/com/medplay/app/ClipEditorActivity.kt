@@ -93,7 +93,11 @@ class ClipEditorActivity : Activity() {
         player.setMediaItem(MediaItem.fromUri(source))
         player.prepare()
         player.seekTo((trimStartUs / 1_000L).coerceAtLeast(0L))
-        player.playWhenReady = true
+
+        // Hold playback until the independent audio preview tracks are ready.
+        // Starting the video first and repeatedly catching audio up with seeks
+        // is what made the preview sound chopped.
+        player.playWhenReady = false
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -175,7 +179,6 @@ class ClipEditorActivity : Activity() {
                         trimEndUs
                     }
                     player.seekTo((targetUs / 1_000L).coerceAtLeast(0L))
-                    audioPreviewController?.syncNow(force = true)
                 }
             }
         )
@@ -638,12 +641,14 @@ class ClipEditorActivity : Activity() {
                         "Volume preview active.",
                     )
                 }
+                player.playWhenReady = true
             },
             onUnavailable = {
                 audioPreviewStatus.text = tr(
                     "No se pudo preparar la vista previa independiente de audio; el video seguirá usando su audio normal.",
                     "Independent audio preview is unavailable; normal video audio will continue.",
                 )
+                player.playWhenReady = true
             },
         ).also {
             it.setGains(
