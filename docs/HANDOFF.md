@@ -617,3 +617,19 @@ Evidence:
 - published `2026-10-16T15:28:20Z`.
 
 Recommended device test: open a clip -> Editar clip -> drag both timeline handles -> Exportar recorte -> confirm a new clip appears in Mis clips/Gallery, the original remains unchanged, and the exported start may move slightly earlier to the previous keyframe.
+
+
+## Color/filter editor handoff
+
+The editor now uses ExoPlayer + Media3 effects for live preview and Transformer for processed video export.
+
+Visual project fields:
+- filter preset;
+- saturation/color intensity;
+- brightness;
+- contrast;
+- rotation.
+
+The original MediaStore source remains immutable. Fast trim still remuxes without video re-encode. Any visual effect/rotation export necessarily transcodes video through Media3's effect pipeline.
+
+Safety guard: filtered export is disabled when ClipLibrary reports a separate microphone track because Transformer supports one output audio track for this path. Do not drop that track silently. Next block should decode/mix game + microphone audio to one soundtrack while preserving the processed video output.
