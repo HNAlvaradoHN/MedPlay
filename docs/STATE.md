@@ -866,3 +866,17 @@ Current limitation:
 - exact arbitrary-frame start would require video re-encode, so the current fast path may begin slightly earlier at the prior keyframe.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN.
+
+
+## Latest validation APK — visual trim timeline + fast export
+
+A fresh `dev-latest` APK was generated after merging PR #83.
+
+Evidence:
+- release workflow run `38924068103`: success;
+- release target: `6589d32e466adbbe5e01779f589b97c58a8bb6c6`;
+- published: `2026-10-16T15:28:20Z`;
+- `MedPlay-debug.apk` size: 2,780,206 bytes;
+- release includes the visual two-handle trim timeline and fast remux trim export.
+
+The original clip remains immutable. Current fast export applies trim only; saved audio-gain settings are not yet mixed into the exported MP4.
