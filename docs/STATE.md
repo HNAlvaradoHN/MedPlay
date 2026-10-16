@@ -991,3 +991,20 @@ CI evidence:
 - Android build run `38939129761`: success.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on the owner's device.
+
+
+## Latest validation APK — live editor preview fix
+
+A fresh `dev-latest` APK was generated after the editor live-preview fix and final-export audio-integrity guard.
+
+Evidence:
+- release workflow run `38939454521`: success;
+- release target: `34e56b49778f3afc9bc6b827de76a0047a1a5bba`;
+- source main feature state: `d9199dbe0e77f5218fc4357e2ee6fee80824584d`;
+- published: `2026-10-16T17:25:43Z`;
+- `MedPlay-debug.apk` size: 11,689,111 bytes;
+- SHA-256: `d21fa8d154c56e7582e315bed070a2143bac34109e8514b91151e5ed2d9f26d3`.
+
+The release branch differs from main only by the temporary workflow push trigger used to generate the APK. Main keeps the release workflow manual-only.
+
+Device validation priority: play a clip in the editor, continuously drag color/brightness/contrast while playback is active, and confirm the video keeps moving while the visual result updates.
