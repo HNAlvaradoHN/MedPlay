@@ -971,3 +971,23 @@ CI evidence:
 - Android build run `38933653818`: success before documentation-only update.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. Real-device validation of final mixed-audio export remains required.
+
+
+## Editor live-preview stall fix
+
+Physical device feedback showed that the editor preview appeared frozen while brightness/contrast/color controls were adjusted, even when playback was requested.
+
+Root cause:
+- every slider/filter update called `setVideoEffects(...)` and immediately forced a seek back to the current playback position;
+- continuous SeekBar updates therefore generated repeated same-position seeks and effectively stalled playback.
+
+Fix:
+- while playback is requested, visual-effect updates no longer force a seek;
+- Media3 applies the updated effects to subsequent video frames;
+- when playback is intentionally paused, a same-position redraw remains available so the paused frame can refresh;
+- unit coverage verifies that playing preview never requests the redraw seek.
+
+CI evidence:
+- Android build run `38939129761`: success.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on the owner's device.
