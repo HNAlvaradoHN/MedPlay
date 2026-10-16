@@ -8,6 +8,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.media.projection.MediaProjectionConfig
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
@@ -16,6 +17,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.Size
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -25,6 +27,7 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -715,22 +718,31 @@ class MainActivity : Activity() {
 
         clipLibraryContainer.removeAllViews()
         val clips = ClipLibrary.listExisting(this)
+            .sortedByDescending { it.createdAtMs }
 
         if (clips.isEmpty()) {
             clipLibraryContainer.addView(
                 TextView(this).apply {
                     text = tr(
-                        "Los clips que guardes aparecerán aquí sin duplicar el archivo de la Galería.",
-                        "Clips you save will appear here without duplicating the Gallery file.",
+                        "Todavía no hay videos. Tus grabaciones aparecerán aquí con una vista previa.",
+                        "No videos yet. Your recordings will appear here with a preview.",
                     )
                     textSize = 13f
+                    setTextColor(Color.DKGRAY)
+                    setPadding(
+                        0,
+                        MediaUiStyle.dp(this@MainActivity, 12),
+                        0,
+                        MediaUiStyle.dp(this@MainActivity, 20),
+                    )
                 }
             )
             return
         }
 
         clips.forEach { clip ->
-            val durationSeconds = (clip.durationUs / 1_000_000L).coerceAtLeast(0L)
+            val durationSeconds =
+                (clip.durationUs / 1_000_000L).coerceAtLeast(0L)
             val capturedAt = DateFormat.getDateTimeInstance(
                 DateFormat.SHORT,
                 DateFormat.SHORT,
@@ -746,34 +758,168 @@ class MainActivity : Activity() {
                     tr("Sin audio", "No audio")
             }
 
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
+            fun openPlayer() {
+                startActivity(
+                    Intent(
+                        this@MainActivity,
+                        ClipPlayerActivity::class.java,
+                    ).apply {
+                        data = clip.uri
+                    }
+                )
             }
 
-            row.addView(
-                Button(this).apply {
-                    text = "${durationSeconds}s • $audioLabel • $capturedAt"
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(
+                    MediaUiStyle.dp(this@MainActivity, 10),
+                    MediaUiStyle.dp(this@MainActivity, 10),
+                    MediaUiStyle.dp(this@MainActivity, 10),
+                    MediaUiStyle.dp(this@MainActivity, 10),
+                )
+                background = MediaUiStyle.rounded(
+                    MediaUiStyle.SURFACE,
+                    18,
+                    this@MainActivity,
+                )
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { openPlayer() }
+            }
+
+            val thumbnailFrame = FrameLayout(this).apply {
+                background = MediaUiStyle.rounded(
+                    Color.BLACK,
+                    14,
+                    this@MainActivity,
+                )
+                clipToOutline = true
+            }
+
+            val thumbnail = ImageView(this).apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                setBackgroundColor(Color.BLACK)
+                contentDescription = tr(
+                    "Vista previa del video",
+                    "Video preview",
+                )
+            }
+            thumbnailFrame.addView(
+                thumbnail,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+            )
+
+            val durationBadge = TextView(this).apply {
+                text = formatClipDuration(durationSeconds)
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                setPadding(
+                    MediaUiStyle.dp(this@MainActivity, 8),
+                    MediaUiStyle.dp(this@MainActivity, 4),
+                    MediaUiStyle.dp(this@MainActivity, 8),
+                    MediaUiStyle.dp(this@MainActivity, 4),
+                )
+                background = MediaUiStyle.rounded(
+                    0xCC000000.toInt(),
+                    8,
+                    this@MainActivity,
+                )
+            }
+            thumbnailFrame.addView(
+                durationBadge,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    Gravity.END or Gravity.BOTTOM,
+                ).apply {
+                    marginEnd = MediaUiStyle.dp(this@MainActivity, 8)
+                    bottomMargin = MediaUiStyle.dp(this@MainActivity, 8)
+                }
+            )
+
+            card.addView(
+                thumbnailFrame,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    MediaUiStyle.dp(this@MainActivity, 190),
+                )
+            )
+
+            val title = TextView(this).apply {
+                text = capturedAt
+                setTextColor(MediaUiStyle.PRIMARY_TEXT)
+                textSize = 15f
+                setPadding(
+                    0,
+                    MediaUiStyle.dp(this@MainActivity, 10),
+                    0,
+                    0,
+                )
+            }
+            val metadata = TextView(this).apply {
+                text = audioLabel
+                setTextColor(MediaUiStyle.SECONDARY_TEXT)
+                textSize = 12f
+            }
+            card.addView(title)
+            card.addView(metadata)
+
+            val actions = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.END
+                setPadding(
+                    0,
+                    MediaUiStyle.dp(this@MainActivity, 8),
+                    0,
+                    0,
+                )
+            }
+
+            actions.addView(
+                TextView(this).apply {
+                    text = tr("Editar", "Edit")
+                    setTextColor(Color.WHITE)
+                    textSize = 13f
+                    gravity = Gravity.CENTER
+                    setPadding(
+                        MediaUiStyle.dp(this@MainActivity, 16),
+                        MediaUiStyle.dp(this@MainActivity, 9),
+                        MediaUiStyle.dp(this@MainActivity, 16),
+                        MediaUiStyle.dp(this@MainActivity, 9),
+                    )
+                    background = MediaUiStyle.rounded(
+                        MediaUiStyle.SURFACE_ELEVATED,
+                        12,
+                        this@MainActivity,
+                    )
                     setOnClickListener {
                         startActivity(
                             Intent(
                                 this@MainActivity,
-                                ClipPlayerActivity::class.java,
+                                ClipEditorActivity::class.java,
                             ).apply {
                                 data = clip.uri
                             }
                         )
                     }
-                },
-                LinearLayout.LayoutParams(
-                    0,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    1f,
-                )
+                }
             )
 
-            row.addView(
-                Button(this).apply {
+            actions.addView(
+                TextView(this).apply {
                     text = tr("Borrar", "Delete")
+                    setTextColor(MediaUiStyle.DANGER)
+                    textSize = 13f
+                    gravity = Gravity.CENTER
+                    setPadding(
+                        MediaUiStyle.dp(this@MainActivity, 16),
+                        MediaUiStyle.dp(this@MainActivity, 9),
+                        MediaUiStyle.dp(this@MainActivity, 16),
+                        MediaUiStyle.dp(this@MainActivity, 9),
+                    )
                     setOnClickListener {
                         AlertDialog.Builder(this@MainActivity)
                             .setTitle(
@@ -818,11 +964,44 @@ class MainActivity : Activity() {
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
-                )
+                ).apply {
+                    marginStart = MediaUiStyle.dp(this@MainActivity, 8)
+                }
             )
 
-            clipLibraryContainer.addView(row)
+            card.addView(actions)
+            clipLibraryContainer.addView(
+                card,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply {
+                    topMargin = MediaUiStyle.dp(this@MainActivity, 10)
+                }
+            )
+
+            thread(name = "medplay-clip-thumbnail") {
+                val bitmap = runCatching {
+                    contentResolver.loadThumbnail(
+                        clip.uri,
+                        Size(640, 360),
+                        null,
+                    )
+                }.getOrNull()
+
+                if (bitmap != null) {
+                    runOnUiThread {
+                        thumbnail.setImageBitmap(bitmap)
+                    }
+                }
+            }
         }
+    }
+
+    private fun formatClipDuration(totalSeconds: Long): String {
+        val minutes = totalSeconds / 60L
+        val seconds = totalSeconds % 60L
+        return "%02d:%02d".format(minutes, seconds)
     }
 
     private fun floatingTintLabel(
