@@ -784,3 +784,14 @@ Important validation:
 - inspect last-session diagnostics if voice is still absent. A near-zero `microphonePeakAbs` means Android delivered silence before export.
 
 `docs/UX_DIRECTION.md` now also records the configuration-screen direction. The media/gallery direction is known from the owner's Medal references; the exact final settings mockup/pixel layout is not yet fixed and must not be invented.
+
+
+## Final startup hardening note
+
+In addition to the CaptureService-side guard, MainActivity now catches foreground-service launch rejection itself, retries once after 350 ms, and keeps the app alive if Android/vendor policy still refuses startup. Startup failure details are written into the same diagnostics file.
+
+Runtime microphone enable also upgrades the active foreground-service type safely before microphone capture starts.
+
+Final branch CI: run `38950292280` succeeded on `9fad50aae8b928a347db7dc5c96e774252ea7096`.
+
+Physical validation still required: cold-start MedPlay and enter the selected game several times. If a start is refused, inspect **Mostrar diagnóstico de la última grabación** for the recorded startup stage/error rather than inferring the cause.
