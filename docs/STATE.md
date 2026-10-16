@@ -828,3 +828,19 @@ Retroactive clip duration is now intentionally limited to:
 The service also hard-caps retroactive save requests at 60 seconds, so stale/external values cannot request 2–5 minute clips. Full-session recording remains the path for longer recordings.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN.
+
+
+## Latest validation APK — visible editor action + 60s clip maximum
+
+A fresh `dev-latest` APK was generated after merging PR #80.
+
+Evidence:
+- release workflow run `38919967954`: success;
+- release target: `7978f35fb6dbf40a56fffe29fed7a9ed18847ff4`;
+- published: `2026-10-16T14:58:34Z`;
+- `MedPlay-debug.apk` size: 2,757,954 bytes;
+- the internal player now shows a fixed **Editar clip** action below the video;
+- retroactive clip choices are 15/30/60 seconds only;
+- CaptureService enforces a 60-second maximum.
+
+The release workflow is restored to manual-only afterward.
