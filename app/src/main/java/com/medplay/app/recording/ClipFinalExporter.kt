@@ -5,6 +5,8 @@ import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
 import androidx.media3.common.MediaItem
+import androidx.media3.common.audio.ChannelMixingAudioProcessor
+import androidx.media3.common.audio.ChannelMixingMatrix
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Composition
@@ -101,13 +103,26 @@ class ClipFinalExporter(
             .build()
 
         val sequences = mutableListOf(
-            EditedMediaItemSequence.withVideoFrom(
-                listOf(videoItem)
-            )
+            EditedMediaItemSequence(listOf(videoItem))
         )
 
         extractedAudio.forEachIndexed { ordinal, track ->
             val gainPercent = audioGains[ordinal]
+
+            val channelMixer = ChannelMixingAudioProcessor().apply {
+                putChannelMixingMatrix(
+                    ChannelMixingMatrix.createForConstantGain(
+                        1,
+                        2,
+                    )
+                )
+                putChannelMixingMatrix(
+                    ChannelMixingMatrix.createForConstantGain(
+                        2,
+                        2,
+                    )
+                )
+            }
 
             val audioItem = EditedMediaItem.Builder(
                 MediaItem.fromUri(Uri.fromFile(track.file))
@@ -116,14 +131,15 @@ class ClipFinalExporter(
                 .setEffects(
                     Effects(
                         listOf(
-                            ConstantGainAudioProcessor(gainPercent)
+                            channelMixer,
+                            ConstantGainAudioProcessor(gainPercent),
                         ),
                         emptyList(),
                     )
                 )
                 .build()
 
-            sequences += EditedMediaItemSequence.withAudioFrom(
+            sequences += EditedMediaItemSequence(
                 listOf(audioItem)
             )
         }
