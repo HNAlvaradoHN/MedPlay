@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.Button
 import android.widget.MediaController
 import android.widget.TextView
 import android.widget.VideoView
@@ -49,6 +50,34 @@ class ClipPlayerActivity : Activity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 Gravity.CENTER,
             )
+        )
+
+        root.addView(
+            Button(this).apply {
+                text = AppLanguagePreference.text(
+                    this@ClipPlayerActivity,
+                    "Editar",
+                    "Edit",
+                )
+                setOnClickListener {
+                    startActivity(
+                        android.content.Intent(
+                            this@ClipPlayerActivity,
+                            ClipEditorActivity::class.java,
+                        ).apply {
+                            data = source
+                        }
+                    )
+                }
+            },
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.END,
+            ).apply {
+                topMargin = 24
+                marginEnd = 24
+            }
         )
 
         setContentView(root)
