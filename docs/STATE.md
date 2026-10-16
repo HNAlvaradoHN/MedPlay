@@ -1225,3 +1225,18 @@ CI evidence:
 - Android build run `38958855256`: success.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on the owner's device.
+
+
+## Latest validation APK — microphone AEC
+
+A fresh `dev-latest` APK was generated after enabling native acoustic echo cancellation on the player-voice microphone path.
+
+Evidence:
+- release workflow run `38959116657`: build/tests and release steps succeeded;
+- release target: `331fec252e437b90b5738324ec32b9a47168b00b`;
+- source main feature state: `c1883875f2fc939648959701baec2e2db7aa7e47`;
+- published: `2026-10-16T20:02:07Z`;
+- `MedPlay-debug.apk` size: 11,726,322 bytes;
+- SHA-256: `7f3beb8fa6f9157f2468028844763b2e4b8b3a9195401c7b7a9ac531df27d2fb`.
+
+Physical validation priority: record with phone speakers audible and player voice enabled, then inspect whether speaker bleed is materially reduced and confirm diagnostics report `microphoneAecAvailable` / `microphoneAecEnabled`.
