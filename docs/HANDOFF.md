@@ -561,3 +561,17 @@ Phase 3 now begins with a non-destructive project model:
 - no edited MP4 export is claimed yet.
 
 Next safe editor slice: compatible trim export by remux where possible, then audio-mix export while preserving the video bitstream. Rotation/color should remain separate because they have different encoding costs.
+
+
+## Latest editor validation APK
+
+`dev-latest` was regenerated from main after PR #77.
+
+Evidence:
+- run `38917190060`: success;
+- target `5cd80e2e8f1bf46bf9d508efd05da291dcb808b2`;
+- APK asset: `MedPlay-debug.apk`;
+- checksum asset: `MedPlay-debug.sha256`;
+- published `2026-10-16T14:38:10Z`.
+
+Recommended device test: open a clip in MedPlay -> tap Edit -> mark trim start/end -> adjust available gain controls -> save edit -> reopen editor and confirm the project persists while the source clip remains unchanged.
