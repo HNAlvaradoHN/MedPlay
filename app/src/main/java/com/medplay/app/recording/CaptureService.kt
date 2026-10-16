@@ -57,6 +57,8 @@ class CaptureService : Service() {
     private var sessionMicrophoneWasActive = false
     private var sessionMicrophoneWasSilenced = false
     private var sessionMicrophonePeakAbs = 0
+    private var sessionMicrophoneAecAvailable = false
+    private var sessionMicrophoneAecEnabled = false
     private var microphoneCurrentlySilenced = false
     private var microphoneForegroundTypeActive = false
     private var fullSessionPaused = false
@@ -333,6 +335,8 @@ class CaptureService : Service() {
         sessionMicrophoneWasActive = false
         sessionMicrophoneWasSilenced = false
         sessionMicrophonePeakAbs = 0
+        sessionMicrophoneAecAvailable = false
+        sessionMicrophoneAecEnabled = false
         microphoneCurrentlySilenced = false
         microphoneForegroundTypeActive = false
         fullSessionPaused = false
@@ -673,6 +677,10 @@ class CaptureService : Service() {
             onPcmPeak = { peak ->
                 sessionMicrophonePeakAbs =
                     maxOf(sessionMicrophonePeakAbs, peak)
+            },
+            onEchoCancellationState = { available, enabled ->
+                sessionMicrophoneAecAvailable = available
+                sessionMicrophoneAecEnabled = enabled
             },
             onFatalError = {
                 Handler(Looper.getMainLooper()).post {
@@ -1397,6 +1405,8 @@ class CaptureService : Service() {
             microphoneWasActive = sessionMicrophoneWasActive,
             microphoneWasSilenced = sessionMicrophoneWasSilenced,
             microphonePeakAbs = sessionMicrophonePeakAbs,
+            microphoneAecAvailable = sessionMicrophoneAecAvailable,
+            microphoneAecEnabled = sessionMicrophoneAecEnabled,
             thermalProfileDowngrades = thermalProfileDowngrades,
             initialProfile = initialSessionProfile,
         )
@@ -1406,6 +1416,8 @@ class CaptureService : Service() {
         sessionMicrophoneWasActive = false
         sessionMicrophoneWasSilenced = false
         sessionMicrophonePeakAbs = 0
+        sessionMicrophoneAecAvailable = false
+        sessionMicrophoneAecEnabled = false
         initialSessionProfile = null
         thermalProfileDowngrades = 0
         accumulatedEncodedSamples = 0L

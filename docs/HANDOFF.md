@@ -845,3 +845,22 @@ Release evidence:
 - published `2026-10-16T19:15:31Z`.
 
 Do not mark the stutter physically resolved until the owner confirms continuous preview audio on-device.
+
+
+## Microphone echo-cancellation handoff
+
+The owner does not accept game speaker audio being duplicated into the player-voice track.
+
+MedPlay now attaches Android's `AcousticEchoCanceler` to the real microphone AudioRecord session when the device supports it. The effect is enabled before capture and released on stop.
+
+Diagnostics now expose:
+- `microphoneAecAvailable`
+- `microphoneAecEnabled`
+
+Physical validation:
+1. play a game through the phone speaker;
+2. record while speaking;
+3. compare the microphone contribution against the internal game-audio track;
+4. inspect diagnostics to confirm AEC availability/enabled state.
+
+If speaker bleed remains objectionable while `microphoneAecEnabled=true`, native vendor AEC is insufficient on that device and the next architectural option is software echo cancellation using the internal captured game audio as the reference signal.
