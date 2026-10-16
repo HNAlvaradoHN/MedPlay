@@ -8,6 +8,7 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.MediaController
 import android.widget.TextView
 import android.widget.VideoView
@@ -24,10 +25,14 @@ class ClipPlayerActivity : Activity() {
             return
         }
 
-        val root = FrameLayout(this).apply {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.BLACK)
         }
 
+        val videoContainer = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+        }
         val videoView = VideoView(this)
         val controller = MediaController(this).apply {
             setAnchorView(videoView)
@@ -39,11 +44,11 @@ class ClipPlayerActivity : Activity() {
             videoView.start()
         }
         videoView.setOnErrorListener { _, _, _ ->
-            showPlaybackError(root, source)
+            showPlaybackError(videoContainer, source)
             true
         }
 
-        root.addView(
+        videoContainer.addView(
             videoView,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -53,11 +58,19 @@ class ClipPlayerActivity : Activity() {
         )
 
         root.addView(
+            videoContainer,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f,
+            )
+        )
+        root.addView(
             Button(this).apply {
                 text = AppLanguagePreference.text(
                     this@ClipPlayerActivity,
-                    "Editar",
-                    "Edit",
+                    "Editar clip",
+                    "Edit clip",
                 )
                 setOnClickListener {
                     startActivity(
@@ -70,14 +83,10 @@ class ClipPlayerActivity : Activity() {
                     )
                 }
             },
-            FrameLayout.LayoutParams(
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP or Gravity.END,
-            ).apply {
-                topMargin = 24
-                marginEnd = 24
-            }
+            )
         )
 
         setContentView(root)
