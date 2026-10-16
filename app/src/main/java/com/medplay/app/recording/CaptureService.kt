@@ -57,6 +57,7 @@ class CaptureService : Service() {
     private var sessionMicrophoneWasActive = false
     private var sessionMicrophoneWasSilenced = false
     private var microphoneCurrentlySilenced = false
+    private var microphoneForegroundTypeActive = false
     private var fullSessionPaused = false
     private var activePauseStartedUs = Long.MIN_VALUE
     private val completedPauseIntervals = mutableListOf<RecordingPauseInterval>()
@@ -161,11 +162,31 @@ class CaptureService : Service() {
         activeRecordingMode = RecordingModePreference.get(applicationContext)
         val microphoneVoiceRequested =
             activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION &&
+                MicrophoneVoicePreference.isEnabled(applicationContext) &&
                 checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
-        startAsProjectionForegroundService(
-            includeMicrophone = microphoneVoiceRequested,
-        )
+
+        val foregroundStarted = runCatching {
+            startAsProjectionForegroundService(
+                includeMicrophone = microphoneVoiceRequested,
+            )
+            microphoneForegroundTypeActive = microphoneVoiceRequested
+        }.recoverCatching { microphoneError ->
+            if (!microphoneVoiceRequested) {
+                throw microphoneError
+            }
+
+            // Some Android/vendor builds can reject a microphone FGS during
+            // the app-selection transition. Keep screen capture alive rather
+            // than crashing the process; voice stays disabled for this session.
+            startAsProjectionForegroundService(includeMicrophone = false)
+            microphoneForegroundTypeActive = false
+        }.isSuccess
+
+        if (!foregroundStarted) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Int.MIN_VALUE)
         val resultData = intent.getParcelableExtraCompat(EXTRA_RESULT_DATA)
@@ -613,6 +634,15 @@ class CaptureService : Service() {
     private fun startMicrophoneVoiceIfPermitted() {
         if (activeRecordingMode != RecordingModePreference.Mode.FULL_SESSION) return
         if (!MicrophoneVoicePreference.isEnabled(applicationContext)) return
+        if (!microphoneForegroundTypeActive) {
+            updateCaptureNotification(
+                tr(
+                    "Grabación activa • Android no permitió iniciar la voz en esta sesión.",
+                    "Recording active • Android did not allow voice capture for this session.",
+                )
+            )
+            return
+        }
         if (
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
             PackageManager.PERMISSION_GRANTED
