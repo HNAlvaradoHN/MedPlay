@@ -1158,3 +1158,28 @@ Physical validation priority:
 3. in editor, lower game audio to 0–20% and leave voice near 100%, then confirm both independent controls are audible;
 4. export final and confirm microphone + game audio are both present and synchronized;
 5. if voice is still absent, inspect last-session diagnostics and report `microphonePeakAbs`.
+
+
+## Editor audio-preview stutter root cause and fix
+
+Owner device evidence:
+- game/microphone audio preview in the editor was audibly chopped/intermittent.
+
+Root cause verified in code:
+- `EditorAudioPreviewController` used independent ExoPlayers for the encoded audio tracks;
+- a timer ran every 500 ms;
+- whenever drift exceeded 140 ms, MedPlay called `seekTo()` on the audio players;
+- those repeated seeks flushed/refilled decoder buffers and produced the audible chopping.
+
+Fix:
+- periodic drift polling and timer-based reseeks were removed entirely;
+- editor video playback is held until auxiliary audio preview tracks are prepared;
+- all preview tracks are aligned once before playback begins;
+- re-alignment is now event-driven only: real seek/discontinuity, pause, and resume;
+- moving game/microphone gain sliders changes volume only and never touches playback position;
+- recording AAC, capture pipeline, final export mixer and visual preview were intentionally left unchanged.
+
+CI evidence:
+- Android build run `38953175312`: success.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on the owner's device.
