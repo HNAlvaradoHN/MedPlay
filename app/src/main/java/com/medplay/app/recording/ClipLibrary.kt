@@ -48,6 +48,33 @@ object ClipLibrary {
     }
 
     @Synchronized
+    fun recordDerivedExport(
+        context: Context,
+        uri: Uri,
+        displayName: String,
+        durationUs: Long,
+        hasGameAudio: Boolean,
+        hasMicrophone: Boolean,
+    ) {
+        val entries = readRaw(context)
+            .filterNot { it.uri == uri }
+            .toMutableList()
+
+        entries.add(
+            0,
+            Entry(
+                uri = uri,
+                displayName = displayName,
+                createdAtMs = System.currentTimeMillis(),
+                durationUs = durationUs.coerceAtLeast(0L),
+                hasGameAudio = hasGameAudio,
+                hasMicrophone = hasMicrophone,
+            )
+        )
+        write(context, entries)
+    }
+
+    @Synchronized
     fun listExisting(context: Context): List<Entry> {
         val stored = readRaw(context)
         val existing = stored.filter { entry ->
