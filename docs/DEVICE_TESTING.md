@@ -210,3 +210,20 @@ Also compare a similar-length game session with MedPlay OFF. The goal is not a c
 7. If the encoder does not support the swapped portrait profile, record the device/model/profile evidence rather than treating fallback to the safe landscape profile as an encoder failure.
 
 Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN until these checks pass on a real device.
+
+
+## Full-session recording validation
+
+1. Select **Grabación completa** and start a game capture.
+2. Verify retroactive Clip duration/save controls are hidden for this mode and the microphone option is available.
+3. Record at least 2–5 minutes, then use Stop from MedPlay/notification.
+4. Wait for finalization and confirm one complete MP4 appears in Gallery and **Mis clips**.
+5. Verify the beginning of the session is present, not only the most recent five minutes.
+6. Check internal game audio from beginning to end.
+7. Repeat once with player microphone enabled; verify the MP4 contains the microphone track where Android allowed capture.
+8. Check that full-session mode does not expose the retroactive Clip notification action.
+9. Verify a similar retroactive Clip session still behaves exactly as before.
+10. For a long test, note the safe session duration implied by available storage and confirm MedPlay saves/stops before consuming the reserved free-space margin.
+11. Trigger/observe MODERATE or SEVERE thermal pressure if naturally reached: bitrate protection may apply, but the full-session output should not change video dimensions mid-recording.
+
+Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN until real-device evidence is available.
