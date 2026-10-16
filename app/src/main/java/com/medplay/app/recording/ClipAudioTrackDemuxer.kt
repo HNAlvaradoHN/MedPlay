@@ -40,20 +40,36 @@ class ClipAudioTrackDemuxer(
             probe.release()
         }
 
-        return audioTracks.mapIndexed { ordinal, trackIndex ->
-            val file = File(
-                context.cacheDir,
-                "medplay_audio_track_${System.currentTimeMillis()}_$ordinal.mp4",
-            )
-            runCatching { file.delete() }
-            extractOne(
-                sourceUri = sourceUri,
-                sourceTrackIndex = trackIndex,
-                trimStartUs = trimStartUs,
-                trimEndUs = trimEndUs,
-                destination = file,
-            )
-            TrackFile(file, trackIndex)
+        val extracted = mutableListOf<TrackFile>()
+        try {
+            audioTracks.forEachIndexed { ordinal, trackIndex ->
+                val file = File(
+                    context.cacheDir,
+                    "medplay_audio_track_${System.currentTimeMillis()}_$ordinal.mp4",
+                )
+                runCatching { file.delete() }
+
+                try {
+                    extractOne(
+                        sourceUri = sourceUri,
+                        sourceTrackIndex = trackIndex,
+                        trimStartUs = trimStartUs,
+                        trimEndUs = trimEndUs,
+                        destination = file,
+                    )
+                } catch (error: Throwable) {
+                    runCatching { file.delete() }
+                    throw error
+                }
+
+                extracted += TrackFile(file, trackIndex)
+            }
+            return extracted
+        } catch (error: Throwable) {
+            extracted.forEach { track ->
+                runCatching { track.file.delete() }
+            }
+            throw error
         }
     }
 
