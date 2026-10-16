@@ -582,3 +582,15 @@ Recommended device test: open a clip in MedPlay -> tap Edit -> mark trim start/e
 Device evidence showed the overlaid editor button could be hidden by the VideoView surface. The player now uses a fixed full-width **Editar clip** action below the video, which should remain visible regardless of SurfaceView layering.
 
 Retroactive clip mode is now capped at 60 seconds end-to-end. UI choices are 15/30/60s and CaptureService enforces the same 60s maximum. Longer content belongs to Full-session mode.
+
+
+## Latest editor-visibility validation APK
+
+`dev-latest` now contains the player-layout fix and the 60-second retroactive cap.
+
+Evidence:
+- run `38919967954`: success;
+- target `7978f35fb6dbf40a56fffe29fed7a9ed18847ff4`;
+- published `2026-10-16T14:58:34Z`.
+
+Device validation should confirm that **Editar clip** is visibly rendered below the video and that the duration selector contains only 15s, 30s and 1 minute.
