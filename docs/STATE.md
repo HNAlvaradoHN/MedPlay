@@ -814,3 +814,17 @@ Evidence:
 - release includes the non-destructive editor foundation with Edit action, trim markers and per-track gain project settings.
 
 The release workflow is restored to manual-only immediately afterward. Editor export/mixing/rotation/color remain pending.
+
+
+## UI correction — visible editor action + 60s clip cap
+
+Owner device evidence showed the editor action was not visible over VideoView. The player layout now places **Editar clip** in a fixed bar below the video surface instead of overlaying the VideoView.
+
+Retroactive clip duration is now intentionally limited to:
+- 15 seconds
+- 30 seconds
+- 60 seconds
+
+The service also hard-caps retroactive save requests at 60 seconds, so stale/external values cannot request 2–5 minute clips. Full-session recording remains the path for longer recordings.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN.
