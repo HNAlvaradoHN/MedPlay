@@ -1044,9 +1044,10 @@ class MainActivity : Activity() {
         serviceIntent: Intent,
         attempt: Int = 0,
     ) {
-        val started = runCatching {
+        val startResult = runCatching {
             startForegroundService(serviceIntent)
-        }.isSuccess
+        }
+        val started = startResult.isSuccess
 
         if (started) {
             statusView.text = tr(
@@ -1073,6 +1074,11 @@ class MainActivity : Activity() {
             return
         }
 
+        CaptureService.recordStartupFailure(
+            this,
+            "activity_start_foreground_service",
+            startResult.exceptionOrNull(),
+        )
         statusView.text = tr(
             "Android no permitió iniciar la grabación. MedPlay siguió abierto; vuelve a intentar Iniciar grabación.",
             "Android did not allow capture to start. MedPlay stayed open; try Start recording again.",
