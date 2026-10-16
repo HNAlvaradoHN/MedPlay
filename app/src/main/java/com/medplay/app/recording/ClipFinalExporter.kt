@@ -86,8 +86,12 @@ class ClipFinalExporter(
             )
             .build()
 
+        val outputDurationUs =
+            (trimEndUs - trimStartUs).coerceAtLeast(1L)
+
         val videoItem = EditedMediaItem.Builder(videoMediaItem)
             .setRemoveAudio(true)
+            .setDurationUs(outputDurationUs)
             .setEffects(
                 Effects(
                     emptyList(),
@@ -97,7 +101,9 @@ class ClipFinalExporter(
             .build()
 
         val sequences = mutableListOf(
-            EditedMediaItemSequence(listOf(videoItem))
+            EditedMediaItemSequence.withVideoFrom(
+                listOf(videoItem)
+            )
         )
 
         extractedAudio.forEachIndexed { ordinal, track ->
@@ -106,6 +112,7 @@ class ClipFinalExporter(
             val audioItem = EditedMediaItem.Builder(
                 MediaItem.fromUri(Uri.fromFile(track.file))
             )
+                .setDurationUs(outputDurationUs)
                 .setEffects(
                     Effects(
                         listOf(
@@ -116,7 +123,7 @@ class ClipFinalExporter(
                 )
                 .build()
 
-            sequences += EditedMediaItemSequence(
+            sequences += EditedMediaItemSequence.withAudioFrom(
                 listOf(audioItem)
             )
         }
