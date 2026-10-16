@@ -695,3 +695,30 @@ PR #72 addresses two physical-device findings from the latest validation build.
 - The player uses Android VideoView/MediaController and reads the existing MediaStore URI; the clip is not duplicated.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. CI passed on PR #72. Required device validation: record a portrait game, confirm it fills a portrait output rather than appearing small inside a landscape canvas, then open the resulting clip from `Mis clips` and verify playback starts inside MedPlay.
+
+
+## Full-session recording foundation
+
+Phase 2 has started on PR #73.
+
+Implemented in this foundation:
+- persisted recording mode: `RETROACTIVE_CLIP` or `FULL_SESSION`;
+- MainActivity exposes **Clip retroactivo** and **Grabación completa**;
+- Clip mode keeps the existing rolling/save behavior;
+- full-session mode keeps encoded video/audio segments for the whole safe session window and exports the entire retained session to MediaStore when Stop is pressed;
+- full-session storage is budgeted from available bytes while preserving a 768 MiB free-space reserve;
+- minimum viable full session is 60 seconds; maximum automatic session budget is 2 hours;
+- full-session recording automatically stops/saves at its calculated safe maximum instead of silently deleting the beginning;
+- optional microphone capture is now scoped to full-session mode; retroactive clip mode no longer starts the separate microphone track;
+- severe thermal state still reduces bitrate in full-session mode, but automatic resolution/FPS epoch downgrade is suppressed so earlier parts of one full recording are not discarded by incompatible video-format changes;
+- an initial captured-content orientation correction is allowed only during the first few seconds of a full session; later orientation changes do not rewrite the recording format mid-session;
+- the existing notification Stop action finalizes/saves a full session.
+
+Not yet implemented in this phase:
+- lateral expandable full-session floating control;
+- visible elapsed timer;
+- pause/resume;
+- microphone toggle from the floating control;
+- highlight analysis.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. CI passed on the initial PR #73 code. Physical testing must verify long-session retention, Stop -> complete MP4 export, audio/microphone tracks, storage-limit auto-stop, and that Clip mode remains unchanged.
