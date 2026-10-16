@@ -752,3 +752,16 @@ Next implemented slice adds destructive clip management:
 The repository now contains `docs/UX_DIRECTION.md` because the visual gallery/player/editor direction had previously only been captured piecemeal. The document preserves the Medal-inspired, media-first direction while making clear that the current text-button gallery and vertically stacked editor controls are scaffolding, not final visual polish.
 
 Next device check: delete a disposable clip, confirm the prompt appears, confirm Cancel preserves it, then confirm Delete removes it from both Mis clips and the device Gallery.
+
+
+## Latest clip-delete validation APK
+
+`dev-latest` now contains confirmed clip deletion from both Mis clips and the internal player, plus `docs/UX_DIRECTION.md`.
+
+Release evidence:
+- run `38947691136`: success;
+- target `79203e4dbf21c3b7ab9007178ccddf8897a460dc`;
+- APK SHA-256 `67e21a9b1563ab8a08756d01a51549944e201441ffe1da9359f387b58714ba18`;
+- published `2026-10-16T18:30:27Z`.
+
+Next physical check: confirm the delete prompt, Cancel behavior, and actual removal from both MedPlay and Gallery. After that, the next UI slice is replacing the functional text-button library with the media-first thumbnail/card gallery described in `docs/UX_DIRECTION.md`.
