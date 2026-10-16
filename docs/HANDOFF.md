@@ -633,3 +633,27 @@ Visual project fields:
 The original MediaStore source remains immutable. Fast trim still remuxes without video re-encode. Any visual effect/rotation export necessarily transcodes video through Media3's effect pipeline.
 
 Safety guard: filtered export is disabled when ClipLibrary reports a separate microphone track because Transformer supports one output audio track for this path. Do not drop that track silently. Next block should decode/mix game + microphone audio to one soundtrack while preserving the processed video output.
+
+
+## Final editor export / mixed-audio handoff
+
+The editor now has two export paths:
+1. **Exportar rápido**: trim-only remux, preserving encoded video/audio tracks.
+2. **Exportar video final**: applies the complete project and produces one normal-player-compatible soundtrack.
+
+Final export flow:
+- demux each source audio track for the selected range;
+- apply ConstantGainAudioProcessor per source (0–200%);
+- compose video plus audio-only sequences in Media3;
+- mix overlapping game/microphone audio into one AAC output track;
+- apply visual effects/rotation to video as requested;
+- publish the resulting MP4 to MediaStore and index it in ClipLibrary.
+
+The previous visual-only exporter was removed because this final exporter supersedes it.
+
+Real-device validation must verify:
+- both game and player voice are audible together when present;
+- 0%, 50%, 100% and >100% gain behavior;
+- sync after trim;
+- filtered + rotated + mixed export;
+- source remains unchanged.

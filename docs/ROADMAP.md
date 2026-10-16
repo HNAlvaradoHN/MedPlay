@@ -162,3 +162,8 @@ Automatic summary:
 ## Progress update — editor visual pass
 
 Phase 3 now includes live-preview color filters, saturation/intensity, brightness, contrast and 90-degree rotation controls, plus processed MP4 export. The next required editor capability is final game-audio + microphone mixing, after which filtered exports can be enabled for two-track recordings without losing voice.
+
+
+## Progress update — final audio mix
+
+Phase 3 now has an implementation for final export with game/microphone gain and single-track AAC mixing. After device validation, the remaining editor work is primarily UX polish and optional higher-level tools (additional presets, transitions/text only if product value justifies them) before moving into post-match highlight detection.
