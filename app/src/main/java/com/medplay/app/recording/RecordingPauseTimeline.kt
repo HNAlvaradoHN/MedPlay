@@ -11,6 +11,15 @@ data class RecordingPauseInterval(
 
 object RecordingPauseTimeline {
 
+    fun isPaused(
+        absoluteUs: Long,
+        pauses: List<RecordingPauseInterval>,
+    ): Boolean {
+        return pauses.any { pause ->
+            absoluteUs >= pause.startUs && absoluteUs < pause.endUs
+        }
+    }
+
     fun outputTimeUs(
         absoluteUs: Long,
         clipStartUs: Long,
