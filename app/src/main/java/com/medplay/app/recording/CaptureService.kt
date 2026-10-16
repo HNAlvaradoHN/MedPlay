@@ -167,7 +167,7 @@ class CaptureService : Service() {
                 checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
 
-        val foregroundStarted = runCatching {
+        val foregroundResult = runCatching {
             startAsProjectionForegroundService(
                 includeMicrophone = microphoneVoiceRequested,
             )
@@ -182,9 +182,14 @@ class CaptureService : Service() {
             // than crashing the process; voice stays disabled for this session.
             startAsProjectionForegroundService(includeMicrophone = false)
             microphoneForegroundTypeActive = false
-        }.isSuccess
+        }
 
-        if (!foregroundStarted) {
+        if (foregroundResult.isFailure) {
+            recordStartupFailure(
+                applicationContext,
+                "capture_service_foreground",
+                foregroundResult.exceptionOrNull(),
+            )
             stopSelf()
             return START_NOT_STICKY
         }
@@ -1591,6 +1596,30 @@ class CaptureService : Service() {
         fun createStopIntent(context: Context): Intent {
             return Intent(context, CaptureService::class.java).apply {
                 action = ACTION_STOP
+            }
+        }
+
+        fun recordStartupFailure(
+            context: Context,
+            stage: String,
+            error: Throwable?,
+        ) {
+            runCatching {
+                File(context.filesDir, LAST_SESSION_DIAGNOSTICS_FILE)
+                    .writeText(
+                        buildString {
+                            appendLine("MedPlay startup failure")
+                            appendLine("stage=$stage")
+                            appendLine(
+                                "errorType=" +
+                                    (error?.javaClass?.name ?: "unknown")
+                            )
+                            appendLine(
+                                "errorMessage=" +
+                                    (error?.message ?: "unknown")
+                            )
+                        }
+                    )
             }
         }
 
