@@ -657,3 +657,22 @@ Real-device validation must verify:
 - sync after trim;
 - filtered + rotated + mixed export;
 - source remains unchanged.
+
+
+## Latest expanded-editor validation APK
+
+`dev-latest` was regenerated after the filter/rotation and final audio-mix work.
+
+Evidence:
+- run `38930242477`: success;
+- target `274fbc785bd75a4334d41ce959ed93e4e4176e73`;
+- published `2026-10-16T16:15:17Z`;
+- APK size 11,686,163 bytes.
+
+Recommended device validation:
+1. open a clip and enter Editar clip;
+2. try Vivo/Cálido/Frío/Cinemático/Mono plus color intensity, brightness, contrast and rotation;
+3. confirm live preview reacts;
+4. export a final single-audio clip and inspect picture quality/orientation;
+5. when a clip with separate game + microphone audio is available, set deliberately different gains (for example game 50%, voice 150%), export final, and confirm both are audible together and synchronized;
+6. verify the immutable source is unchanged.
