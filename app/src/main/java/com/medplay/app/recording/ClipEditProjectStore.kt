@@ -63,17 +63,19 @@ object ClipEditProjectStore {
         project: Project,
         sourceDurationUs: Long,
     ): Project {
-        val duration = sourceDurationUs.coerceAtLeast(0L)
-        val start = project.trimStartUs.coerceIn(0L, duration)
-        val end = project.trimEndUs.coerceIn(start, duration)
+        val values = ClipEditProjectPolicy.sanitize(
+            trimStartUs = project.trimStartUs,
+            trimEndUs = project.trimEndUs,
+            sourceDurationUs = sourceDurationUs,
+            gameAudioGainPercent = project.gameAudioGainPercent,
+            microphoneGainPercent = project.microphoneGainPercent,
+        )
 
         return project.copy(
-            trimStartUs = start,
-            trimEndUs = end,
-            gameAudioGainPercent =
-                project.gameAudioGainPercent.coerceIn(0, 200),
-            microphoneGainPercent =
-                project.microphoneGainPercent.coerceIn(0, 200),
+            trimStartUs = values.trimStartUs,
+            trimEndUs = values.trimEndUs,
+            gameAudioGainPercent = values.gameAudioGainPercent,
+            microphoneGainPercent = values.microphoneGainPercent,
             updatedAtMs = System.currentTimeMillis(),
         )
     }
