@@ -22,8 +22,8 @@ import androidx.media3.ui.PlayerView
 import com.medplay.app.recording.AppLanguagePreference
 import com.medplay.app.recording.ClipEditProjectStore
 import com.medplay.app.recording.ClipLibrary
+import com.medplay.app.recording.ClipFinalExporter
 import com.medplay.app.recording.ClipTrimExporter
-import com.medplay.app.recording.ClipVisualExporter
 import com.medplay.app.recording.EditorVisualSettings
 import kotlin.concurrent.thread
 
@@ -465,12 +465,11 @@ class ClipEditorActivity : Activity() {
             }
         }
 
-        val visualExportButton = Button(this).apply {
+        val finalExportButton = Button(this).apply {
             text = tr(
-                "Exportar con color y filtros",
-                "Export with color & filters",
+                "Exportar video final",
+                "Export final video",
             )
-            isEnabled = !clip.hasMicrophone
             setOnClickListener {
                 if (trimEndUs <= trimStartUs) {
                     exportStatus.text = tr(
@@ -479,26 +478,23 @@ class ClipEditorActivity : Activity() {
                     )
                     return@setOnClickListener
                 }
-                if (!EditorVisualSettings.hasVisualChanges(currentVisualSettings())) {
-                    exportStatus.text = tr(
-                        "No hay cambios visuales. Usa Exportar rápido.",
-                        "No visual changes. Use Fast export.",
-                    )
-                    return@setOnClickListener
-                }
 
                 persistProject()
                 isEnabled = false
                 quickExportButton.isEnabled = false
                 exportStatus.text = tr(
-                    "Procesando color con aceleración del dispositivo...",
-                    "Processing color with device acceleration...",
+                    "Procesando video y mezclando audio...",
+                    "Processing video and mixing audio...",
                 )
 
-                ClipVisualExporter(this@ClipEditorActivity).start(
+                ClipFinalExporter(this@ClipEditorActivity).start(
                     sourceUri = sourceUri,
                     trimStartUs = trimStartUs,
                     trimEndUs = trimEndUs,
+                    hasGameAudio = clip.hasGameAudio,
+                    hasMicrophone = clip.hasMicrophone,
+                    gameGainPercent = gameGain,
+                    microphoneGainPercent = micGain,
                     visualSettings = currentVisualSettings(),
                     onSuccess = { exported ->
                         ClipLibrary.recordDerivedExport(
@@ -506,35 +502,35 @@ class ClipEditorActivity : Activity() {
                             uri = exported.uri,
                             displayName = exported.displayName,
                             durationUs = exported.durationUs,
-                            hasGameAudio = clip.hasGameAudio,
+                            hasGameAudio =
+                                clip.hasGameAudio || clip.hasMicrophone,
                             hasMicrophone = false,
                         )
                         isEnabled = true
                         quickExportButton.isEnabled = true
                         exportStatus.text = tr(
-                            "Exportado con filtros ✓ • Mis clips y Galería.",
-                            "Filtered export complete ✓ • My clips and Gallery.",
+                            "Video final exportado ✓ • audio mezclado en una pista compatible.",
+                            "Final video exported ✓ • audio mixed into one compatible track.",
                         )
                     },
                     onError = {
                         isEnabled = true
                         quickExportButton.isEnabled = true
                         exportStatus.text = tr(
-                            "No se pudo exportar con filtros.",
-                            "Filtered export failed.",
+                            "No se pudo exportar el video final.",
+                            "Final video export failed.",
                         )
                     },
                 )
             }
         }
 
-        val microphoneExportNote = TextView(this).apply {
+        val finalExportNote = TextView(this).apply {
             setTextColor(Color.LTGRAY)
             textSize = 12f
-            visibility = if (clip.hasMicrophone) View.VISIBLE else View.GONE
             text = tr(
-                "Este clip tiene voz separada. La exportación con filtros se habilitará al completar la mezcla de audio para no perder esa pista.",
-                "This clip has a separate voice track. Filtered export will be enabled after audio mixing is completed so that track is not lost.",
+                "Exportación final: aplica recorte, filtros, rotación y volúmenes. Si hay juego + voz, los mezcla en una sola pista para que se escuchen juntos en reproductores normales.",
+                "Final export applies trim, filters, rotation and volumes. If game + voice are present, they are mixed into one track for normal players.",
             )
         }
 
@@ -560,8 +556,8 @@ class ClipEditorActivity : Activity() {
         controls.addView(saveButton)
         controls.addView(exportStatus)
         controls.addView(quickExportButton)
-        controls.addView(visualExportButton)
-        controls.addView(microphoneExportNote)
+        controls.addView(finalExportButton)
+        controls.addView(finalExportNote)
 
         setContentView(root)
         refreshTrimStatus()
