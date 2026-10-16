@@ -4,7 +4,7 @@ import android.content.Context
 
 object ClipLengthPreference {
 
-    val allowedSeconds = listOf(15, 30, 60, 120, 180, 300)
+    val allowedSeconds = listOf(15, 30, 60)
 
     fun get(context: Context): Int {
         val stored = context

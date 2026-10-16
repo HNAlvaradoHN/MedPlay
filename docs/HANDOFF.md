@@ -575,3 +575,10 @@ Evidence:
 - published `2026-10-16T14:38:10Z`.
 
 Recommended device test: open a clip in MedPlay -> tap Edit -> mark trim start/end -> adjust available gain controls -> save edit -> reopen editor and confirm the project persists while the source clip remains unchanged.
+
+
+## Visible editor action / short clip policy
+
+Device evidence showed the overlaid editor button could be hidden by the VideoView surface. The player now uses a fixed full-width **Editar clip** action below the video, which should remain visible regardless of SurfaceView layering.
+
+Retroactive clip mode is now capped at 60 seconds end-to-end. UI choices are 15/30/60s and CaptureService enforces the same 60s maximum. Longer content belongs to Full-session mode.
