@@ -1076,3 +1076,18 @@ CI evidence:
 - Android build run `38947464943`: success.
 
 Status: deletion is IMPLEMENTADO_PENDIENTE_VALIDACIÓN on the owner's device.
+
+
+## Latest validation APK — confirmed clip deletion
+
+A fresh `dev-latest` APK was generated after adding confirmed clip deletion and the persistent media UX direction.
+
+Evidence:
+- release workflow run `38947691136`: success;
+- release target: `79203e4dbf21c3b7ab9007178ccddf8897a460dc`;
+- source main feature state: `c3d5bccc448dd5629a7c018480faa25b62aacbc8`;
+- published: `2026-10-16T18:30:27Z`;
+- `MedPlay-debug.apk` size: 11,698,510 bytes;
+- SHA-256: `67e21a9b1563ab8a08756d01a51549944e201441ffe1da9359f387b58714ba18`.
+
+Device validation priority: verify Cancel preserves a disposable clip, then confirm Delete removes it from Mis clips and the device Gallery.
