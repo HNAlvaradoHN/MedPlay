@@ -1008,3 +1008,25 @@ Evidence:
 The release branch differs from main only by the temporary workflow push trigger used to generate the APK. Main keeps the release workflow manual-only.
 
 Device validation priority: play a clip in the editor, continuously drag color/brightness/contrast while playback is active, and confirm the video keeps moving while the visual result updates.
+
+
+## Editor realtime preview surface fix
+
+Real-device evidence showed the prior seek-only fix was insufficient: playback still stopped and visual sliders did not visibly update the preview.
+
+Verified root cause:
+- the editor was still calling `ExoPlayer.setVideoEffects()` on every slider/filter change;
+- Media3 documents that repeated rapid calls rebuild the frame-processing pipeline and can stop playback.
+
+New preview architecture:
+- editor PlayerView now uses a TextureView-backed video surface;
+- slider/filter preview no longer calls `setVideoEffects()`;
+- color preview is applied directly to the preview surface with Android ColorMatrix/RenderEffect (hardware-layer fallback before API 31);
+- playback state is not touched while color values move;
+- final MP4 export remains on the existing Media3 effect pipeline and still works from the immutable source;
+- the superseded EditorPreviewPolicy/seek workaround was removed.
+
+CI evidence:
+- Android build run `38945577792`: success.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on the owner's device.

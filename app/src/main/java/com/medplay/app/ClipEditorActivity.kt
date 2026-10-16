@@ -2,7 +2,12 @@ package com.medplay.app
 
 import android.app.Activity
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
+import android.graphics.RenderEffect
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -24,7 +29,6 @@ import com.medplay.app.recording.ClipEditProjectStore
 import com.medplay.app.recording.ClipLibrary
 import com.medplay.app.recording.ClipFinalExporter
 import com.medplay.app.recording.ClipTrimExporter
-import com.medplay.app.recording.EditorPreviewPolicy
 import com.medplay.app.recording.EditorVisualSettings
 import kotlin.concurrent.thread
 
@@ -77,13 +81,14 @@ class ClipEditorActivity : Activity() {
         rotationDegrees = project.rotationDegrees
 
         player = ExoPlayer.Builder(this).build()
-        val playerView = PlayerView(this).apply {
-            player = this@ClipEditorActivity.player
-            useController = true
-            setBackgroundColor(Color.BLACK)
-        }
+        val playerView = layoutInflater.inflate(
+            R.layout.editor_player_view,
+            null,
+        ) as PlayerView
+        playerView.player = player
+        val previewSurface = playerView.videoSurfaceView ?: playerView
+
         player.setMediaItem(MediaItem.fromUri(source))
-        player.setVideoEffects(currentVideoEffects())
         player.prepare()
         player.seekTo((trimStartUs / 1_000L).coerceAtLeast(0L))
         player.playWhenReady = true
@@ -271,15 +276,22 @@ class ClipEditorActivity : Activity() {
         }
 
         fun applyPreviewEffects() {
-            player.setVideoEffects(currentVideoEffects())
+            val matrix = buildPreviewColorMatrix(currentVisualSettings())
+            val colorFilter = ColorMatrixColorFilter(matrix)
 
-            if (
-                EditorPreviewPolicy.shouldForcePausedRedraw(
-                    playWhenReady = player.playWhenReady,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                previewSurface.setRenderEffect(
+                    RenderEffect.createColorFilterEffect(colorFilter)
                 )
-            ) {
-                player.seekTo(player.currentPosition)
+            } else {
+                previewSurface.setLayerType(
+                    View.LAYER_TYPE_HARDWARE,
+                    Paint().apply { this.colorFilter = colorFilter },
+                )
             }
+
+            previewSurface.rotation = rotationDegrees.toFloat()
+            previewSurface.invalidate()
         }
 
         filterSpinner.onItemSelectedListener =
@@ -567,6 +579,7 @@ class ClipEditorActivity : Activity() {
         controls.addView(finalExportNote)
 
         setContentView(root)
+        applyPreviewEffects()
         refreshTrimStatus()
         refreshVisualLabels()
         gameGainLabel.text = tr(
@@ -593,8 +606,80 @@ class ClipEditorActivity : Activity() {
         )
     }
 
-    private fun currentVideoEffects() =
-        EditorVisualSettings.buildVideoEffects(currentVisualSettings())
+    private fun buildPreviewColorMatrix(
+        values: EditorVisualSettings.Values,
+    ): ColorMatrix {
+        val safe = EditorVisualSettings.sanitize(values)
+        val matrix = ColorMatrix()
+
+        fun concatSaturation(scale: Float) {
+            matrix.postConcat(
+                ColorMatrix().apply { setSaturation(scale.coerceAtLeast(0f)) }
+            )
+        }
+
+        fun concatScale(red: Float, green: Float, blue: Float) {
+            matrix.postConcat(
+                ColorMatrix().apply { setScale(red, green, blue, 1f) }
+            )
+        }
+
+        fun concatBrightness(percent: Int) {
+            if (percent == 0) return
+            val offset = 255f * (percent / 100f)
+            matrix.postConcat(
+                ColorMatrix(
+                    floatArrayOf(
+                        1f, 0f, 0f, 0f, offset,
+                        0f, 1f, 0f, 0f, offset,
+                        0f, 0f, 1f, 0f, offset,
+                        0f, 0f, 0f, 1f, 0f,
+                    )
+                )
+            )
+        }
+
+        fun concatContrast(amount: Float) {
+            if (amount == 0f) return
+            val scale = (1f + amount).coerceAtLeast(0f)
+            val offset = 128f * (1f - scale)
+            matrix.postConcat(
+                ColorMatrix(
+                    floatArrayOf(
+                        scale, 0f, 0f, 0f, offset,
+                        0f, scale, 0f, 0f, offset,
+                        0f, 0f, scale, 0f, offset,
+                        0f, 0f, 0f, 1f, 0f,
+                    )
+                )
+            )
+        }
+
+        when (safe.filterPreset) {
+            EditorVisualSettings.FilterPreset.NATURAL -> Unit
+            EditorVisualSettings.FilterPreset.VIVID -> {
+                concatSaturation(1.20f)
+                concatContrast(0.12f)
+            }
+            EditorVisualSettings.FilterPreset.WARM ->
+                concatScale(1.08f, 1.01f, 0.92f)
+            EditorVisualSettings.FilterPreset.COOL ->
+                concatScale(0.94f, 1.00f, 1.08f)
+            EditorVisualSettings.FilterPreset.CINEMATIC -> {
+                concatSaturation(0.92f)
+                concatBrightness(-3)
+                concatContrast(0.18f)
+            }
+            EditorVisualSettings.FilterPreset.MONO ->
+                concatSaturation(0f)
+        }
+
+        concatSaturation(safe.saturationPercent / 100f)
+        concatBrightness(safe.brightnessPercent)
+        concatContrast(safe.contrastPercent / 100f)
+
+        return matrix
+    }
 
     private fun simpleSeekListener(
         onChange: (value: Int, fromUser: Boolean) -> Unit,

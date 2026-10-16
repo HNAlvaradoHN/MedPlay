@@ -709,3 +709,18 @@ Release evidence:
 - published `2026-10-16T17:25:43Z`.
 
 Next physical check: keep the editor video playing and drag saturation/brightness/contrast continuously. Playback should no longer freeze on one frame. Then verify a final export with trim + visual changes; when a two-track source is available, verify game + microphone gains as well.
+
+
+## Realtime editor preview architecture handoff
+
+The previous live-preview fix did not solve the owner's device issue because the editor still rebuilt Media3 video effects for every slider tick.
+
+The editor preview now separates realtime UI preview from final export:
+- ExoPlayer only plays the source;
+- a TextureView-backed surface receives realtime ColorMatrix/RenderEffect adjustments;
+- saturation/brightness/contrast/filter changes no longer rebuild Media3's effect pipeline;
+- final export still uses the persisted Media3 visual settings against the immutable source.
+
+This specifically addresses Media3's documented failure mode where frequent `setVideoEffects()` calls can stop playback.
+
+Next device test: start playback, drag intensity/brightness/contrast continuously, and confirm both motion and visual changes remain live. Then verify final export still reflects the chosen settings.
