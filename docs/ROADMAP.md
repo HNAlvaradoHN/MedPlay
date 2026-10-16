@@ -157,3 +157,8 @@ Automatic summary:
 - Phase 1 internal player: physically validated on-device.
 - Phase 2 full-session backend/overlay: implemented, still pending physical validation.
 - Phase 3 editor foundation: implementation started with immutable-source edit projects, trim markers and per-track gain settings.
+
+
+## Progress update — editor visual pass
+
+Phase 3 now includes live-preview color filters, saturation/intensity, brightness, contrast and 90-degree rotation controls, plus processed MP4 export. The next required editor capability is final game-audio + microphone mixing, after which filtered exports can be enabled for two-track recordings without losing voice.
