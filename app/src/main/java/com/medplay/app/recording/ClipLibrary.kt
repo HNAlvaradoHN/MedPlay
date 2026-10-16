@@ -65,6 +65,11 @@ object ClipLibrary {
         return existing
     }
 
+    @Synchronized
+    fun find(context: Context, uri: Uri): Entry? {
+        return listExisting(context).firstOrNull { it.uri == uri }
+    }
+
     private fun readRaw(context: Context): List<Entry> {
         val file = libraryFile(context)
         if (!file.isFile) return emptyList()
