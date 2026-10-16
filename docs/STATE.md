@@ -722,3 +722,29 @@ Not yet implemented in this phase:
 - highlight analysis.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. CI passed on the initial PR #73 code. Physical testing must verify long-session retention, Stop -> complete MP4 export, audio/microphone tracks, storage-limit auto-stop, and that Clip mode remains unchanged.
+
+
+## Full-session floating controls
+
+PR #74 adds the owner-requested lateral full-session control.
+
+Implemented:
+- draggable floating session bubble;
+- snaps to nearest left/right edge when released;
+- tap expands a compact control panel inward;
+- elapsed timer excludes paused time;
+- microphone can be toggled ON/OFF during a full session when RECORD_AUDIO is granted;
+- Pause/Resume is functional, not cosmetic;
+- Stop & save finalizes the complete retained session.
+
+Pause implementation:
+- current video segment is finalized;
+- VirtualDisplay output surface is detached while paused;
+- internal-game-audio and microphone AAC writers suppress samples while paused;
+- resume reattaches the same hardware encoder surface and requests a new sync frame;
+- pause intervals are passed to the final remux and removed from video/game-audio/microphone timestamps so the exported MP4 timeline is gapless;
+- safe full-session duration counts active recording time, not paused time.
+
+The full-session foreground service starts with microphone capability when RECORD_AUDIO permission is available so the mic can be enabled later from the overlay without returning to MedPlay.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. PR #74 initial code passed Android CI. Real-device tests must verify left/right snapping, timer, pause/resume A/V continuity, microphone toggling, and Stop & save.
