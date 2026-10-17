@@ -1338,3 +1338,28 @@ Physical validation priority:
 6. watch for voice artifacts, A/V drift, heat and gameplay impact.
 
 Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN until the owner performs the physical test.
+
+
+## Microphone foreground-state regression fix
+
+Owner physical validation of the first WebRTC AEC3 APK showed no usable player voice in the editor; only the internal game/speaker audio was audible.
+
+Code audit found a concrete session-initialization regression:
+- `startAsProjectionForegroundService(includeMicrophone = true)` correctly set `microphoneForegroundTypeActive=true`;
+- later in the same `startCapture()` path, session-state initialization reset `microphoneForegroundTypeActive=false`;
+- `startMicrophoneVoiceIfPermitted()` therefore returned before constructing `MicrophoneVoiceCapture`;
+- as a result, the previous validation APK did not actually exercise the real microphone + AEC3 path on normal initial startup.
+
+Fix:
+- preserve the foreground microphone state through session initialization;
+- Android build run `38995054877`: success;
+- merged main commit: `4bd712dc9ca57a4b3d0db0cb5e0f6f0813808ed0`.
+
+Fresh validation APK:
+- release workflow run `38995271164`: success;
+- release target `b0e6e23a23f2ffae47961468418eb3bf3625a7d7`;
+- published `2026-10-17T02:34:07Z`;
+- APK size 58,541,949 bytes;
+- SHA-256 `a7378278e0af2c16cedd9c4d37a90be013b3d6eb2eeb6256c70a73c45e638e7c`.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. The next physical test must use a newly recorded full-session after installing this APK.

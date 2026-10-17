@@ -952,3 +952,19 @@ Release evidence:
 - published `2026-10-17T02:23:24Z`.
 
 Do not mark speaker-bleed suppression resolved until the owner's device confirms a material reduction with loud speaker playback and usable voice quality.
+
+
+## Microphone session-state regression handoff
+
+The first WebRTC AEC3 build had a concrete startup bug that prevented normal initial microphone capture.
+
+`CaptureService` set `microphoneForegroundTypeActive=true` after successfully starting the microphone foreground-service type, but then reset the same flag to false during session initialization immediately before `startMicrophoneVoiceIfPermitted()`. The voice path therefore exited before creating `MicrophoneVoiceCapture`.
+
+This explains why the owner heard internal game/speaker audio but no usable voice in the editor: the initial session was not exercising the intended microphone + software AEC3 path.
+
+Fix merged in `4bd712dc9ca57a4b3d0db0cb5e0f6f0813808ed0`.
+CI run `38995054877` passed.
+Fresh validation release run `38995271164` passed.
+APK SHA-256: `a7378278e0af2c16cedd9c4d37a90be013b3d6eb2eeb6256c70a73c45e638e7c`.
+
+Physical validation must be done with a newly recorded full-session after installing this APK; old clips cannot validate this fix.
