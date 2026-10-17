@@ -930,42 +930,25 @@ Validate on device:
 
 Do not add text, stickers, music, speed effects or transitions merely to call Phase 3 complete; those are optional future tools. Once this validation passes, the next planned product block is Phase 4 automatic post-match highlight detection.
 
-## Current validation APK
+## Current validation handoff
 
-Use `dev-latest` from release run `39058804572` for current physical testing.
+Use current `dev-latest` from release run `39063431965`.
 
-- target: `3dad3fb1215d975212d95eab0475f37795e121dd`;
-- published: `2026-10-17T18:37:26Z`;
-- APK size: 58,558,349 bytes;
-- release workflow is back to manual-only.
+The latest owner screenshot exposed the root cause of the incomplete portrait preview: previous recordings were forced into fixed 9:16 encoder geometry even when the captured phone display was taller. Product commit `f677fc2ae35ceb279035f45d6637adcfd8148133` now fits encoder dimensions to the actual captured-content aspect ratio, subject to hardware encoder alignment/support.
 
-This build supersedes older validation APKs for current device testing and includes Phase 3, the synchronized-audio work, and the latest floating-control/editor-preview corrections.
+Editor UX in the same build:
+- preview remains large and uses FIT;
+- portrait preview allocation is 62%, landscape 58%;
+- trim action buttons are compact but have a 44dp minimum height and rounded styled surfaces;
+- tool buttons are compact without the previously flattened appearance;
+- the partially hidden side-tab recording overlay remains included.
 
-## Latest owner UI corrections
+Validation rule: **record a new clip with this APK**. Do not use an older clip to judge whether the whole phone screen is captured, because the missing area is already absent from those files.
 
-Merged on main at `c23d9ae6f3eeab811086cab2d1a48c824c39f36d` after green PR #130 CI run `39058532447`:
-- floating recording controls snap flush to the nearest left/right edge;
-- editor preview is shorter, especially in portrait;
-- preview scaling is explicitly FIT to show the whole video frame.
+Release:
+- target `e870b5e4b2f044b766dee5af4887d07330b20977`;
+- published `2026-10-17T19:41:02Z`;
+- APK size 58,558,349 bytes;
+- workflow restored to manual-only at `b691e449aed7f078a0d6829f0d53a4f7334c6393`.
 
-Physical validation required: drag the recording control to both edges and open the same clip shown in the owner's screenshot to confirm the full source frame is visible with a smaller preview.
-
-## Current owner UI validation
-
-Use current `dev-latest` from run `39060537762` to validate the refined owner-requested behavior:
-- floating recording control should appear as a partially hidden side tab, with about 42% visible;
-- editor preview should occupy less height and show the complete video frame using FIT.
-
-Target: `2c12f6ed5eae2113ec18620c758d0ee90f201a45`, published `2026-10-17T19:01:39Z`, APK size 58,558,349 bytes. Workflow is back to manual-only.
-
-## Current editor validation build
-
-Use current `dev-latest` from run `39061982742`.
-
-Expected behavior:
-- preview area is large again;
-- recorded frame is fitted completely inside it;
-- tool buttons and trim controls are visibly more compact;
-- side-tab overlay behavior from the previous correction remains included.
-
-Target: `ca115edaf5e1790e9f460d9ac5d3fff17602d72f`, published `2026-10-17T19:21:10Z`, APK size 58,558,349 bytes. Workflow is manual-only.
+Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
