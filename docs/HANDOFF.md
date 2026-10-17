@@ -883,29 +883,24 @@ Release evidence:
 Do not mark the new media UI physically validated until the owner tests it on-device.
 
 
-## Current AEC3 speaker-bleed handoff
+## Current microphone + internal-audio handoff
 
-The microphone speaker-bleed defect is still open.
+Owner decision: keep the microphone feature for headphone/earbud use. Perfect loudspeaker-bleed removal is no longer an active project target; audible speaker-to-microphone leakage is accepted as a physical limitation when the phone speaker is used.
 
-Physical truth:
-- native Android AEC was insufficient on the target phone;
-- WebRTC AEC3 with clean internal playback as far-end reference is implemented;
-- the latest physically tested alignment/clock-delay approach (through main audio commit `58ab7b2`) **did not reduce the problem enough; the owner reported the same speaker/game audio in the isolated microphone track**.
+Synchronization state:
+- internal audio and microphone remain independent AAC tracks at 48 kHz;
+- both are anchored to the same BOOTTIME timebase when Android supplies `AudioTimestamp`;
+- PR #120 was merged as main commit `db897b8` after green tests/build;
+- its fallback no longer anchors a timestamp-less first read to raw current time; it subtracts the duration of frames returned by that first read, avoiding startup skew caused purely by different playback/microphone read sizes;
+- diagnostics expose `audioMicrophoneStartSkewMs` for real-device evidence.
 
-Do not repeat or reinterpret that build as merely “pending validation”. It failed the required device validation.
+Physical validation still required:
+1. test with headphones/earbuds;
+2. record internal audio + microphone together;
+3. create recognizable sync points near the beginning and after a long interval;
+4. verify both tracks stay aligned in the recorded clip/editor;
+5. inspect `audioMicrophoneStartSkewMs`.
 
-Current unmerged experiments created after that result:
-- #115 correlation-based external delay: CI failed;
-- #116 AEC3-owned render queue/delay estimation: CI passed, not physically tested;
-- #117 render-before-capture ordering with bounded microphone wait and stop flush: CI failed.
+Do not add fixed manual delays to hide a synchronization problem. If long-session drift is measured, investigate actual clock drift and use proper compensation/resampling.
 
-Continuation rule:
-1. inspect the exact #117 build failure;
-2. compare #117 against #116 and choose one coherent AEC queue/delay model rather than stacking both;
-3. get CI green;
-4. only then generate a new validation APK;
-5. test a newly recorded full-session with speaker audio loud and isolate “Mi voz” in the editor.
-
-Success requires material reduction of speaker/game bleed while voice remains intelligible. CI alone is not success.
-
-Detailed historical APK hashes and superseded AEC attempts were intentionally removed from this living handoff; Git/PR history is the authoritative archive.
+The old AEC3 experimental PRs (#115/#116/#117) are superseded by the owner's decision not to continue pursuing loudspeaker-bleed cancellation and should not be treated as the next task.
