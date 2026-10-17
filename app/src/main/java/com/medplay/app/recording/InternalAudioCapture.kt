@@ -151,7 +151,11 @@ class InternalAudioCapture(
             name = "medplay-internal-audio",
         ) {
             try {
-                runLoop(readyRecord, readyEncoder)
+                runLoop(
+                    readyRecord,
+                    readyEncoder,
+                    monotonicStartUs,
+                )
             } catch (error: Throwable) {
                 if (!stopping.get()) {
                     onFatalError(error)
@@ -201,9 +205,9 @@ class InternalAudioCapture(
     private fun runLoop(
         record: AudioRecord,
         encoder: MediaCodec,
+        captureStartUs: Long,
     ) {
         val outputInfo = MediaCodec.BufferInfo()
-        val captureStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
         val captureClock = AudioCaptureClock(
             sampleRate = SAMPLE_RATE,
             captureStartUs = captureStartUs,
