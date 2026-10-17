@@ -353,7 +353,6 @@ class CaptureService : Service() {
         sessionMicrophoneSoftwareAecEchoReturnLossEnhancementDb = null
         sessionMicrophoneSoftwareAecEstimatedDelayMs = null
         microphoneCurrentlySilenced = false
-        microphoneForegroundTypeActive = false
         fullSessionPaused = false
         activePauseStartedUs = Long.MIN_VALUE
         completedPauseIntervals.clear()
@@ -652,6 +651,7 @@ class CaptureService : Service() {
         } else {
             audioCapture.stop()
             runCatching { audioWriter.close() }
+            closeGameVoiceEchoProcessor()
         }
     }
 
@@ -732,6 +732,7 @@ class CaptureService : Service() {
         } else {
             voiceCapture.stop()
             runCatching { voiceWriter.close() }
+            closeGameVoiceEchoProcessor()
         }
     }
 
@@ -799,12 +800,14 @@ class CaptureService : Service() {
         }.getOrNull()
 
         gameVoiceEchoProcessor = created
+        internalAudioCapture?.setEchoProcessor(created)
         sessionMicrophoneSoftwareAecEnabled = created != null
         return created
     }
 
     private fun closeGameVoiceEchoProcessor() {
         val processor = gameVoiceEchoProcessor ?: return
+        internalAudioCapture?.setEchoProcessor(null)
         runCatching {
             val state = processor.snapshot()
             sessionMicrophoneSoftwareAecEnabled = state.enabled
@@ -1445,6 +1448,7 @@ class CaptureService : Service() {
         runCatching { persistSessionDiagnostics() }
 
         microphoneCurrentlySilenced = false
+        microphoneForegroundTypeActive = false
         fullSessionPaused = false
         activePauseStartedUs = Long.MIN_VALUE
         completedPauseIntervals.clear()
