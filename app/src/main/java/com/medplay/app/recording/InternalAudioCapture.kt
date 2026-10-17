@@ -8,7 +8,6 @@ import android.media.MediaCodecInfo
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.media.projection.MediaProjection
-import android.os.SystemClock
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
@@ -16,13 +15,15 @@ import kotlin.concurrent.thread
 /**
  * Captures app playback audio permitted by Android and encodes it as AAC-LC.
  *
- * The normal capture path never mixes or resamples audio on the CPU. PCM from
- * AudioRecord is fed directly into MediaCodec. Hardware AAC is preferred when
- * available; software AAC is allowed as a low-cost fallback.
+ * When game + microphone capture are both enabled, each 10 ms PCM frame is
+ * also copied to [GameVoiceEchoProcessor] as the far-end/reference signal.
+ * The encoded game track itself remains bit-for-bit independent from the AEC
+ * output path.
  */
 class InternalAudioCapture(
     private val mediaProjection: MediaProjection,
     private val consumer: EncodedAudioConsumer = EncodedAudioConsumer.Discard,
+    private val echoProcessor: GameVoiceEchoProcessor? = null,
     private val onFatalError: (Throwable) -> Unit = {},
 ) {
 
@@ -114,9 +115,6 @@ class InternalAudioCapture(
             createdEncoder.start()
             encoderStarted = true
             createdRecord.startRecording()
-
-            val monotonicStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
-            consumer.onCaptureStarted(monotonicStartUs, SAMPLE_RATE, CHANNEL_COUNT)
         } catch (error: Throwable) {
             runCatching {
                 if (record?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
@@ -197,39 +195,63 @@ class InternalAudioCapture(
         encoder: MediaCodec,
     ) {
         val outputInfo = MediaCodec.BufferInfo()
-        var totalFramesSubmitted = 0L
+        val frameClock = AudioRecordFrameClock(SAMPLE_RATE)
+        val pcmFrame = ByteArray(AEC_FRAME_BYTES)
+        var captureStartedPublished = false
+        var lastPtsUs = 0L
 
         while (running.get()) {
             val inputIndex = encoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
             if (inputIndex >= 0) {
                 val input = encoder.getInputBuffer(inputIndex)
-                if (input != null) {
-                    input.clear()
-                    val bytesRead = record.read(
-                        input,
-                        minOf(input.remaining(), PCM_BUFFER_BYTES),
-                        AudioRecord.READ_BLOCKING,
-                    )
-
+                if (input == null) {
+                    encoder.queueInputBuffer(inputIndex, 0, 0, lastPtsUs, 0)
+                } else {
+                    val bytesRead = readPcmFrame(record, pcmFrame)
                     if (bytesRead < 0) {
                         error("AudioRecord read failed: $bytesRead")
                     } else if (bytesRead > 0) {
-                        val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
+                        val framesRead = bytesRead / BYTES_PER_FRAME
+                        val blockTime = frameClock.timestampBlock(
+                            record,
+                            framesRead,
+                        )
+                        if (!captureStartedPublished) {
+                            consumer.onCaptureStarted(
+                                blockTime.absoluteStartUs,
+                                SAMPLE_RATE,
+                                CHANNEL_COUNT,
+                            )
+                            captureStartedPublished = true
+                        }
+
+                        if (
+                            echoProcessor != null &&
+                            framesRead == AEC_FRAME_SAMPLES &&
+                            bytesRead == AEC_FRAME_BYTES
+                        ) {
+                            echoProcessor.submitFarEnd(
+                                stereoPcm = decodeStereoPcm16(pcmFrame),
+                                frameStartUs = blockTime.absoluteStartUs,
+                            )
+                        }
+
+                        input.clear()
+                        check(input.remaining() >= bytesRead) {
+                            "AAC input buffer smaller than PCM frame"
+                        }
+                        input.put(pcmFrame, 0, bytesRead)
+                        lastPtsUs = blockTime.relativePtsUs
                         encoder.queueInputBuffer(
                             inputIndex,
                             0,
                             bytesRead,
-                            ptsUs,
+                            lastPtsUs,
                             0,
                         )
-                        totalFramesSubmitted += bytesRead / BYTES_PER_FRAME
                     } else {
-                        val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
-                        encoder.queueInputBuffer(inputIndex, 0, 0, ptsUs, 0)
+                        encoder.queueInputBuffer(inputIndex, 0, 0, lastPtsUs, 0)
                     }
-                } else {
-                    val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
-                    encoder.queueInputBuffer(inputIndex, 0, 0, ptsUs, 0)
                 }
             }
 
@@ -238,12 +260,11 @@ class InternalAudioCapture(
 
         val eosIndex = encoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
         if (eosIndex >= 0) {
-            val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
             encoder.queueInputBuffer(
                 eosIndex,
                 0,
                 0,
-                ptsUs,
+                lastPtsUs + AEC_FRAME_DURATION_US,
                 MediaCodec.BUFFER_FLAG_END_OF_STREAM,
             )
         }
@@ -251,6 +272,36 @@ class InternalAudioCapture(
         repeat(EOS_DRAIN_ATTEMPTS) {
             if (drainEncoder(encoder, outputInfo, DEQUEUE_TIMEOUT_US)) return
         }
+    }
+
+    private fun readPcmFrame(
+        record: AudioRecord,
+        target: ByteArray,
+    ): Int {
+        var offset = 0
+        while (offset < target.size && running.get()) {
+            val read = record.read(
+                target,
+                offset,
+                target.size - offset,
+                AudioRecord.READ_BLOCKING,
+            )
+            if (read < 0) return read
+            if (read == 0) continue
+            offset += read
+        }
+        return offset
+    }
+
+    private fun decodeStereoPcm16(bytes: ByteArray): ShortArray {
+        val samples = ShortArray(AEC_FRAME_SAMPLES * CHANNEL_COUNT)
+        var byteIndex = 0
+        for (i in samples.indices) {
+            val low = bytes[byteIndex++].toInt() and 0xFF
+            val high = bytes[byteIndex++].toInt()
+            samples[i] = ((high shl 8) or low).toShort()
+        }
+        return samples
     }
 
     private fun drainEncoder(
@@ -318,6 +369,10 @@ class InternalAudioCapture(
 
         private const val BYTES_PER_SAMPLE = 2
         private const val BYTES_PER_FRAME = CHANNEL_COUNT * BYTES_PER_SAMPLE
+        private const val AEC_FRAME_SAMPLES = GameVoiceEchoProcessor.FRAME_SAMPLES
+        private const val AEC_FRAME_BYTES =
+            AEC_FRAME_SAMPLES * BYTES_PER_FRAME
+        private const val AEC_FRAME_DURATION_US = 10_000L
         private const val PCM_BUFFER_BYTES = 16_384
         private const val DEQUEUE_TIMEOUT_US = 10_000L
         private const val STOP_JOIN_TIMEOUT_MS = 1_500L
