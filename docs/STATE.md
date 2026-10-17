@@ -1315,3 +1315,26 @@ CI evidence:
 - latest code run `38994316142`: success on `66aeaa746d594c4448e92bbf326707cd8cc1762a`.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. CI proves build/tests only. The actual speaker-bleed reduction, voice quality, A/V synchronization and runtime CPU/thermal cost still require the owner's device.
+
+
+## Latest validation APK — WebRTC AEC3 player voice
+
+A fresh `dev-latest` APK was generated after merging the reference-based WebRTC AEC3 microphone pipeline.
+
+Evidence:
+- release workflow run `38994570302`: build/tests and release steps succeeded;
+- release target: `f9a41334b4118d415916c3c59b672f1d07dbe08d`;
+- merged source main: `e2a9e8aeb215b0630282a55596beaf713d7396a7`;
+- published: `2026-10-17T02:23:24Z`;
+- `MedPlay-debug.apk` size: 58,541,949 bytes;
+- SHA-256: `1e5a54012217d66f7a6600860512d48bf7724c2e050c3870771061709a85a355`.
+
+Physical validation priority:
+1. full-session recording with internal audio + player voice enabled;
+2. phone speaker loud while game/video audio plays and the player speaks;
+3. verify game audio remains clean and microphone speaker bleed is materially reduced;
+4. inspect diagnostics: `microphoneAecMode=webrtc_aec3`, render/capture frame counts increasing, and ERL/ERLE/delay values present;
+5. test a game using microphone/voice chat and confirm MedPlay recovers cleanly after Android silences/unsilences its microphone client;
+6. watch for voice artifacts, A/V drift, heat and gameplay impact.
+
+Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN until the owner performs the physical test.
