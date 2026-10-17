@@ -21,12 +21,18 @@ class ClipTrimTimelineView(context: Context) : View(context) {
         strokeCap = Paint.Cap.ROUND
     }
     private val selectedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        strokeWidth = 8f * density
+        color = MediaUiStyle.ACCENT
+        strokeWidth = 10f * density
         strokeCap = Paint.Cap.ROUND
     }
     private val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
+        style = Paint.Style.FILL
+    }
+    private val handleStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = MediaUiStyle.ACCENT
+        style = Paint.Style.STROKE
+        strokeWidth = 3f * density
     }
     private val shadePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.argb(130, 0, 0, 0)
@@ -59,7 +65,7 @@ class ClipTrimTimelineView(context: Context) : View(context) {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val desiredHeight = (72f * density).toInt()
+        val desiredHeight = (84f * density).toInt()
         setMeasuredDimension(
             MeasureSpec.getSize(widthMeasureSpec),
             resolveSize(desiredHeight, heightMeasureSpec),
@@ -81,9 +87,11 @@ class ClipTrimTimelineView(context: Context) : View(context) {
         canvas.drawRect(endX, 0f, right, height.toFloat(), shadePaint)
         canvas.drawLine(startX, y, endX, y, selectedPaint)
 
-        val radius = 13f * density
+        val radius = 14f * density
         canvas.drawCircle(startX, y, radius, handlePaint)
         canvas.drawCircle(endX, y, radius, handlePaint)
+        canvas.drawCircle(startX, y, radius, handleStrokePaint)
+        canvas.drawCircle(endX, y, radius, handleStrokePaint)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -93,7 +101,7 @@ class ClipTrimTimelineView(context: Context) : View(context) {
         val usable = (right - left).coerceAtLeast(1f)
         val startX = left + usable * startUs.toFloat() / durationUs.toFloat()
         val endX = left + usable * endUs.toFloat() / durationUs.toFloat()
-        val hit = 30f * density
+        val hit = 36f * density
 
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
@@ -105,6 +113,7 @@ class ClipTrimTimelineView(context: Context) : View(context) {
                     draggingStart = ds <= de
                     draggingEnd = !draggingStart
                 }
+                isPressed = true
                 parent?.requestDisallowInterceptTouchEvent(true)
                 return true
             }
@@ -126,10 +135,19 @@ class ClipTrimTimelineView(context: Context) : View(context) {
                 parent?.requestDisallowInterceptTouchEvent(false)
                 draggingStart = false
                 draggingEnd = false
+                isPressed = false
+                if (event.actionMasked == MotionEvent.ACTION_UP) {
+                    performClick()
+                }
                 return true
             }
         }
 
         return super.onTouchEvent(event)
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
     }
 }
