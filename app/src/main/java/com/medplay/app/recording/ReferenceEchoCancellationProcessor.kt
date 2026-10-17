@@ -36,6 +36,8 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         val droppedRenderFrames: Long,
         val resets: Int,
         val renderCaptureSkewMs: Int,
+        val externalDelayMs: Int,
+        val externalDelayCorrelation: Double,
     )
 
     private data class RenderFrame(
@@ -67,6 +69,8 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
     private var lastAnalyzedRenderStartUs = Long.MIN_VALUE
     private var lastCaptureStartUs = Long.MIN_VALUE
     private var lastAppliedDelayMs = DEFAULT_AUDIO_BUFFER_DELAY_MS
+    private var lastDelayCorrelation = 0.0
+    private val delayEstimator = ReferenceDelayEstimator()
 
     init {
         createEngine()
@@ -109,11 +113,14 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
                 (mixed / channelCount).toFloat()
 
             if (renderFill == FRAME_SAMPLES) {
-                enqueueRenderFrame(
-                    RenderFrame(
-                        startUs = renderFrameStartUs,
-                        samples = renderFrame.copyOf(),
-                    )
+                val completed = RenderFrame(
+                    startUs = renderFrameStartUs,
+                    samples = renderFrame.copyOf(),
+                )
+                enqueueRenderFrame(completed)
+                delayEstimator.offerRender(
+                    startUs = completed.startUs,
+                    samples = completed.samples,
                 )
                 renderFill = 0
                 renderFrameStartUs = Long.MIN_VALUE
@@ -171,8 +178,21 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
             sampleIndex++
 
             if (captureFill == FRAME_SAMPLES) {
+                lastCaptureStartUs = captureFrameStartUs
+                val delayEstimate = delayEstimator.offerCapture(
+                    startUs = captureFrameStartUs,
+                    samples = captureFrame,
+                )
+                if (delayEstimate != null) {
+                    val delayMs = delayEstimate.delayMs
+                    if (kotlin.math.abs(delayMs - lastAppliedDelayMs) >= 10) {
+                        control.setAudioBufferDelay(delayMs)
+                        lastAppliedDelayMs = delayMs
+                    }
+                    lastDelayCorrelation = delayEstimate.correlation
+                }
+
                 drainRenderThrough(captureFrameStartUs)
-                updateAecDelayFromClockAlignment(control, captureFrameStartUs)
 
                 target.writeChannel(0, captureFrame)
                 control.analyzeCapture(target)
@@ -216,6 +236,8 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         lastAnalyzedRenderStartUs = Long.MIN_VALUE
         lastCaptureStartUs = Long.MIN_VALUE
         lastAppliedDelayMs = DEFAULT_AUDIO_BUFFER_DELAY_MS
+        lastDelayCorrelation = 0.0
+        delayEstimator.reset()
 
         if (!silenced) {
             destroyEngine()
@@ -250,6 +272,8 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         captureFrameStartUs = Long.MIN_VALUE
         lastCaptureStartUs = Long.MIN_VALUE
         lastAppliedDelayMs = DEFAULT_AUDIO_BUFFER_DELAY_MS
+        lastDelayCorrelation = 0.0
+        delayEstimator.reset()
     }
 
     private fun enqueueRenderFrame(frame: RenderFrame) {
@@ -284,21 +308,6 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
             lastAnalyzedRenderStartUs = frame.startUs
             renderFrames++
         }
-    }
-
-    private fun updateAecDelayFromClockAlignment(
-        control: Aec3EchoControl,
-        captureStartUs: Long,
-    ) {
-        lastCaptureStartUs = captureStartUs
-        val renderStartUs = lastAnalyzedRenderStartUs
-        if (renderStartUs == Long.MIN_VALUE) return
-        val measuredMs = ((captureStartUs - renderStartUs) / 1_000L)
-            .toInt()
-            .coerceIn(0, 500)
-        if (kotlin.math.abs(measuredMs - lastAppliedDelayMs) < 5) return
-        control.setAudioBufferDelay(measuredMs)
-        lastAppliedDelayMs = measuredMs
     }
 
     private fun createEngine() {
