@@ -629,12 +629,14 @@ class CaptureService : Service() {
             return
         }
 
-        val recordInternalAudio =
-            InternalAudioPreference.isEnabled(applicationContext)
-        val neededAsVoiceReference = voiceEchoProcessor != null
-        if (!recordInternalAudio && !neededAsVoiceReference) return
+        val plan = AudioCapturePlan.decide(
+            internalAudioEnabled =
+                InternalAudioPreference.isEnabled(applicationContext),
+            softwareAecRequested = voiceEchoProcessor != null,
+        )
+        if (!plan.capturePlayback) return
 
-        val audioWriter = if (recordInternalAudio) {
+        val audioWriter = if (plan.recordInternalAudio) {
             RollingAudioSegmentWriter(
                 directory = File(cacheDir, "medplay_rolling_audio"),
                 retentionUs = activeRetentionUs,
@@ -674,7 +676,7 @@ class CaptureService : Service() {
         if (started) {
             rollingAudioWriter = audioWriter
             internalAudioCapture = audioCapture
-            sessionAudioWasActive = recordInternalAudio
+            sessionAudioWasActive = plan.recordInternalAudio
         } else {
             audioCapture.stop()
             runCatching { audioWriter?.close() }
