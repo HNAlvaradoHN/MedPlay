@@ -8,8 +8,8 @@ visibility: public
 
 ## Session registry
 
-last_session_number: 3
-active_session: 3
+last_session_number: 4
+active_session: 4
 
 MedPlay session numbering is maintained persistently in this file. Previous SendGram numbering/content in this repository is not part of MedPlay's session history.
 
