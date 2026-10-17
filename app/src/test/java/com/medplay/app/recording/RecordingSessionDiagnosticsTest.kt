@@ -34,6 +34,7 @@ class RecordingSessionDiagnosticsTest {
             microphoneAecMode = "webrtc_aec3",
             microphoneAecRenderFrames = 300,
             microphoneAecCaptureFrames = 295,
+            microphoneAecDroppedRenderFrames = 4,
             microphoneAecResets = 1,
             microphoneAecEchoReturnLossDb = 9.5,
             microphoneAecEchoReturnLossEnhancementDb = 21.0,
@@ -60,6 +61,7 @@ class RecordingSessionDiagnosticsTest {
         assertTrue(text.contains("microphoneAecMode=webrtc_aec3"))
         assertTrue(text.contains("microphoneAecRenderFrames=300"))
         assertTrue(text.contains("microphoneAecCaptureFrames=295"))
+        assertTrue(text.contains("microphoneAecDroppedRenderFrames=4"))
         assertTrue(text.contains("microphoneAecEstimatedDelayMs=54"))
         assertTrue(text.contains("initialFps=60"))
         assertTrue(text.contains("thermalProfileDowngrades=1"))
