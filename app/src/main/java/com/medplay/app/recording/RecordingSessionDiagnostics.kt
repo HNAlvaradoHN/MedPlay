@@ -13,6 +13,13 @@ data class RecordingSessionDiagnostics(
     val microphonePeakAbs: Int = 0,
     val microphoneAecAvailable: Boolean = false,
     val microphoneAecEnabled: Boolean = false,
+    val microphoneAecMode: String = "none",
+    val microphoneAecRenderFrames: Long = 0L,
+    val microphoneAecCaptureFrames: Long = 0L,
+    val microphoneAecResets: Int = 0,
+    val microphoneAecEchoReturnLossDb: Double = 0.0,
+    val microphoneAecEchoReturnLossEnhancementDb: Double = 0.0,
+    val microphoneAecEstimatedDelayMs: Int = 0,
     val thermalProfileDowngrades: Int = 0,
     val initialProfile: RecordingProfile? = null,
 ) {
@@ -49,6 +56,22 @@ data class RecordingSessionDiagnostics(
             appendLine("microphonePeakAbs=$microphonePeakAbs")
             appendLine("microphoneAecAvailable=$microphoneAecAvailable")
             appendLine("microphoneAecEnabled=$microphoneAecEnabled")
+            appendLine("microphoneAecMode=$microphoneAecMode")
+            appendLine("microphoneAecRenderFrames=$microphoneAecRenderFrames")
+            appendLine("microphoneAecCaptureFrames=$microphoneAecCaptureFrames")
+            appendLine("microphoneAecResets=$microphoneAecResets")
+            appendLine(
+                "microphoneAecEchoReturnLossDb=" +
+                    microphoneAecEchoReturnLossDb
+            )
+            appendLine(
+                "microphoneAecEchoReturnLossEnhancementDb=" +
+                    microphoneAecEchoReturnLossEnhancementDb
+            )
+            appendLine(
+                "microphoneAecEstimatedDelayMs=" +
+                    microphoneAecEstimatedDelayMs
+            )
             appendLine("maxThermalStatus=$maxThermalStatus")
             appendLine("sustainabilityVerdict=$sustainabilityVerdict")
             appendLine("encodedSamples=${encoderHealth.encodedSamples}")

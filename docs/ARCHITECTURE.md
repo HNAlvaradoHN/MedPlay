@@ -143,3 +143,22 @@ On a real Android device:
 8. gameplay remains usable;
 9. recording stops/cleans up safely;
 10. no private recording data leaves the device by default.
+
+
+## Player-voice echo cancellation
+
+When both internal playback and microphone voice are enabled, the audio architecture is:
+
+`AudioPlaybackCapture PCM -> game AAC`
+and simultaneously
+`AudioPlaybackCapture PCM -> mono 10 ms far-end frames -> WebRTC AEC3`
+
+`MIC PCM -> mono 10 ms near-end frames -> WebRTC AEC3 -> microphone AAC`
+
+The independent game recording is not modified by AEC. Only the microphone path is cleaned.
+
+The AEC path uses 48 kHz PCM and exact 10 ms frames. Android's platform `AcousticEchoCanceler` must not run concurrently with software AEC3. It is fallback-only when software reference processing is unavailable.
+
+Absolute capture alignment uses `AudioRecord.getTimestamp(..., TIMEBASE_BOOTTIME)` to estimate capture start in the same monotonic timebase used by recording segments. AAC presentation timestamps remain sample-count derived, avoiding per-buffer scheduler jitter.
+
+If Android temporarily silences MedPlay's microphone client, the adaptive AEC state is suspended and later recreated; silence is retained in the mic media timeline so resumed voice does not shift earlier than video/game audio.

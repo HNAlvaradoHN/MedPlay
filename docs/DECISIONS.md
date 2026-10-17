@@ -112,3 +112,20 @@ Required engineering behavior:
 - avoid background work unrelated to active capture while recording.
 
 This decision is a release criterion, not an optional optimization task.
+
+
+## DEC-011 — Use explicit playback-reference AEC3 for game + voice
+
+Status: IMPLEMENTED_PENDING_DEVICE_VALIDATION
+
+When MedPlay records internal playback and player microphone simultaneously, use software WebRTC AEC3 with the captured internal playback PCM as explicit far-end reference and the microphone PCM as near-end input before microphone AAC encoding.
+
+Keep `AudioSource.MIC` rather than switching the primary path to a communication source. Do not stack Android platform AEC and software AEC3.
+
+Reason:
+The owner's real-device test showed that platform `AcousticEchoCanceler` alone did not adequately remove loudspeaker game audio from the microphone track. MedPlay already owns a clean playback PCM reference through AudioPlaybackCapture, making explicit reference-based cancellation the more controllable architecture.
+
+Dependency decision:
+Use `cn.enaium.webrtc.aec3:webrtc-aec3-kmp:1.0.3` rather than implementing an adaptive echo canceller from scratch. The wrapper is MIT-licensed, targets Android through JNI, and exposes the standalone WebRTC AEC3 primitives required by this pipeline. Its build metadata requires the project to compile with Kotlin 2.4.x / API 37; targetSdk remains 35 so this compile-time upgrade does not independently opt MedPlay into newer Android runtime behavior.
+
+Acceptance remains physical: speaker bleed must be materially suppressed without unacceptable voice distortion, A/V drift, thermal load or gameplay degradation.

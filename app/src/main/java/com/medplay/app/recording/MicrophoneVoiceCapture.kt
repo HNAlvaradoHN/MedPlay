@@ -4,13 +4,12 @@ import android.content.Context
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
-import android.media.audiofx.AcousticEchoCanceler
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.media.MediaRecorder
-import android.os.SystemClock
+import android.media.audiofx.AcousticEchoCanceler
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
@@ -29,6 +28,7 @@ class MicrophoneVoiceCapture(
     private val consumer: InternalAudioCapture.EncodedAudioConsumer,
     private val onSilencedChanged: (Boolean) -> Unit = {},
     private val onPcmPeak: (Int) -> Unit = {},
+    private val echoProcessor: ReferenceEchoCancellationProcessor? = null,
     private val onEchoCancellationState: (
         available: Boolean,
         enabled: Boolean,
@@ -79,20 +79,25 @@ class MicrophoneVoiceCapture(
                 "Microphone AudioRecord failed to initialize"
             }
 
-            val aecAvailable = AcousticEchoCanceler.isAvailable()
-            if (aecAvailable) {
-                echoCanceler = runCatching {
-                    AcousticEchoCanceler.create(createdRecord.audioSessionId)
-                }.getOrNull()
+            if (echoProcessor != null) {
+                // Software AEC3 owns echo cancellation. Do not run two
+                // adaptive cancellers on the same near-end signal.
+                onEchoCancellationState(true, true)
+            } else {
+                val available = AcousticEchoCanceler.isAvailable()
+                if (available) {
+                    echoCanceler = runCatching {
+                        AcousticEchoCanceler.create(
+                            createdRecord.audioSessionId
+                        )
+                    }.getOrNull()
+                }
+                val enabled = runCatching {
+                    echoCanceler?.setEnabled(true)
+                    echoCanceler?.enabled == true
+                }.getOrDefault(false)
+                onEchoCancellationState(available, enabled)
             }
-            val aecEnabled = runCatching {
-                echoCanceler?.setEnabled(true)
-                echoCanceler?.enabled == true
-            }.getOrDefault(false)
-            onEchoCancellationState(
-                aecAvailable,
-                aecEnabled,
-            )
 
             val createdCallback = object : AudioManager.AudioRecordingCallback() {
                 override fun onRecordingConfigChanged(
@@ -138,8 +143,6 @@ class MicrophoneVoiceCapture(
             encoderStarted = true
             createdRecord.startRecording()
 
-            val monotonicStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
-            consumer.onCaptureStarted(monotonicStartUs, SAMPLE_RATE, CHANNEL_COUNT)
             createdRecord.activeRecordingConfiguration?.let {
                 publishSilencedState(it.isClientSilenced)
             }
@@ -237,6 +240,7 @@ class MicrophoneVoiceCapture(
     private fun publishSilencedState(silenced: Boolean) {
         if (lastSilenced == silenced) return
         lastSilenced = silenced
+        echoProcessor?.setCaptureSilenced(silenced)
         onSilencedChanged(silenced)
     }
 
@@ -245,50 +249,96 @@ class MicrophoneVoiceCapture(
         encoder: MediaCodec,
     ) {
         val outputInfo = MediaCodec.BufferInfo()
+        val rawInput = ByteBuffer.allocateDirect(AEC_FRAME_BYTES)
+            .order(ByteOrder.nativeOrder())
         var totalFramesSubmitted = 0L
         var nextSignalProbeFrame = 0L
+        var captureStartPublished = false
 
         while (running.get()) {
-            val inputIndex = encoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
-            if (inputIndex >= 0) {
-                val input = encoder.getInputBuffer(inputIndex)
-                if (input != null) {
-                    input.clear()
-                    val bytesRead = record.read(
-                        input,
-                        minOf(input.remaining(), PCM_BUFFER_BYTES),
-                        AudioRecord.READ_BLOCKING,
-                    )
+            rawInput.clear()
+            val bytesRead = record.read(
+                rawInput,
+                AEC_FRAME_BYTES,
+                AudioRecord.READ_BLOCKING,
+            )
 
-                    if (bytesRead < 0) {
-                        error("Microphone AudioRecord read failed: $bytesRead")
-                    } else if (bytesRead > 0) {
-                        if (totalFramesSubmitted >= nextSignalProbeFrame) {
-                            publishPcmPeak(input, bytesRead)
-                            nextSignalProbeFrame =
-                                totalFramesSubmitted + SAMPLE_RATE / 2L
-                        }
-
-                        val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
-                        encoder.queueInputBuffer(
-                            inputIndex,
-                            0,
-                            bytesRead,
-                            ptsUs,
-                            0,
-                        )
-                        totalFramesSubmitted += bytesRead / BYTES_PER_FRAME
-                    } else {
-                        val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
-                        encoder.queueInputBuffer(inputIndex, 0, 0, ptsUs, 0)
-                    }
-                } else {
-                    val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
-                    encoder.queueInputBuffer(inputIndex, 0, 0, ptsUs, 0)
-                }
+            if (bytesRead < 0) {
+                error("Microphone AudioRecord read failed: $bytesRead")
+            }
+            if (bytesRead == 0) {
+                drainEncoder(encoder, outputInfo)
+                continue
             }
 
-            drainEncoder(encoder, outputInfo)
+            if (!captureStartPublished) {
+                consumer.onCaptureStarted(
+                    AudioRecordClock.captureStartMonotonicUs(
+                        record,
+                        SAMPLE_RATE,
+                    ),
+                    SAMPLE_RATE,
+                    CHANNEL_COUNT,
+                )
+                captureStartPublished = true
+            }
+
+            if (totalFramesSubmitted >= nextSignalProbeFrame) {
+                publishPcmPeak(rawInput, bytesRead)
+                nextSignalProbeFrame =
+                    totalFramesSubmitted + SAMPLE_RATE / 2L
+            }
+
+            val processed = echoProcessor?.processCaptureMonoPcm(
+                rawInput,
+                bytesRead,
+            ) ?: ByteArray(bytesRead).also { bytes ->
+                val copy = rawInput.duplicate()
+                copy.position(0)
+                copy.limit(bytesRead)
+                copy.get(bytes)
+            }
+
+            if (processed.isNotEmpty()) {
+                var offset = 0
+                while (offset < processed.size && running.get()) {
+                    val inputIndex = encoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
+                    if (inputIndex < 0) {
+                        drainEncoder(encoder, outputInfo)
+                        continue
+                    }
+
+                    val input = encoder.getInputBuffer(inputIndex)
+                    if (input == null) {
+                        val ptsUs =
+                            totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
+                        encoder.queueInputBuffer(inputIndex, 0, 0, ptsUs, 0)
+                        continue
+                    }
+
+                    input.clear()
+                    val chunk = minOf(
+                        input.remaining(),
+                        processed.size - offset,
+                    )
+                    input.put(processed, offset, chunk)
+
+                    val ptsUs =
+                        totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
+                    encoder.queueInputBuffer(
+                        inputIndex,
+                        0,
+                        chunk,
+                        ptsUs,
+                        0,
+                    )
+                    totalFramesSubmitted += chunk / BYTES_PER_FRAME
+                    offset += chunk
+                    drainEncoder(encoder, outputInfo)
+                }
+            } else {
+                drainEncoder(encoder, outputInfo)
+            }
         }
 
         val eosIndex = encoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
@@ -398,6 +448,9 @@ class MicrophoneVoiceCapture(
 
         private const val BYTES_PER_SAMPLE = 2
         private const val BYTES_PER_FRAME = CHANNEL_COUNT * BYTES_PER_SAMPLE
+        private const val AEC_FRAME_BYTES =
+            ReferenceEchoCancellationProcessor.FRAME_SAMPLES *
+                BYTES_PER_FRAME
         private const val PCM_BUFFER_BYTES = 8_192
         private const val DEQUEUE_TIMEOUT_US = 10_000L
         private const val STOP_JOIN_TIMEOUT_MS = 1_500L

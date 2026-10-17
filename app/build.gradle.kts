@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.medplay.app"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.medplay.app"
@@ -20,8 +22,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
     }
 }
 
@@ -32,6 +37,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.8.1")
     implementation("androidx.media3:media3-ui:1.8.1")
     implementation("androidx.media3:media3-transformer:1.8.1")
+    implementation("cn.enaium.webrtc.aec3:webrtc-aec3-kmp:1.0.3")
     testImplementation("junit:junit:4.13.2")
 }
 

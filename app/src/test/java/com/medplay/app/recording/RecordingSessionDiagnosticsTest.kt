@@ -29,6 +29,15 @@ class RecordingSessionDiagnosticsTest {
             ),
             microphoneWasActive = true,
             microphoneWasSilenced = true,
+            microphoneAecAvailable = true,
+            microphoneAecEnabled = true,
+            microphoneAecMode = "webrtc_aec3",
+            microphoneAecRenderFrames = 300,
+            microphoneAecCaptureFrames = 295,
+            microphoneAecResets = 1,
+            microphoneAecEchoReturnLossDb = 9.5,
+            microphoneAecEchoReturnLossEnhancementDb = 21.0,
+            microphoneAecEstimatedDelayMs = 54,
             thermalProfileDowngrades = 1,
             initialProfile = RecordingProfile(
                 width = 1920,
@@ -48,6 +57,10 @@ class RecordingSessionDiagnosticsTest {
         assertTrue(text.contains("timestampRegressions=0"))
         assertTrue(text.contains("microphoneWasActive=true"))
         assertTrue(text.contains("microphoneWasSilenced=true"))
+        assertTrue(text.contains("microphoneAecMode=webrtc_aec3"))
+        assertTrue(text.contains("microphoneAecRenderFrames=300"))
+        assertTrue(text.contains("microphoneAecCaptureFrames=295"))
+        assertTrue(text.contains("microphoneAecEstimatedDelayMs=54"))
         assertTrue(text.contains("initialFps=60"))
         assertTrue(text.contains("thermalProfileDowngrades=1"))
     }
