@@ -985,3 +985,17 @@ AEC3 uses a 25 ms render/capture buffer-delay prior and retains its own adaptive
 Diagnostics now include `microphoneAecDroppedRenderFrames`; healthy physical validation should show `microphoneAecMode=webrtc_aec3`, increasing render/capture frames, and few/no queue drops.
 
 CI run `38996894710` passed. Do not mark speaker bleed resolved until the owner records a fresh full-session on-device and isolates the “Mi voz” track in the editor.
+
+
+## Latest aligned-AEC3 validation APK
+
+Release run `38997125137` succeeded after the AEC3 reference-alignment merge.
+
+APK evidence:
+- target `b0abb9a372af7104e91b7f1fb6ac5a90fa734337`;
+- source main `52d90d5bf8ab11c151c2effbcb7ead68c3400010`;
+- SHA-256 `4877f6407b151c8d68d42f1f00fdb894a0ea1fc0b02a4aa00b690f9ab24f20d6`;
+- size 58,558,333 bytes;
+- published `2026-10-17T03:03:28Z`.
+
+Use only a newly recorded clip for validation. In voice-only mode, playback is now captured only as the private AEC reference and is not written as a game-audio track.
