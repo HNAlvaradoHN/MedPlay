@@ -17,11 +17,11 @@ object CapturedContentProfilePolicy {
         profile: RecordingProfile,
         capturedWidth: Int,
         capturedHeight: Int,
-        alignment: Int = 2,
+        shortSideAlignment: Int = 2,
     ): RecordingProfile {
         require(capturedWidth > 0)
         require(capturedHeight > 0)
-        require(alignment > 0)
+        require(shortSideAlignment > 0)
 
         val targetLongSide = max(profile.width, profile.height)
         val capturedLongSide = max(capturedWidth, capturedHeight)
@@ -30,9 +30,9 @@ object CapturedContentProfilePolicy {
         val scaledShortSide =
             targetLongSide.toDouble() * capturedShortSide / capturedLongSide
         val alignedShortSide = (
-            scaledShortSide / alignment.toDouble()
+            scaledShortSide / shortSideAlignment.toDouble()
             ).roundToInt()
-            .coerceAtLeast(1) * alignment
+            .coerceAtLeast(1) * shortSideAlignment
 
         return if (capturedHeight > capturedWidth) {
             profile.copy(
