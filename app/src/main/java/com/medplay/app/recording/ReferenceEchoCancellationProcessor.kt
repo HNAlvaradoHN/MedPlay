@@ -279,11 +279,11 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
 
     private fun createEngine() {
         val newConfig = createAec3Config().apply {
-            // AEC3 still estimates the actual acoustic path. This value only
-            // provides a sane startup prior while the adaptive filter converges.
-            setDelayDefaultDelay(DEFAULT_DELAY_BLOCKS)
+            // The wrapper's own live example uses 25 ms as the render/capture
+            // buffer delay prior. AEC3 still estimates the acoustic path.
+            setDelayDefaultDelay(DEFAULT_AUDIO_BUFFER_DELAY_MS)
             setFilterInitialStateSeconds(0.5f)
-            setFilterConservativeInitialPhase(true)
+            setFilterConservativeInitialPhase(false)
         }
         check(newConfig.validate()) { "Invalid WebRTC AEC3 configuration" }
 
@@ -296,7 +296,7 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
             renderChannels = 1,
             captureChannels = 1,
         )
-        newControl.setAudioBufferDelay(INITIAL_AUDIO_BUFFER_DELAY_MS)
+        newControl.setAudioBufferDelay(DEFAULT_AUDIO_BUFFER_DELAY_MS)
 
         config = newConfig
         environment = newEnvironment
@@ -339,7 +339,6 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         private const val BYTES_PER_SAMPLE = 2
         private const val MAX_RENDER_QUEUE_FRAMES = 100
         private const val RENDER_CLOCK_TOLERANCE_US = 2_000L
-        private const val DEFAULT_DELAY_BLOCKS = 5
-        private const val INITIAL_AUDIO_BUFFER_DELAY_MS = 0
+        private const val DEFAULT_AUDIO_BUFFER_DELAY_MS = 25
     }
 }
