@@ -27,6 +27,7 @@ android {
 
 dependencies {
     implementation("androidx.annotation:annotation:1.9.1")
+    implementation("cn.enaium.webrtc.aec3:webrtc-aec3-kmp:1.0.3")
     implementation("androidx.media3:media3-common:1.8.1")
     implementation("androidx.media3:media3-effect:1.8.1")
     implementation("androidx.media3:media3-exoplayer:1.8.1")
