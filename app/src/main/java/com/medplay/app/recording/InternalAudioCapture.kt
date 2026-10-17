@@ -23,7 +23,7 @@ import kotlin.concurrent.thread
 class InternalAudioCapture(
     private val mediaProjection: MediaProjection,
     private val consumer: EncodedAudioConsumer = EncodedAudioConsumer.Discard,
-    private val echoProcessor: GameVoiceEchoProcessor? = null,
+    echoProcessor: GameVoiceEchoProcessor? = null,
     private val onFatalError: (Throwable) -> Unit = {},
 ) {
 
@@ -44,11 +44,16 @@ class InternalAudioCapture(
         }
     }
 
+    @Volatile private var echoProcessor: GameVoiceEchoProcessor? = echoProcessor
     private var audioRecord: AudioRecord? = null
     private var codec: MediaCodec? = null
     private var worker: Thread? = null
     private val running = AtomicBoolean(false)
     private val stopping = AtomicBoolean(false)
+
+    fun setEchoProcessor(processor: GameVoiceEchoProcessor?) {
+        echoProcessor = processor
+    }
 
     fun start() {
         check(!running.get()) { "Internal audio capture already started" }
