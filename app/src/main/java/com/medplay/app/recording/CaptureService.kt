@@ -773,10 +773,6 @@ class CaptureService : Service() {
 
         runCatching { rollingMicrophoneWriter?.close() }
         rollingMicrophoneWriter = null
-
-        closeGameVoiceEchoProcessor()
-        runCatching { persistSessionDiagnostics() }
-
         microphoneCurrentlySilenced = false
         closeGameVoiceEchoProcessor()
     }
@@ -1444,6 +1440,10 @@ class CaptureService : Service() {
 
         runCatching { rollingMicrophoneWriter?.close() }
         rollingMicrophoneWriter = null
+
+        closeGameVoiceEchoProcessor()
+        runCatching { persistSessionDiagnostics() }
+
         microphoneCurrentlySilenced = false
         fullSessionPaused = false
         activePauseStartedUs = Long.MIN_VALUE
