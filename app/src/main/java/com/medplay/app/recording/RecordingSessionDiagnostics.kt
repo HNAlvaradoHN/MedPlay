@@ -22,6 +22,8 @@ data class RecordingSessionDiagnostics(
     val microphoneAecEchoReturnLossEnhancementDb: Double = 0.0,
     val microphoneAecEstimatedDelayMs: Int = 0,
     val microphoneAecRenderCaptureSkewMs: Int = 0,
+    val microphoneAecExternalDelayMs: Int = 0,
+    val microphoneAecExternalDelayCorrelation: Double = 0.0,
     val thermalProfileDowngrades: Int = 0,
     val initialProfile: RecordingProfile? = null,
 ) {
@@ -81,6 +83,14 @@ data class RecordingSessionDiagnostics(
             appendLine(
                 "microphoneAecRenderCaptureSkewMs=" +
                     microphoneAecRenderCaptureSkewMs
+            )
+            appendLine(
+                "microphoneAecExternalDelayMs=" +
+                    microphoneAecExternalDelayMs
+            )
+            appendLine(
+                "microphoneAecExternalDelayCorrelation=" +
+                    microphoneAecExternalDelayCorrelation
             )
             appendLine("maxThermalStatus=$maxThermalStatus")
             appendLine("sustainabilityVerdict=$sustainabilityVerdict")
