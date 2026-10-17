@@ -228,7 +228,16 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
             captureFrames = captureFrames,
             droppedRenderFrames = droppedRenderFrames,
             resets = resets,
-            renderCaptureSkewMs = if (lastCaptureStartUs != Long.MIN_VALUE && lastAnalyzedRenderStartUs != Long.MIN_VALUE) ((lastCaptureStartUs - lastAnalyzedRenderStartUs) / 1_000L).toInt() else 0,
+            renderCaptureSkewMs =
+                if (
+                    lastCaptureStartUs != Long.MIN_VALUE &&
+                    lastAnalyzedRenderStartUs != Long.MIN_VALUE
+                ) {
+                    ((lastCaptureStartUs - lastAnalyzedRenderStartUs) / 1_000L)
+                        .toInt()
+                } else {
+                    0
+                },
         )
     }
 
@@ -300,8 +309,6 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         const val FRAME_SAMPLES = SAMPLE_RATE / 100
 
         private const val BYTES_PER_SAMPLE = 2
-        private const val MAX_RENDER_QUEUE_FRAMES = 100
-        private const val RENDER_CLOCK_TOLERANCE_US = 2_000L
         private const val DEFAULT_AUDIO_BUFFER_DELAY_MS = 25
     }
 }
