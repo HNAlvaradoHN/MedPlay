@@ -47,6 +47,6 @@ class CapturedContentProfilePolicyTest {
         )
 
         assertEquals(1920, fitted.width)
-        assertEquals(1088, fitted.height)
+        assertEquals(1080, fitted.height)
     }
 }
