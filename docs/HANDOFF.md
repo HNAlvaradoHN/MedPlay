@@ -949,3 +949,11 @@ Merged on main at `c23d9ae6f3eeab811086cab2d1a48c824c39f36d` after green PR #130
 - preview scaling is explicitly FIT to show the whole video frame.
 
 Physical validation required: drag the recording control to both edges and open the same clip shown in the owner's screenshot to confirm the full source frame is visible with a smaller preview.
+
+## Current owner UI validation
+
+Use current `dev-latest` from run `39060537762` to validate the refined owner-requested behavior:
+- floating recording control should appear as a partially hidden side tab, with about 42% visible;
+- editor preview should occupy less height and show the complete video frame using FIT.
+
+Target: `2c12f6ed5eae2113ec18620c758d0ee90f201a45`, published `2026-10-17T19:01:39Z`, APK size 58,558,349 bytes. Workflow is back to manual-only.
