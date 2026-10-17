@@ -33,7 +33,7 @@ jobs:
       - name: Install Android platform
         shell: bash
         run: |
-          sdkmanager "platforms;android-37" "build-tools;36.0.0"
+          android sdk install platforms/android-37 build-tools/36.0.0
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
