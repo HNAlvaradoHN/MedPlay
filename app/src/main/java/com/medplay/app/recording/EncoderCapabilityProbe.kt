@@ -133,6 +133,20 @@ object EncoderCapabilityProbe {
         )
     }
 
+    fun fitProfileToCapturedContent(
+        profile: RecordingProfile,
+        capturedWidth: Int,
+        capturedHeight: Int,
+    ): RecordingProfile? {
+        if (capturedWidth <= 0 || capturedHeight <= 0) return null
+        val fitted = CapturedContentProfilePolicy.fit(
+            profile = profile,
+            capturedWidth = capturedWidth,
+            capturedHeight = capturedHeight,
+        )
+        return fitted.takeIf(::supportsProfile)
+    }
+
     fun orientLike(
         profile: RecordingProfile,
         reference: RecordingProfile,
