@@ -913,3 +913,27 @@ Release evidence:
 - published `2026-10-16T22:21:43Z`.
 
 Do not mark the new media UI physically validated until the owner tests it on-device.
+
+
+## WebRTC AEC3 voice handoff
+
+The native Android AEC experiment was physically insufficient on the owner's phone: game sound emitted by the speaker still entered the microphone track.
+
+MedPlay now uses explicit reference-based software echo cancellation when internal playback + player voice are both active:
+1. AudioPlaybackCapture PCM remains the source for the independent game AAC track.
+2. The same pre-AAC PCM is tapped as WebRTC AEC3 far-end/render reference.
+3. Raw microphone PCM is the AEC3 near-end/capture signal.
+4. Only AEC3-cleaned microphone PCM is sent to microphone AAC.
+5. Both sides operate at 48 kHz in 10 ms frames.
+6. Android platform AEC is disabled whenever software AEC3 is active, but remains fallback if software AEC cannot start.
+7. Mic-client silencing suspends AEC adaptation, preserves the mic timeline with encoded silence, and recreates AEC state when input returns.
+8. AudioRecord hardware timestamps anchor absolute capture start; codec PTS stays sample-count based.
+
+Diagnostics to inspect after real-device testing:
+- `microphoneAecMode` should be `webrtc_aec3`;
+- `microphoneAecRenderFrames` and `microphoneAecCaptureFrames` should both increase;
+- `microphoneAecEchoReturnLossDb`, `microphoneAecEchoReturnLossEnhancementDb`, and `microphoneAecEstimatedDelayMs` provide AEC3 evidence.
+
+Latest code CI: `38994316142` succeeded.
+
+Physical test required before calling the defect resolved: full-session + internal game audio + player voice, phone speaker loud, speak while game/video audio plays, then compare the microphone contribution and final export. Also watch for voice distortion, sync drift, heat or gameplay impact.
