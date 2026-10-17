@@ -64,6 +64,7 @@ class MicrophoneVoiceCapture(
         var record: AudioRecord? = null
         var encoder: MediaCodec? = null
         var encoderStarted = false
+        var captureStartUs = Long.MIN_VALUE
         var callback: AudioManager.AudioRecordingCallback? = null
 
         try {
@@ -127,8 +128,8 @@ class MicrophoneVoiceCapture(
             encoderStarted = true
             createdRecord.startRecording()
 
-            val monotonicStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
-            consumer.onCaptureStarted(monotonicStartUs, SAMPLE_RATE, CHANNEL_COUNT)
+            captureStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
+            consumer.onCaptureStarted(captureStartUs, SAMPLE_RATE, CHANNEL_COUNT)
             createdRecord.activeRecordingConfiguration?.let {
                 publishSilencedState(it.isClientSilenced)
             }
@@ -151,6 +152,10 @@ class MicrophoneVoiceCapture(
 
         val readyRecord = checkNotNull(record)
         val readyEncoder = checkNotNull(encoder)
+        check(captureStartUs != Long.MIN_VALUE) {
+            "Audio capture start timestamp unavailable"
+        }
+        val readyCaptureStartUs = captureStartUs
 
         audioRecord = readyRecord
         codec = readyEncoder
@@ -167,7 +172,7 @@ class MicrophoneVoiceCapture(
                 runLoop(
                     readyRecord,
                     readyEncoder,
-                    monotonicStartUs,
+                    readyCaptureStartUs,
                 )
             } catch (error: Throwable) {
                 if (!stopping.get()) {
