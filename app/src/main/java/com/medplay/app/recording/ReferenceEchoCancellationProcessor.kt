@@ -17,13 +17,11 @@ import java.util.ArrayDeque
 /**
  * Reference-based acoustic echo cancellation for player voice.
  *
- * Playback and microphone AudioRecords run on independent threads and can
- * deliver different chunk sizes. Feeding a large playback chunk directly into
- * AEC3 can advance the render side tens of milliseconds ahead of capture.
- *
- * This class therefore timestamps and queues 10 ms render frames. The capture
- * side drains only render frames that have actually occurred by the capture
- * frame time before asking AEC3 to process the microphone frame.
+ * AEC3 owns its own render history and delay estimator. Clean playback frames
+ * must therefore be analyzed as they arrive, before the matching near-end
+ * microphone frame is processed. Microphone frames may wait briefly when the
+ * playback-capture thread is late so the far-end reference is not starved by
+ * thread scheduling.
  */
 class ReferenceEchoCancellationProcessor : AutoCloseable {
 
@@ -38,7 +36,7 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         val renderCaptureSkewMs: Int,
     )
 
-    private data class RenderFrame(
+    private data class CaptureFrame(
         val startUs: Long,
         val samples: FloatArray,
     )
@@ -50,7 +48,6 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
     private var renderBuffer: Aec3AudioBuffer? = null
     private var captureBuffer: Aec3AudioBuffer? = null
 
-    private val renderQueue = ArrayDeque<RenderFrame>()
     private val renderFrame = FloatArray(FRAME_SAMPLES)
     private var renderFill = 0
     private var renderFrameStartUs = Long.MIN_VALUE
@@ -58,6 +55,7 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
     private val captureFrame = FloatArray(FRAME_SAMPLES)
     private var captureFill = 0
     private var captureFrameStartUs = Long.MIN_VALUE
+    private val pendingCaptureFrames = ArrayDeque<CaptureFrame>()
 
     private var captureSilenced = false
     private var renderFrames = 0L
@@ -66,7 +64,6 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
     private var resets = 0
     private var lastAnalyzedRenderStartUs = Long.MIN_VALUE
     private var lastCaptureStartUs = Long.MIN_VALUE
-    private var lastAppliedDelayMs = DEFAULT_AUDIO_BUFFER_DELAY_MS
 
     init {
         createEngine()
@@ -75,9 +72,10 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
     /**
      * Adds clean playback PCM as far-end reference.
      *
-     * The callback supplies the BOOTTIME-anchored timestamp of the first PCM
-     * frame. Audio is copied into bounded 10 ms mono frames; AEC3 analysis is
-     * intentionally deferred until the corresponding microphone time arrives.
+     * AudioPlaybackCapture and microphone timestamps share BOOTTIME. Timestamps
+     * are retained for ordering/diagnostics only; they are not converted into
+     * AEC3's optional audio-buffer-delay value because that API describes I/O
+     * buffering, not the acoustic echo-path delay.
      */
     @Synchronized
     fun offerRenderPcm(
@@ -88,6 +86,8 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
     ) {
         if (captureSilenced || bytesRead <= 0 || channelCount <= 0) return
 
+        val control = echoControl ?: return
+        val target = renderBuffer ?: return
         val pcm = source.duplicate().order(ByteOrder.nativeOrder())
         pcm.position(0)
         pcm.limit(bytesRead.coerceAtMost(pcm.capacity()))
@@ -109,12 +109,17 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
                 (mixed / channelCount).toFloat()
 
             if (renderFill == FRAME_SAMPLES) {
-                enqueueRenderFrame(
-                    RenderFrame(
-                        startUs = renderFrameStartUs,
-                        samples = renderFrame.copyOf(),
-                    )
-                )
+                if (
+                    lastAnalyzedRenderStartUs != Long.MIN_VALUE &&
+                    renderFrameStartUs <= lastAnalyzedRenderStartUs
+                ) {
+                    droppedRenderFrames++
+                } else {
+                    target.writeChannel(0, renderFrame)
+                    control.analyzeRender(target)
+                    lastAnalyzedRenderStartUs = renderFrameStartUs
+                    renderFrames++
+                }
                 renderFill = 0
                 renderFrameStartUs = Long.MIN_VALUE
             }
@@ -123,7 +128,9 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
     }
 
     /**
-     * Processes microphone PCM and returns only complete 10 ms AEC3 frames.
+     * Queues microphone PCM in 10 ms frames and processes frames once the clean
+     * playback timeline has caught up. The bounded wait handles scheduling lag
+     * between the two AudioRecord threads without changing media timestamps.
      */
     @Synchronized
     fun processCaptureMonoPcm(
@@ -135,31 +142,13 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
             return ByteArray(bytesRead.coerceAtLeast(0))
         }
 
-        val control = echoControl ?: return copyPcm(source, bytesRead)
-        val target = captureBuffer ?: return copyPcm(source, bytesRead)
+        if (echoControl == null || captureBuffer == null) {
+            return copyPcm(source, bytesRead)
+        }
 
         val pcm = source.duplicate().order(ByteOrder.nativeOrder())
         pcm.position(0)
         pcm.limit(bytesRead.coerceAtMost(pcm.capacity()))
-
-        val completeFrames =
-            (captureFill + pcm.remaining() / BYTES_PER_SAMPLE) / FRAME_SAMPLES
-        if (completeFrames <= 0) {
-            var sampleIndex = 0L
-            while (pcm.remaining() >= BYTES_PER_SAMPLE) {
-                if (captureFill == 0) {
-                    captureFrameStartUs =
-                        firstFrameStartUs + framesToUs(sampleIndex)
-                }
-                captureFrame[captureFill++] = pcm.short.toFloat()
-                sampleIndex++
-            }
-            return ByteArray(0)
-        }
-
-        val output = ByteBuffer
-            .allocate(completeFrames * FRAME_SAMPLES * BYTES_PER_SAMPLE)
-            .order(ByteOrder.nativeOrder())
 
         var sampleIndex = 0L
         while (pcm.remaining() >= BYTES_PER_SAMPLE) {
@@ -171,32 +160,28 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
             sampleIndex++
 
             if (captureFill == FRAME_SAMPLES) {
-                drainRenderThrough(captureFrameStartUs)
-                updateAecDelayFromClockAlignment(control, captureFrameStartUs)
-
-                target.writeChannel(0, captureFrame)
-                control.analyzeCapture(target)
-                control.processCapture(target, false)
-
-                val clean = target.readChannel(0)
-                for (sample in clean) {
-                    output.putShort(
-                        sample
-                            .coerceIn(
-                                Short.MIN_VALUE.toFloat(),
-                                Short.MAX_VALUE.toFloat(),
-                            )
-                            .toInt()
-                            .toShort()
+                pendingCaptureFrames.addLast(
+                    CaptureFrame(
+                        startUs = captureFrameStartUs,
+                        samples = captureFrame.copyOf(),
                     )
-                }
-                captureFrames++
+                )
                 captureFill = 0
                 captureFrameStartUs = Long.MIN_VALUE
             }
         }
 
-        return output.array()
+        return drainReadyCaptureFrames(force = false)
+    }
+
+    /**
+     * Drains complete microphone frames still waiting for render catch-up.
+     * Used at recording shutdown so the bounded scheduling wait never truncates
+     * the end of the voice track.
+     */
+    @Synchronized
+    fun flushCapture(): ByteArray {
+        return drainReadyCaptureFrames(force = true)
     }
 
     /**
@@ -208,14 +193,13 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
     fun setCaptureSilenced(silenced: Boolean) {
         if (captureSilenced == silenced) return
         captureSilenced = silenced
-        renderQueue.clear()
+        pendingCaptureFrames.clear()
         renderFill = 0
         renderFrameStartUs = Long.MIN_VALUE
         captureFill = 0
         captureFrameStartUs = Long.MIN_VALUE
         lastAnalyzedRenderStartUs = Long.MIN_VALUE
         lastCaptureStartUs = Long.MIN_VALUE
-        lastAppliedDelayMs = DEFAULT_AUDIO_BUFFER_DELAY_MS
 
         if (!silenced) {
             destroyEngine()
@@ -236,76 +220,84 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
             captureFrames = captureFrames,
             droppedRenderFrames = droppedRenderFrames,
             resets = resets,
-            renderCaptureSkewMs = if (lastCaptureStartUs != Long.MIN_VALUE && lastAnalyzedRenderStartUs != Long.MIN_VALUE) ((lastCaptureStartUs - lastAnalyzedRenderStartUs) / 1_000L).toInt() else 0,
+            renderCaptureSkewMs =
+                if (
+                    lastCaptureStartUs != Long.MIN_VALUE &&
+                    lastAnalyzedRenderStartUs != Long.MIN_VALUE
+                ) {
+                    ((lastCaptureStartUs - lastAnalyzedRenderStartUs) / 1_000L)
+                        .toInt()
+                } else {
+                    0
+                },
         )
     }
 
     @Synchronized
     override fun close() {
-        renderQueue.clear()
+        pendingCaptureFrames.clear()
         destroyEngine()
         renderFill = 0
         captureFill = 0
         renderFrameStartUs = Long.MIN_VALUE
         captureFrameStartUs = Long.MIN_VALUE
+        lastAnalyzedRenderStartUs = Long.MIN_VALUE
         lastCaptureStartUs = Long.MIN_VALUE
-        lastAppliedDelayMs = DEFAULT_AUDIO_BUFFER_DELAY_MS
     }
 
-    private fun enqueueRenderFrame(frame: RenderFrame) {
-        while (renderQueue.size >= MAX_RENDER_QUEUE_FRAMES) {
-            renderQueue.removeFirst()
-            droppedRenderFrames++
-        }
-        renderQueue.addLast(frame)
-    }
+    private fun drainReadyCaptureFrames(force: Boolean): ByteArray {
+        val control = echoControl ?: return ByteArray(0)
+        val target = captureBuffer ?: return ByteArray(0)
+        if (pendingCaptureFrames.isEmpty()) return ByteArray(0)
 
-    private fun drainRenderThrough(captureStartUs: Long) {
-        val control = echoControl ?: return
-        val target = renderBuffer ?: return
+        val maxBytes =
+            pendingCaptureFrames.size * FRAME_SAMPLES * BYTES_PER_SAMPLE
+        val output = ByteBuffer.allocate(maxBytes)
+            .order(ByteOrder.nativeOrder())
 
-        while (renderQueue.isNotEmpty()) {
-            val frame = renderQueue.first()
-            if (frame.startUs > captureStartUs + RENDER_CLOCK_TOLERANCE_US) {
+        while (pendingCaptureFrames.isNotEmpty()) {
+            val frame = pendingCaptureFrames.first()
+            val renderCaughtUp =
+                lastAnalyzedRenderStartUs != Long.MIN_VALUE &&
+                    lastAnalyzedRenderStartUs + RENDER_CLOCK_TOLERANCE_US >=
+                    frame.startUs
+            val waitBoundReached =
+                pendingCaptureFrames.size > MAX_CAPTURE_WAIT_FRAMES
+
+            if (!force && !renderCaughtUp && !waitBoundReached) {
                 break
             }
 
-            renderQueue.removeFirst()
-            if (
-                lastAnalyzedRenderStartUs != Long.MIN_VALUE &&
-                frame.startUs <= lastAnalyzedRenderStartUs
-            ) {
-                droppedRenderFrames++
-                continue
-            }
+            pendingCaptureFrames.removeFirst()
+            lastCaptureStartUs = frame.startUs
 
             target.writeChannel(0, frame.samples)
-            control.analyzeRender(target)
-            lastAnalyzedRenderStartUs = frame.startUs
-            renderFrames++
-        }
-    }
+            control.analyzeCapture(target)
+            control.processCapture(target, false)
 
-    private fun updateAecDelayFromClockAlignment(
-        control: Aec3EchoControl,
-        captureStartUs: Long,
-    ) {
-        lastCaptureStartUs = captureStartUs
-        val renderStartUs = lastAnalyzedRenderStartUs
-        if (renderStartUs == Long.MIN_VALUE) return
-        val measuredMs = ((captureStartUs - renderStartUs) / 1_000L)
-            .toInt()
-            .coerceIn(0, 500)
-        if (kotlin.math.abs(measuredMs - lastAppliedDelayMs) < 5) return
-        control.setAudioBufferDelay(measuredMs)
-        lastAppliedDelayMs = measuredMs
+            val clean = target.readChannel(0)
+            for (sample in clean) {
+                output.putShort(
+                    sample
+                        .coerceIn(
+                            Short.MIN_VALUE.toFloat(),
+                            Short.MAX_VALUE.toFloat(),
+                        )
+                        .toInt()
+                        .toShort()
+                )
+            }
+            captureFrames++
+        }
+
+        return output.array().copyOf(output.position())
     }
 
     private fun createEngine() {
         val newConfig = createAec3Config().apply {
-            // The wrapper's own live example uses 25 ms as the render/capture
-            // buffer delay prior. AEC3 still estimates the acoustic path.
-            setDelayDefaultDelay(DEFAULT_AUDIO_BUFFER_DELAY_MS)
+            // This is only AEC3's initial delay prior. The live echo-path delay
+            // continues to be estimated by AEC3 from the render/capture signals.
+            setDelayDefaultDelay(DEFAULT_DELAY_PRIOR_MS)
             setFilterInitialStateSeconds(0.5f)
             setFilterConservativeInitialPhase(false)
         }
@@ -320,7 +312,6 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
             renderChannels = 1,
             captureChannels = 1,
         )
-        newControl.setAudioBufferDelay(DEFAULT_AUDIO_BUFFER_DELAY_MS)
 
         config = newConfig
         environment = newEnvironment
@@ -361,8 +352,8 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         const val FRAME_SAMPLES = SAMPLE_RATE / 100
 
         private const val BYTES_PER_SAMPLE = 2
-        private const val MAX_RENDER_QUEUE_FRAMES = 100
         private const val RENDER_CLOCK_TOLERANCE_US = 2_000L
-        private const val DEFAULT_AUDIO_BUFFER_DELAY_MS = 25
+        private const val MAX_CAPTURE_WAIT_FRAMES = 10
+        private const val DEFAULT_DELAY_PRIOR_MS = 25
     }
 }
