@@ -275,8 +275,10 @@ class MicrophoneVoiceCapture(
             if (captureStartUs == Long.MIN_VALUE) {
                 captureStartUs =
                     AudioRecordClock.captureStartMonotonicUs(
-                        record,
-                        SAMPLE_RATE,
+                        record = record,
+                        sampleRate = SAMPLE_RATE,
+                        framesReadAtQuery =
+                            (bytesRead / BYTES_PER_FRAME).toLong(),
                     )
                 consumer.onCaptureStarted(
                     captureStartUs,
