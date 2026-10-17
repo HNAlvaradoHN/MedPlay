@@ -1424,6 +1424,7 @@ class CaptureService : Service() {
         activeProfile = null
         sessionStartedUs = Long.MIN_VALUE
 
+        val aecMetrics = voiceEchoProcessor?.metrics()
         val diagnostics = RecordingSessionDiagnostics(
             startedMonotonicUs = startedUs,
             endedMonotonicUs = SystemClock.elapsedRealtimeNanos() / 1_000L,
@@ -1437,6 +1438,19 @@ class CaptureService : Service() {
             microphonePeakAbs = sessionMicrophonePeakAbs,
             microphoneAecAvailable = sessionMicrophoneAecAvailable,
             microphoneAecEnabled = sessionMicrophoneAecEnabled,
+            microphoneAecMode = if (sessionMicrophoneAecEnabled) {
+                "webrtc_aec3"
+            } else {
+                "none"
+            },
+            microphoneAecRenderFrames = aecMetrics?.renderFrames ?: 0L,
+            microphoneAecCaptureFrames = aecMetrics?.captureFrames ?: 0L,
+            microphoneAecResets = aecMetrics?.resets ?: 0,
+            microphoneAecEchoReturnLossDb =
+                aecMetrics?.echoReturnLoss ?: 0.0,
+            microphoneAecEchoReturnLossEnhancementDb =
+                aecMetrics?.echoReturnLossEnhancement ?: 0.0,
+            microphoneAecEstimatedDelayMs = aecMetrics?.delayMs ?: 0,
             thermalProfileDowngrades = thermalProfileDowngrades,
             initialProfile = initialSessionProfile,
         )
