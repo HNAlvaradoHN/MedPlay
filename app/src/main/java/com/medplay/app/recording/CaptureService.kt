@@ -391,6 +391,7 @@ class CaptureService : Service() {
         }
         thermalGuard = startedThermalGuard
 
+        prepareVoiceEchoProcessorIfNeeded()
         startInternalAudioIfPermitted(mediaProjection)
         startMicrophoneVoiceIfPermitted()
         showFloatingControl()
@@ -602,9 +603,11 @@ class CaptureService : Service() {
         return true
     }
 
-    private fun startInternalAudioIfPermitted(projection: MediaProjection?) {
-        if (projection == null) return
-        if (!InternalAudioPreference.isEnabled(applicationContext)) return
+    private fun prepareVoiceEchoProcessorIfNeeded() {
+        if (voiceEchoProcessor != null) return
+        if (activeRecordingMode != RecordingModePreference.Mode.FULL_SESSION) return
+        if (!MicrophoneVoicePreference.isEnabled(applicationContext)) return
+        if (!microphoneForegroundTypeActive) return
         if (
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
             PackageManager.PERMISSION_GRANTED
@@ -612,15 +615,50 @@ class CaptureService : Service() {
             return
         }
 
-        val audioWriter = RollingAudioSegmentWriter(
-            directory = File(cacheDir, "medplay_rolling_audio"),
-            retentionUs = activeRetentionUs,
-        )
+        voiceEchoProcessor = runCatching {
+            ReferenceEchoCancellationProcessor()
+        }.getOrNull()
+    }
+
+    private fun startInternalAudioIfPermitted(projection: MediaProjection?) {
+        if (projection == null) return
+        if (
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val recordInternalAudio =
+            InternalAudioPreference.isEnabled(applicationContext)
+        val neededAsVoiceReference = voiceEchoProcessor != null
+        if (!recordInternalAudio && !neededAsVoiceReference) return
+
+        val audioWriter = if (recordInternalAudio) {
+            RollingAudioSegmentWriter(
+                directory = File(cacheDir, "medplay_rolling_audio"),
+                retentionUs = activeRetentionUs,
+            )
+        } else {
+            null
+        }
+
         val audioCapture = InternalAudioCapture(
             mediaProjection = projection,
-            consumer = audioWriter,
-            onPcmReference = { pcm, bytesRead ->
-                voiceEchoProcessor?.offerRenderStereoPcm(pcm, bytesRead)
+            consumer =
+                audioWriter ?: InternalAudioCapture.EncodedAudioConsumer.Discard,
+            onPcmReference = {
+                    pcm,
+                    bytesRead,
+                    firstFrameStartUs,
+                    channelCount,
+                ->
+                voiceEchoProcessor?.offerRenderPcm(
+                    source = pcm,
+                    bytesRead = bytesRead,
+                    firstFrameStartUs = firstFrameStartUs,
+                    channelCount = channelCount,
+                )
             },
             onFatalError = {
                 Handler(Looper.getMainLooper()).post {
@@ -636,10 +674,10 @@ class CaptureService : Service() {
         if (started) {
             rollingAudioWriter = audioWriter
             internalAudioCapture = audioCapture
-            sessionAudioWasActive = true
+            sessionAudioWasActive = recordInternalAudio
         } else {
             audioCapture.stop()
-            runCatching { audioWriter.close() }
+            runCatching { audioWriter?.close() }
         }
     }
 
@@ -680,10 +718,11 @@ class CaptureService : Service() {
         )
 
         val echoProcessor = if (internalAudioCapture != null) {
-            runCatching {
+            voiceEchoProcessor ?: runCatching {
                 ReferenceEchoCancellationProcessor()
             }.getOrNull()
         } else {
+            runCatching { voiceEchoProcessor?.close() }
             null
         }
         voiceEchoProcessor = echoProcessor
