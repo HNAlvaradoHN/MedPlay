@@ -107,7 +107,7 @@ class ClipEditorActivity : Activity() {
             resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val previewHeightPx = (
             resources.displayMetrics.heightPixels *
-                if (isLandscape) 0.46f else 0.34f
+                if (isLandscape) 0.58f else 0.52f
             ).toInt()
 
         val root = LinearLayout(this).apply {
@@ -215,8 +215,21 @@ class ClipEditorActivity : Activity() {
             }
         )
 
+        fun compactActionButton(button: Button) {
+            button.textSize = 13f
+            button.minHeight = 0
+            button.minimumHeight = 0
+            button.setPadding(
+                MediaUiStyle.dp(this@ClipEditorActivity, 10),
+                MediaUiStyle.dp(this@ClipEditorActivity, 6),
+                MediaUiStyle.dp(this@ClipEditorActivity, 10),
+                MediaUiStyle.dp(this@ClipEditorActivity, 6),
+            )
+        }
+
         val setStartButton = Button(this).apply {
             text = tr("Marcar inicio aquí", "Set start here")
+            compactActionButton(this)
             setOnClickListener {
                 val currentUs = player.currentPosition * 1_000L
                 trimStartUs = currentUs.coerceIn(0L, trimEndUs)
@@ -225,6 +238,7 @@ class ClipEditorActivity : Activity() {
         }
         val setEndButton = Button(this).apply {
             text = tr("Marcar final aquí", "Set end here")
+            compactActionButton(this)
             setOnClickListener {
                 val currentUs = player.currentPosition * 1_000L
                 trimEndUs = currentUs.coerceIn(trimStartUs, sourceDurationUs)
@@ -233,6 +247,7 @@ class ClipEditorActivity : Activity() {
         }
         val resetTrimButton = Button(this).apply {
             text = tr("Usar video completo", "Use full video")
+            compactActionButton(this)
             setOnClickListener {
                 trimStartUs = 0L
                 trimEndUs = sourceDurationUs
@@ -701,13 +716,13 @@ class ClipEditorActivity : Activity() {
             return TextView(this).apply {
                 text = label
                 setTextColor(MediaUiStyle.SECONDARY_TEXT)
-                textSize = 14f
+                textSize = 12f
                 gravity = Gravity.CENTER
                 setPadding(
-                    MediaUiStyle.dp(this@ClipEditorActivity, 18),
-                    MediaUiStyle.dp(this@ClipEditorActivity, 10),
-                    MediaUiStyle.dp(this@ClipEditorActivity, 18),
-                    MediaUiStyle.dp(this@ClipEditorActivity, 10),
+                    MediaUiStyle.dp(this@ClipEditorActivity, 12),
+                    MediaUiStyle.dp(this@ClipEditorActivity, 7),
+                    MediaUiStyle.dp(this@ClipEditorActivity, 12),
+                    MediaUiStyle.dp(this@ClipEditorActivity, 7),
                 )
                 background = MediaUiStyle.rounded(
                     MediaUiStyle.SURFACE,
@@ -761,7 +776,7 @@ class ClipEditorActivity : Activity() {
                 ).apply {
                     marginEnd = MediaUiStyle.dp(
                         this@ClipEditorActivity,
-                        8,
+                        6,
                     )
                 }
             )
