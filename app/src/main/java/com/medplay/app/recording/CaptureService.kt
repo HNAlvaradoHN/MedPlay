@@ -212,13 +212,15 @@ class CaptureService : Service() {
 
         var createdProjection: MediaProjection? = null
         val projection = runCatching {
-            manager.getMediaProjection(resultCode, resultData).also { newProjection ->
-                createdProjection = newProjection
-                newProjection.registerCallback(
-                    projectionCallback,
-                    Handler(Looper.getMainLooper()),
-                )
-            }
+            val newProjection =
+                manager.getMediaProjection(resultCode, resultData)
+                    ?: error("MediaProjection was not created")
+            createdProjection = newProjection
+            newProjection.registerCallback(
+                projectionCallback,
+                Handler(Looper.getMainLooper()),
+            )
+            newProjection
         }.getOrElse {
             runCatching { createdProjection?.stop() }
             stopSelf()
