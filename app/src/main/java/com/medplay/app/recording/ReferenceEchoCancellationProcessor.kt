@@ -93,7 +93,13 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         source: ByteBuffer,
         bytesRead: Int,
     ): ByteArray {
-        if (captureSilenced) return ByteArray(0)
+        if (captureSilenced) {
+            // Preserve the microphone track timeline while Android gives the
+            // game exclusive input priority. Encoding silence keeps later
+            // voice samples synchronized with the game/video instead of
+            // collapsing the silenced interval.
+            return ByteArray(bytesRead.coerceAtLeast(0))
+        }
 
         val control = echoControl ?: return copyPcm(source, bytesRead)
         val target = captureBuffer ?: return copyPcm(source, bytesRead)
