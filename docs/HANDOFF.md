@@ -937,3 +937,18 @@ Diagnostics to inspect after real-device testing:
 Latest code CI: `38994316142` succeeded.
 
 Physical test required before calling the defect resolved: full-session + internal game audio + player voice, phone speaker loud, speak while game/video audio plays, then compare the microphone contribution and final export. Also watch for voice distortion, sync drift, heat or gameplay impact.
+
+
+## Latest WebRTC AEC3 validation APK
+
+`dev-latest` now contains the merged reference-based software AEC3 path for player voice.
+
+Release evidence:
+- workflow run `38994570302`: success;
+- target `f9a41334b4118d415916c3c59b672f1d07dbe08d`;
+- source main `e2a9e8aeb215b0630282a55596beaf713d7396a7`;
+- APK SHA-256 `1e5a54012217d66f7a6600860512d48bf7724c2e050c3870771061709a85a355`;
+- size 58,541,949 bytes;
+- published `2026-10-17T02:23:24Z`.
+
+Do not mark speaker-bleed suppression resolved until the owner's device confirms a material reduction with loud speaker playback and usable voice quality.
