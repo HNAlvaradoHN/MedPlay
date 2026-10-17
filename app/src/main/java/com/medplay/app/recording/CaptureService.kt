@@ -36,6 +36,7 @@ class CaptureService : Service() {
     private var rollingAudioWriter: RollingAudioSegmentWriter? = null
     private var microphoneVoiceCapture: MicrophoneVoiceCapture? = null
     private var rollingMicrophoneWriter: RollingAudioSegmentWriter? = null
+    private var gameVoiceEchoProcessor: GameVoiceEchoProcessor? = null
     private var floatingClipControl: FloatingClipControl? = null
     private var floatingSessionControl: FloatingSessionControl? = null
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -59,6 +60,13 @@ class CaptureService : Service() {
     private var sessionMicrophonePeakAbs = 0
     private var sessionMicrophoneAecAvailable = false
     private var sessionMicrophoneAecEnabled = false
+    @Volatile private var sessionMicrophoneSoftwareAecEnabled = false
+    @Volatile private var sessionMicrophoneSoftwareAecRenderFrames = 0L
+    @Volatile private var sessionMicrophoneSoftwareAecCaptureFrames = 0L
+    @Volatile private var sessionMicrophoneSoftwareAecProcessedFrames = 0L
+    @Volatile private var sessionMicrophoneSoftwareAecEchoReturnLossDb: Double? = null
+    @Volatile private var sessionMicrophoneSoftwareAecEchoReturnLossEnhancementDb: Double? = null
+    @Volatile private var sessionMicrophoneSoftwareAecEstimatedDelayMs: Int? = null
     private var microphoneCurrentlySilenced = false
     private var microphoneForegroundTypeActive = false
     private var fullSessionPaused = false
@@ -337,11 +345,22 @@ class CaptureService : Service() {
         sessionMicrophonePeakAbs = 0
         sessionMicrophoneAecAvailable = false
         sessionMicrophoneAecEnabled = false
+        sessionMicrophoneSoftwareAecEnabled = false
+        sessionMicrophoneSoftwareAecRenderFrames = 0L
+        sessionMicrophoneSoftwareAecCaptureFrames = 0L
+        sessionMicrophoneSoftwareAecProcessedFrames = 0L
+        sessionMicrophoneSoftwareAecEchoReturnLossDb = null
+        sessionMicrophoneSoftwareAecEchoReturnLossEnhancementDb = null
+        sessionMicrophoneSoftwareAecEstimatedDelayMs = null
         microphoneCurrentlySilenced = false
         microphoneForegroundTypeActive = false
         fullSessionPaused = false
         activePauseStartedUs = Long.MIN_VALUE
         completedPauseIntervals.clear()
+
+        if (internalAudioEnabled && microphoneVoiceEnabled) {
+            ensureGameVoiceEchoProcessor()
+        }
 
         val startedThermalGuard = runCatching {
             RuntimeThermalGuard(applicationContext) { action, status ->
@@ -614,6 +633,7 @@ class CaptureService : Service() {
         val audioCapture = InternalAudioCapture(
             mediaProjection = projection,
             consumer = audioWriter,
+            echoProcessor = gameVoiceEchoProcessor,
             onFatalError = {
                 Handler(Looper.getMainLooper()).post {
                     disableInternalAudio()
@@ -641,6 +661,10 @@ class CaptureService : Service() {
 
         runCatching { rollingAudioWriter?.close() }
         rollingAudioWriter = null
+
+        // Without the clean playback reference, software AEC must stop rather
+        // than adapt against stale render audio.
+        closeGameVoiceEchoProcessor()
     }
 
     private fun startMicrophoneVoiceIfPermitted() {
@@ -666,9 +690,14 @@ class CaptureService : Service() {
             directory = File(cacheDir, "medplay_rolling_microphone"),
             retentionUs = activeRetentionUs,
         )
+        if (internalAudioCapture != null && gameVoiceEchoProcessor == null) {
+            ensureGameVoiceEchoProcessor()
+        }
+
         val voiceCapture = MicrophoneVoiceCapture(
             context = applicationContext,
             consumer = voiceWriter,
+            echoProcessor = gameVoiceEchoProcessor,
             onSilencedChanged = { silenced ->
                 Handler(Looper.getMainLooper()).post {
                     handleMicrophoneSilencedChanged(silenced)
@@ -744,7 +773,60 @@ class CaptureService : Service() {
 
         runCatching { rollingMicrophoneWriter?.close() }
         rollingMicrophoneWriter = null
+
+        closeGameVoiceEchoProcessor()
+        runCatching { persistSessionDiagnostics() }
+
         microphoneCurrentlySilenced = false
+        closeGameVoiceEchoProcessor()
+    }
+
+    private fun ensureGameVoiceEchoProcessor(): GameVoiceEchoProcessor? {
+        gameVoiceEchoProcessor?.let { return it }
+
+        val created = runCatching {
+            GameVoiceEchoProcessor.create { state ->
+                sessionMicrophoneSoftwareAecEnabled = state.enabled
+                sessionMicrophoneSoftwareAecRenderFrames = state.renderFrames
+                sessionMicrophoneSoftwareAecCaptureFrames = state.captureFrames
+                sessionMicrophoneSoftwareAecProcessedFrames = state.processedFrames
+                state.echoReturnLossDb?.let {
+                    sessionMicrophoneSoftwareAecEchoReturnLossDb = it
+                }
+                state.echoReturnLossEnhancementDb?.let {
+                    sessionMicrophoneSoftwareAecEchoReturnLossEnhancementDb = it
+                }
+                state.estimatedDelayMs?.let {
+                    sessionMicrophoneSoftwareAecEstimatedDelayMs = it
+                }
+            }
+        }.getOrNull()
+
+        gameVoiceEchoProcessor = created
+        sessionMicrophoneSoftwareAecEnabled = created != null
+        return created
+    }
+
+    private fun closeGameVoiceEchoProcessor() {
+        val processor = gameVoiceEchoProcessor ?: return
+        runCatching {
+            val state = processor.snapshot()
+            sessionMicrophoneSoftwareAecEnabled = state.enabled
+            sessionMicrophoneSoftwareAecRenderFrames = state.renderFrames
+            sessionMicrophoneSoftwareAecCaptureFrames = state.captureFrames
+            sessionMicrophoneSoftwareAecProcessedFrames = state.processedFrames
+            state.echoReturnLossDb?.let {
+                sessionMicrophoneSoftwareAecEchoReturnLossDb = it
+            }
+            state.echoReturnLossEnhancementDb?.let {
+                sessionMicrophoneSoftwareAecEchoReturnLossEnhancementDb = it
+            }
+            state.estimatedDelayMs?.let {
+                sessionMicrophoneSoftwareAecEstimatedDelayMs = it
+            }
+        }
+        runCatching { processor.close() }
+        gameVoiceEchoProcessor = null
     }
 
     private fun applyCapturedContentOrientation() {
@@ -1346,8 +1428,6 @@ class CaptureService : Service() {
     }
 
     private fun releaseVideoPipeline() {
-        runCatching { persistSessionDiagnostics() }
-
         runCatching { floatingClipControl?.close() }
         floatingClipControl = null
         runCatching { floatingSessionControl?.close() }
@@ -1407,6 +1487,19 @@ class CaptureService : Service() {
             microphonePeakAbs = sessionMicrophonePeakAbs,
             microphoneAecAvailable = sessionMicrophoneAecAvailable,
             microphoneAecEnabled = sessionMicrophoneAecEnabled,
+            microphoneSoftwareAecEnabled = sessionMicrophoneSoftwareAecEnabled,
+            microphoneSoftwareAecRenderFrames =
+                sessionMicrophoneSoftwareAecRenderFrames,
+            microphoneSoftwareAecCaptureFrames =
+                sessionMicrophoneSoftwareAecCaptureFrames,
+            microphoneSoftwareAecProcessedFrames =
+                sessionMicrophoneSoftwareAecProcessedFrames,
+            microphoneSoftwareAecEchoReturnLossDb =
+                sessionMicrophoneSoftwareAecEchoReturnLossDb,
+            microphoneSoftwareAecEchoReturnLossEnhancementDb =
+                sessionMicrophoneSoftwareAecEchoReturnLossEnhancementDb,
+            microphoneSoftwareAecEstimatedDelayMs =
+                sessionMicrophoneSoftwareAecEstimatedDelayMs,
             thermalProfileDowngrades = thermalProfileDowngrades,
             initialProfile = initialSessionProfile,
         )
@@ -1418,6 +1511,13 @@ class CaptureService : Service() {
         sessionMicrophonePeakAbs = 0
         sessionMicrophoneAecAvailable = false
         sessionMicrophoneAecEnabled = false
+        sessionMicrophoneSoftwareAecEnabled = false
+        sessionMicrophoneSoftwareAecRenderFrames = 0L
+        sessionMicrophoneSoftwareAecCaptureFrames = 0L
+        sessionMicrophoneSoftwareAecProcessedFrames = 0L
+        sessionMicrophoneSoftwareAecEchoReturnLossDb = null
+        sessionMicrophoneSoftwareAecEchoReturnLossEnhancementDb = null
+        sessionMicrophoneSoftwareAecEstimatedDelayMs = null
         initialSessionProfile = null
         thermalProfileDowngrades = 0
         accumulatedEncodedSamples = 0L
