@@ -85,7 +85,9 @@ internal class GameVoiceEchoProcessor private constructor(
 
             renderFrames++
             lastRenderStartUs = frameStartUs
-            publishStateLocked(includeMetrics = false)
+            if (renderFrames % METRICS_INTERVAL_FRAMES == 0L) {
+                publishStateLocked(includeMetrics = false)
+            }
         }
     }
 
@@ -102,14 +104,18 @@ internal class GameVoiceEchoProcessor private constructor(
             lastCaptureStartUs = frameStartUs
 
             if (closed || microphoneSilenced) {
-                publishStateLocked(includeMetrics = false)
+                if (captureFrames % METRICS_INTERVAL_FRAMES == 0L) {
+                    publishStateLocked(includeMetrics = false)
+                }
                 return monoPcm.copyOf()
             }
 
             val ec = echoControl
             val buffer = captureBuffer
             if (ec == null || buffer == null || renderFrames == 0L) {
-                publishStateLocked(includeMetrics = false)
+                if (captureFrames % METRICS_INTERVAL_FRAMES == 0L) {
+                    publishStateLocked(includeMetrics = false)
+                }
                 return monoPcm.copyOf()
             }
 
@@ -119,7 +125,9 @@ internal class GameVoiceEchoProcessor private constructor(
                 lastRenderStartUs != Long.MIN_VALUE &&
                 frameStartUs - lastRenderStartUs > STALE_RENDER_US
             ) {
-                publishStateLocked(includeMetrics = false)
+                if (captureFrames % METRICS_INTERVAL_FRAMES == 0L) {
+                    publishStateLocked(includeMetrics = false)
+                }
                 return monoPcm.copyOf()
             }
 
