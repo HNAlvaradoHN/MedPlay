@@ -794,6 +794,13 @@ Runtime microphone enable also upgrades the active foreground-service type safel
 
 Final branch CI: run `38950292280` succeeded on `9fad50aae8b928a347db7dc5c96e774252ea7096`.
 
+Validation APK:
+- `dev-latest` was rebuilt successfully by run `39009298806`;
+- release target: `fa93423d3df8db3c61b004994039581685ab6143`;
+- published: `2026-10-17T06:19:22Z`;
+- APK size: 58,558,333 bytes;
+- release workflow is back to manual-only.
+
 Physical validation still required: cold-start MedPlay and enter the selected game several times. If a start is refused, inspect **Mostrar diagnóstico de la última grabación** for the recorded startup stage/error rather than inferring the cause.
 
 
