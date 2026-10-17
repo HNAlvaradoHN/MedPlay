@@ -1438,10 +1438,13 @@ class CaptureService : Service() {
             microphonePeakAbs = sessionMicrophonePeakAbs,
             microphoneAecAvailable = sessionMicrophoneAecAvailable,
             microphoneAecEnabled = sessionMicrophoneAecEnabled,
-            microphoneAecMode = if (sessionMicrophoneAecEnabled) {
-                "webrtc_aec3"
-            } else {
-                "none"
+            microphoneAecMode = when {
+                aecMetrics != null && sessionMicrophoneAecEnabled ->
+                    "webrtc_aec3"
+                sessionMicrophoneAecEnabled ->
+                    "platform"
+                else ->
+                    "none"
             },
             microphoneAecRenderFrames = aecMetrics?.renderFrames ?: 0L,
             microphoneAecCaptureFrames = aecMetrics?.captureFrames ?: 0L,
