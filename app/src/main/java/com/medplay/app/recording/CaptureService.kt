@@ -228,12 +228,32 @@ class CaptureService : Service() {
         }
         mediaProjection = projection
 
-        val profile = runCatching {
+        val baseProfile = runCatching {
             EncoderCapabilityProbe.chooseSafeStartupProfile(
                 RecordingQualityPreference.get(applicationContext)
             )
         }.getOrNull()
-        if (profile == null) {
+        if (baseProfile == null) {
+            stopProjectionAndSelf()
+            return START_NOT_STICKY
+        }
+
+        val displayMetrics = resources.displayMetrics
+        pendingCapturedWidth = displayMetrics.widthPixels
+        pendingCapturedHeight = displayMetrics.heightPixels
+        val profile =
+            EncoderCapabilityProbe.fitProfileToCapturedContent(
+                profile = baseProfile,
+                capturedWidth = pendingCapturedWidth,
+                capturedHeight = pendingCapturedHeight,
+            ) ?: RecordingOrientationPolicy.orient(
+                profile = baseProfile,
+                portrait = RecordingOrientationPolicy.isPortrait(
+                    pendingCapturedWidth,
+                    pendingCapturedHeight,
+                ),
+            )
+        if (!EncoderCapabilityProbe.supportsProfile(profile)) {
             stopProjectionAndSelf()
             return START_NOT_STICKY
         }
@@ -833,12 +853,20 @@ class CaptureService : Service() {
         ) {
             return
         }
-        val portrait = RecordingOrientationPolicy.isPortrait(width, height)
-        val currentlyPortrait = current.height > current.width
-        if (portrait == currentlyPortrait) return
-
-        val target = RecordingOrientationPolicy.orient(current, portrait)
-        if (!EncoderCapabilityProbe.supportsProfile(target)) {
+        val target =
+            EncoderCapabilityProbe.fitProfileToCapturedContent(
+                profile = current,
+                capturedWidth = width,
+                capturedHeight = height,
+            ) ?: RecordingOrientationPolicy.orient(
+                profile = current,
+                portrait = RecordingOrientationPolicy.isPortrait(width, height),
+            )
+        if (!EncoderCapabilityProbe.supportsProfile(target)) return
+        if (
+            target.width == current.width &&
+            target.height == current.height
+        ) {
             return
         }
         requestOrientationProfileSwitch(target)
