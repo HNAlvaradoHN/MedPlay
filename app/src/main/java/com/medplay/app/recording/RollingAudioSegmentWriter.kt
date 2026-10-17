@@ -107,6 +107,12 @@ class RollingAudioSegmentWriter(
     }
 
     @Synchronized
+    fun captureStartMonotonicUs(): Long? {
+        return captureMonotonicStartUs
+            .takeIf { it != Long.MIN_VALUE }
+    }
+
+    @Synchronized
     fun finalizeActiveSegmentForExport(): Boolean {
         if (muxer == null) return false
         finishCurrentSegment()
