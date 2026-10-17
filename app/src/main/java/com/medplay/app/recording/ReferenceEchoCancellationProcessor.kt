@@ -35,6 +35,7 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         val captureFrames: Long,
         val droppedRenderFrames: Long,
         val resets: Int,
+        val renderCaptureSkewMs: Int,
     )
 
     private data class RenderFrame(
@@ -64,6 +65,8 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
     private var droppedRenderFrames = 0L
     private var resets = 0
     private var lastAnalyzedRenderStartUs = Long.MIN_VALUE
+    private var lastCaptureStartUs = Long.MIN_VALUE
+    private var lastAppliedDelayMs = DEFAULT_AUDIO_BUFFER_DELAY_MS
 
     init {
         createEngine()
@@ -169,6 +172,7 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
 
             if (captureFill == FRAME_SAMPLES) {
                 drainRenderThrough(captureFrameStartUs)
+                updateAecDelayFromClockAlignment(control, captureFrameStartUs)
 
                 target.writeChannel(0, captureFrame)
                 control.analyzeCapture(target)
@@ -210,6 +214,8 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         captureFill = 0
         captureFrameStartUs = Long.MIN_VALUE
         lastAnalyzedRenderStartUs = Long.MIN_VALUE
+        lastCaptureStartUs = Long.MIN_VALUE
+        lastAppliedDelayMs = DEFAULT_AUDIO_BUFFER_DELAY_MS
 
         if (!silenced) {
             destroyEngine()
@@ -230,6 +236,7 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
             captureFrames = captureFrames,
             droppedRenderFrames = droppedRenderFrames,
             resets = resets,
+            renderCaptureSkewMs = if (lastCaptureStartUs != Long.MIN_VALUE && lastAnalyzedRenderStartUs != Long.MIN_VALUE) ((lastCaptureStartUs - lastAnalyzedRenderStartUs) / 1_000L).toInt() else 0,
         )
     }
 
@@ -241,6 +248,8 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         captureFill = 0
         renderFrameStartUs = Long.MIN_VALUE
         captureFrameStartUs = Long.MIN_VALUE
+        lastCaptureStartUs = Long.MIN_VALUE
+        lastAppliedDelayMs = DEFAULT_AUDIO_BUFFER_DELAY_MS
     }
 
     private fun enqueueRenderFrame(frame: RenderFrame) {
@@ -275,6 +284,21 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
             lastAnalyzedRenderStartUs = frame.startUs
             renderFrames++
         }
+    }
+
+    private fun updateAecDelayFromClockAlignment(
+        control: Aec3EchoControl,
+        captureStartUs: Long,
+    ) {
+        lastCaptureStartUs = captureStartUs
+        val renderStartUs = lastAnalyzedRenderStartUs
+        if (renderStartUs == Long.MIN_VALUE) return
+        val measuredMs = ((captureStartUs - renderStartUs) / 1_000L)
+            .toInt()
+            .coerceIn(0, 500)
+        if (kotlin.math.abs(measuredMs - lastAppliedDelayMs) < 5) return
+        control.setAudioBufferDelay(measuredMs)
+        lastAppliedDelayMs = measuredMs
     }
 
     private fun createEngine() {

@@ -1501,6 +1501,8 @@ class CaptureService : Service() {
             microphoneAecEchoReturnLossEnhancementDb =
                 aecMetrics?.echoReturnLossEnhancement ?: 0.0,
             microphoneAecEstimatedDelayMs = aecMetrics?.delayMs ?: 0,
+            microphoneAecRenderCaptureSkewMs =
+                aecMetrics?.renderCaptureSkewMs ?: 0,
             thermalProfileDowngrades = thermalProfileDowngrades,
             initialProfile = initialSessionProfile,
         )
