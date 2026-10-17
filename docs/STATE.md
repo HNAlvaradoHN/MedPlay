@@ -1339,3 +1339,23 @@ Merged fix `c23d9ae6f3eeab811086cab2d1a48c824c39f36d`:
 Evidence: PR #130 Android build run `39058532447` succeeded.
 
 Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
+
+## Refined overlay tab + editor preview correction
+
+Latest owner clarification changed the intended overlay behavior: the recording control should park partially off-screen like a side tab, not remain fully visible at the edge. The editor screenshot also showed that the previous preview adjustment was still not satisfactory.
+
+Merged implementation `98b91134311592078dbcdcce4fd8576db10342ec`:
+- both full-session and retroactive clip controls now park with only 42% of their width exposed at the nearest side;
+- dragging still allows repositioning before the control re-tucks to the nearest side;
+- portrait editor preview is bounded to 34% of display height and landscape to 46%;
+- PlayerView FIT mode is enforced in code as well as layout so the preview favors the complete frame.
+
+Evidence:
+- PR #135 Android build run `39060342440`: success;
+- validation APK release run `39060537762`: success;
+- current `dev-latest` target: `2c12f6ed5eae2113ec18620c758d0ee90f201a45`;
+- published: `2026-10-17T19:01:39Z`;
+- APK size: 58,558,349 bytes;
+- release workflow restored to manual-only at `7e866255bd440d57e9fab184e6b972ddd731e7ca`.
+
+Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
