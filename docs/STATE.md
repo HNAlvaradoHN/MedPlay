@@ -1270,6 +1270,13 @@ Evidence:
 
 Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
 
+Current validation APK:
+- release workflow run `39009298806`: success;
+- release target: `fa93423d3df8db3c61b004994039581685ab6143`;
+- published: `2026-10-17T06:19:22Z`;
+- `MedPlay-debug.apk` size: 58,558,333 bytes;
+- the release workflow was restored to manual-only immediately afterward.
+
 Physical validation priority:
 1. use headphones/earbuds so speaker bleed is not part of the test;
 2. record a new full-session with internal audio + microphone enabled;
