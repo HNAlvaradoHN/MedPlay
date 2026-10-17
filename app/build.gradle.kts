@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.medplay.app"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.medplay.app"
