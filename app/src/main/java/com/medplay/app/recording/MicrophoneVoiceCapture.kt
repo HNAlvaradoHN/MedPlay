@@ -11,6 +11,7 @@ import android.media.MediaFormat
 import android.media.MediaRecorder
 import android.os.SystemClock
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
@@ -248,6 +249,7 @@ class MicrophoneVoiceCapture(
                 val input = encoder.getInputBuffer(inputIndex)
                 if (input != null) {
                     input.clear()
+                    input.order(ByteOrder.nativeOrder())
 
                     val samplesRead = readPcmFrame(record, rawFrame)
                     if (samplesRead < 0) {
