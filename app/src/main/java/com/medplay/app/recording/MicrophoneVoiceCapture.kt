@@ -240,6 +240,7 @@ class MicrophoneVoiceCapture(
     private fun publishSilencedState(silenced: Boolean) {
         if (lastSilenced == silenced) return
         lastSilenced = silenced
+        echoProcessor?.setCaptureSilenced(silenced)
         onSilencedChanged(silenced)
     }
 
