@@ -214,6 +214,8 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         captureFill = 0
         captureFrameStartUs = Long.MIN_VALUE
         lastAnalyzedRenderStartUs = Long.MIN_VALUE
+        lastCaptureStartUs = Long.MIN_VALUE
+        lastAppliedDelayMs = DEFAULT_AUDIO_BUFFER_DELAY_MS
 
         if (!silenced) {
             destroyEngine()
@@ -246,6 +248,8 @@ class ReferenceEchoCancellationProcessor : AutoCloseable {
         captureFill = 0
         renderFrameStartUs = Long.MIN_VALUE
         captureFrameStartUs = Long.MIN_VALUE
+        lastCaptureStartUs = Long.MIN_VALUE
+        lastAppliedDelayMs = DEFAULT_AUDIO_BUFFER_DELAY_MS
     }
 
     private fun enqueueRenderFrame(frame: RenderFrame) {
