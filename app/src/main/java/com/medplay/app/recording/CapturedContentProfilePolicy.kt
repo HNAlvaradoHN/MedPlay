@@ -17,7 +17,7 @@ object CapturedContentProfilePolicy {
         profile: RecordingProfile,
         capturedWidth: Int,
         capturedHeight: Int,
-        alignment: Int = 16,
+        alignment: Int = 2,
     ): RecordingProfile {
         require(capturedWidth > 0)
         require(capturedHeight > 0)
