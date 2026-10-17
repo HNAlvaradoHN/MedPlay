@@ -1415,8 +1415,6 @@ class CaptureService : Service() {
     }
 
     private fun releaseVideoPipeline() {
-        runCatching { persistSessionDiagnostics() }
-
         runCatching { floatingClipControl?.close() }
         floatingClipControl = null
         runCatching { floatingSessionControl?.close() }
