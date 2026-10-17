@@ -1309,3 +1309,16 @@ Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
 Physical validation should verify: trim gestures, portrait/landscape layout, visual controls, game/voice gain preview, fast export, final processed export, and that the source recording remains unchanged.
 
 Next product block after validation: **Phase 4 — Automatic post-match highlights**.
+
+## Latest overall validation APK — Phase 3 closure
+
+The current `dev-latest` build contains the completed required Phase 3 editor/player scope plus the previously merged audio synchronization work.
+
+Evidence:
+- release workflow run `39056806884`: success;
+- release target: `f519a1e6441adb6c213f120aca443bdd483b3706`;
+- published: `2026-10-17T18:10:04Z`;
+- `MedPlay-debug.apk` size: 58,558,333 bytes;
+- release workflow was restored to manual-only afterward.
+
+Use this APK for the remaining physical validation of Phase 3 and the previously pending audio checks. Older validation APK references are superseded for current-device testing.
