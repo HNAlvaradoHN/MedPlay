@@ -139,10 +139,22 @@ object EncoderCapabilityProbe {
         capturedHeight: Int,
     ): RecordingProfile? {
         if (capturedWidth <= 0 || capturedHeight <= 0) return null
+        val info = encoderInfos().firstOrNull { it.name == profile.encoderName }
+            ?: return null
+        val caps = capabilities(info, profile.codec) ?: return null
+        val videoCaps = caps.videoCapabilities ?: return null
+        val shortSideAlignment =
+            if (capturedHeight > capturedWidth) {
+                videoCaps.widthAlignment
+            } else {
+                videoCaps.heightAlignment
+            }
+
         val fitted = CapturedContentProfilePolicy.fit(
             profile = profile,
             capturedWidth = capturedWidth,
             capturedHeight = capturedHeight,
+            shortSideAlignment = shortSideAlignment,
         )
         return fitted.takeIf(::supportsProfile)
     }
