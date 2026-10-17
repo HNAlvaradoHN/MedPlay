@@ -1470,6 +1470,18 @@ class CaptureService : Service() {
         sessionStartedUs = Long.MIN_VALUE
 
         val aecMetrics = voiceEchoProcessor?.metrics()
+        val internalAudioStartUs =
+            rollingAudioWriter?.captureStartMonotonicUs()
+        val microphoneStartUs =
+            rollingMicrophoneWriter?.captureStartMonotonicUs()
+        val audioMicrophoneStartSkewMs =
+            if (internalAudioStartUs != null && microphoneStartUs != null) {
+                ((microphoneStartUs - internalAudioStartUs) / 1_000L)
+                    .coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong())
+                    .toInt()
+            } else {
+                null
+            }
         val diagnostics = RecordingSessionDiagnostics(
             startedMonotonicUs = startedUs,
             endedMonotonicUs = SystemClock.elapsedRealtimeNanos() / 1_000L,
@@ -1477,6 +1489,7 @@ class CaptureService : Service() {
             retentionSeconds = (activeRetentionUs / 1_000_000L).toInt(),
             maxThermalStatus = maxThermalStatus,
             audioWasActive = sessionAudioWasActive,
+            audioMicrophoneStartSkewMs = audioMicrophoneStartSkewMs,
             encoderHealth = combinedEncoderHealth(encoder),
             microphoneWasActive = sessionMicrophoneWasActive,
             microphoneWasSilenced = sessionMicrophoneWasSilenced,
