@@ -1,5 +1,5 @@
 PAQUETE MAESTRO GENERAL DE REGLAS PARA PROYECTOS CON CHATGPT + GITHUB
-Versión del paquete: 6 — autorización de modificación simplificada
+Versión del paquete: 7 — memoria viva y depuración documental obligatoria
 Uso: reutilizable en cualquier proyecto.
 Objetivo: que un chat/agente nuevo pueda comprender el estado real de un proyecto desde GitHub, trabajar con seguridad y continuidad, y completar una tarea autorizada sin que el usuario tenga que microgestionar archivos, pruebas, memoria o handoff.
 
@@ -171,10 +171,14 @@ Reglas:
 - usa VERIFICADO / IMPLEMENTADO / IMPLEMENTADO_PENDIENTE_VALIDACIÓN / HIPÓTESIS / NO VERIFICADO / DESCONOCIDO cuando importe;
 - nada está DONE solo porque se escribió código;
 - una tarea autorizada incluye actualizar automáticamente la memoria directamente afectada;
-- actualiza después de cambios significativos, no después de cada comando;
-- registra estado, bloqueos, decisiones, pruebas, CI, validaciones físicas pendientes, errores útiles y siguiente paso;
-- conserva errores resueltos si su causa/solución evita reincidencias;
-- el usuario no debe recordar al agente que actualice memoria o handoff.
+- actualiza después de cada cambio significativo, validación física, cambio de estado, fallo relevante, decisión o nueva evidencia; no esperes al cierre de la tarea;
+- antes de terminar una tarea o entregar un handoff, relee la memoria afectada y reconcilia cualquier contradicción con el estado real del repo, CI y validación física;
+- registra estado vigente, bloqueos, decisiones todavía aplicables, pruebas/CI relevantes, validaciones físicas, errores útiles y siguiente paso;
+- la memoria oficial es memoria VIVA, no un diario acumulativo: cuando una implementación, APK, hipótesis, estado pendiente o instrucción quede sustituida por evidencia más nueva, elimina o reemplaza el texto obsoleto;
+- conserva de un error resuelto solo la causa/lección necesaria para evitar reincidencias; el detalle histórico vive en Git, PRs y commits;
+- no mantengas listas de APKs, intentos, hashes, estados o pasos antiguos si ya no son necesarios para continuar correctamente;
+- si un dato histórico sigue siendo necesario, condénsalo en una nota breve y explícitamente histórica, sin competir con el estado vigente;
+- el usuario no debe recordar al agente que actualice, depure o compacte memoria y handoff.
 
 El handoff está incompleto si otro chat necesita leer la conversación anterior para continuar.
 
@@ -476,9 +480,18 @@ Actualiza cuando corresponda:
 - ERRORS/KNOWN_ISSUES;
 - REVIEW_ROLES/DESIGN/TOOLS si realmente cambian.
 
+Obligatorio:
+- trata STATE/HANDOFF y la documentación operativa como vistas del estado ACTUAL, no como archivos de historial;
+- al actualizar una sección, elimina en la misma tarea el contenido supersedido, duplicado, contradictorio o que ya no ayude al siguiente agente;
+- si una validación física contradice un estado PENDIENTE o una hipótesis anterior, reemplaza ese estado inmediatamente con el resultado real;
+- usa Git, PRs y commits como historial; no dupliques ese historial indefinidamente dentro de la memoria viva;
+- mantén suficiente contexto para entender decisiones vigentes y evitar repetir errores, pero no más.
+
 No:
 - acumules versiones contradictorias;
 - dejes texto viejo contrario a la realidad;
+- conserves bloques obsoletos solo "por si acaso";
+- repitas evidencia histórica ya preservada en Git si no cambia el siguiente paso;
 - renumeres fases sin motivo;
 - cierres issues sin evidencia;
 - reescribas gobernanza/arquitectura/seguridad por conveniencia.
