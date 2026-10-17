@@ -65,7 +65,7 @@ class ClipTrimTimelineView(context: Context) : View(context) {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val desiredHeight = (84f * density).toInt()
+        val desiredHeight = (64f * density).toInt()
         setMeasuredDimension(
             MeasureSpec.getSize(widthMeasureSpec),
             resolveSize(desiredHeight, heightMeasureSpec),
@@ -87,7 +87,7 @@ class ClipTrimTimelineView(context: Context) : View(context) {
         canvas.drawRect(endX, 0f, right, height.toFloat(), shadePaint)
         canvas.drawLine(startX, y, endX, y, selectedPaint)
 
-        val radius = 14f * density
+        val radius = 12f * density
         canvas.drawCircle(startX, y, radius, handlePaint)
         canvas.drawCircle(endX, y, radius, handlePaint)
         canvas.drawCircle(startX, y, radius, handleStrokePaint)
