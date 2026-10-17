@@ -2,6 +2,9 @@ name: Manual dev APK release
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ci/build-webrtc-aec3-validation-apk
 
 permissions:
   contents: write
