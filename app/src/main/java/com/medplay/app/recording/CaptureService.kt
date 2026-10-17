@@ -36,6 +36,7 @@ class CaptureService : Service() {
     private var rollingAudioWriter: RollingAudioSegmentWriter? = null
     private var microphoneVoiceCapture: MicrophoneVoiceCapture? = null
     private var rollingMicrophoneWriter: RollingAudioSegmentWriter? = null
+    private var voiceEchoProcessor: ReferenceEchoCancellationProcessor? = null
     private var floatingClipControl: FloatingClipControl? = null
     private var floatingSessionControl: FloatingSessionControl? = null
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -614,6 +615,9 @@ class CaptureService : Service() {
         val audioCapture = InternalAudioCapture(
             mediaProjection = projection,
             consumer = audioWriter,
+            onPcmReference = { pcm, bytesRead ->
+                voiceEchoProcessor?.offerRenderStereoPcm(pcm, bytesRead)
+            },
             onFatalError = {
                 Handler(Looper.getMainLooper()).post {
                     disableInternalAudio()
@@ -641,6 +645,10 @@ class CaptureService : Service() {
 
         runCatching { rollingAudioWriter?.close() }
         rollingAudioWriter = null
+
+        runCatching { voiceEchoProcessor?.close() }
+        voiceEchoProcessor = null
+        sessionMicrophoneAecEnabled = false
     }
 
     private fun startMicrophoneVoiceIfPermitted() {
@@ -666,9 +674,20 @@ class CaptureService : Service() {
             directory = File(cacheDir, "medplay_rolling_microphone"),
             retentionUs = activeRetentionUs,
         )
+
+        val echoProcessor = if (internalAudioCapture != null) {
+            runCatching {
+                ReferenceEchoCancellationProcessor()
+            }.getOrNull()
+        } else {
+            null
+        }
+        voiceEchoProcessor = echoProcessor
+
         val voiceCapture = MicrophoneVoiceCapture(
             context = applicationContext,
             consumer = voiceWriter,
+            echoProcessor = echoProcessor,
             onSilencedChanged = { silenced ->
                 Handler(Looper.getMainLooper()).post {
                     handleMicrophoneSilencedChanged(silenced)
@@ -703,6 +722,10 @@ class CaptureService : Service() {
         } else {
             voiceCapture.stop()
             runCatching { voiceWriter.close() }
+            runCatching { echoProcessor?.close() }
+            if (voiceEchoProcessor === echoProcessor) {
+                voiceEchoProcessor = null
+            }
         }
     }
 
@@ -711,6 +734,7 @@ class CaptureService : Service() {
         if (microphoneCurrentlySilenced == silenced) return
 
         microphoneCurrentlySilenced = silenced
+        voiceEchoProcessor?.setCaptureSilenced(silenced)
         if (silenced) {
             sessionMicrophoneWasSilenced = true
             val message = tr(
@@ -744,7 +768,10 @@ class CaptureService : Service() {
 
         runCatching { rollingMicrophoneWriter?.close() }
         rollingMicrophoneWriter = null
+        runCatching { voiceEchoProcessor?.close() }
+        voiceEchoProcessor = null
         microphoneCurrentlySilenced = false
+        sessionMicrophoneAecEnabled = false
     }
 
     private fun applyCapturedContentOrientation() {
@@ -1361,6 +1388,9 @@ class CaptureService : Service() {
 
         runCatching { microphoneVoiceCapture?.stop() }
         microphoneVoiceCapture = null
+
+        runCatching { voiceEchoProcessor?.close() }
+        voiceEchoProcessor = null
 
         runCatching { rollingMicrophoneWriter?.close() }
         rollingMicrophoneWriter = null
