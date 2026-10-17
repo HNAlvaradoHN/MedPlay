@@ -9,6 +9,7 @@ import android.graphics.RenderEffect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.content.res.Configuration
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -100,22 +101,32 @@ class ClipEditorActivity : Activity() {
         // is what made the preview sound chopped.
         player.playWhenReady = false
 
+        val isLandscape =
+            resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val previewWeight = if (isLandscape) 0.64f else 0.56f
+        val controlsWeight = 1f - previewWeight
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(MediaUiStyle.BACKGROUND)
         }
         root.addView(
             playerView,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
-                0.56f,
+                previewWeight,
             )
         )
 
         val controls = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24, 16, 24, 32)
+            setPadding(
+                MediaUiStyle.dp(this@ClipEditorActivity, 16),
+                MediaUiStyle.dp(this@ClipEditorActivity, 12),
+                MediaUiStyle.dp(this@ClipEditorActivity, 16),
+                MediaUiStyle.dp(this@ClipEditorActivity, 28),
+            )
         }
         val scroll = ScrollView(this).apply {
             addView(
@@ -131,9 +142,24 @@ class ClipEditorActivity : Activity() {
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
-                0.44f,
+                controlsWeight,
             )
         )
+
+        val editorTitle = TextView(this).apply {
+            text = tr("Editar clip", "Edit clip")
+            setTextColor(MediaUiStyle.PRIMARY_TEXT)
+            textSize = 20f
+        }
+        val editorSubtitle = TextView(this).apply {
+            text = tr(
+                "El original no se modifica. Los cambios se guardan en una copia al exportar.",
+                "The original is never modified. Changes are saved to a new copy on export.",
+            )
+            setTextColor(MediaUiStyle.SECONDARY_TEXT)
+            textSize = 12f
+            setPadding(0, 2, 0, MediaUiStyle.dp(this@ClipEditorActivity, 12))
+        }
 
         val trimStatus = TextView(this).apply {
             setTextColor(Color.WHITE)
@@ -149,9 +175,10 @@ class ClipEditorActivity : Activity() {
         }
 
         fun refreshTrimStatus() {
+            val selectedDurationUs = (trimEndUs - trimStartUs).coerceAtLeast(0L)
             trimStatus.text = tr(
-                "Recorte: ${formatTime(trimStartUs)} → ${formatTime(trimEndUs)}",
-                "Trim: ${formatTime(trimStartUs)} → ${formatTime(trimEndUs)}",
+                "Recorte: ${formatTime(trimStartUs)} – ${formatTime(trimEndUs)}  •  ${formatTime(selectedDurationUs)}",
+                "Trim: ${formatTime(trimStartUs)} – ${formatTime(trimEndUs)}  •  ${formatTime(selectedDurationUs)}",
             )
             trimTimeline.setRange(
                 startUs = trimStartUs,
@@ -166,9 +193,10 @@ class ClipEditorActivity : Activity() {
                 val previousEnd = trimEndUs
                 trimStartUs = startUs
                 trimEndUs = endUs
+                val selectedDurationUs = (trimEndUs - trimStartUs).coerceAtLeast(0L)
                 trimStatus.text = tr(
-                    "Recorte: ${formatTime(trimStartUs)} → ${formatTime(trimEndUs)}",
-                    "Trim: ${formatTime(trimStartUs)} → ${formatTime(trimEndUs)}",
+                    "Recorte: ${formatTime(trimStartUs)} – ${formatTime(trimEndUs)}  •  ${formatTime(selectedDurationUs)}",
+                    "Trim: ${formatTime(trimStartUs)} – ${formatTime(trimEndUs)}  •  ${formatTime(selectedDurationUs)}",
                 )
                 if (fromUser) {
                     val targetUs = if (
@@ -201,12 +229,30 @@ class ClipEditorActivity : Activity() {
             }
         }
         val resetTrimButton = Button(this).apply {
-            text = tr("Restablecer recorte", "Reset trim")
+            text = tr("Usar video completo", "Use full video")
             setOnClickListener {
                 trimStartUs = 0L
                 trimEndUs = sourceDurationUs
                 refreshTrimStatus()
+                player.seekTo(0L)
             }
+        }
+
+        val trimMarksRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            addView(
+                setStartButton,
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginEnd = MediaUiStyle.dp(this@ClipEditorActivity, 6)
+                },
+            )
+            addView(
+                setEndButton,
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginStart = MediaUiStyle.dp(this@ClipEditorActivity, 6)
+                },
+            )
         }
 
         val visualTitle = TextView(this).apply {
@@ -376,10 +422,12 @@ class ClipEditorActivity : Activity() {
         val gameGainLabel = TextView(this).apply {
             setTextColor(Color.WHITE)
             textSize = 14f
+            visibility = if (clip.hasGameAudio) View.VISIBLE else View.GONE
         }
         val gameGainSeek = SeekBar(this).apply {
             max = 200
             progress = gameGain
+            visibility = if (clip.hasGameAudio) View.VISIBLE else View.GONE
             setOnSeekBarChangeListener(
                 simpleSeekListener { value, _ ->
                     gameGain = value
@@ -509,8 +557,14 @@ class ClipEditorActivity : Activity() {
 
         val finalExportButton = Button(this).apply {
             text = tr(
-                "Exportar video final",
-                "Export final video",
+                "Exportar copia final",
+                "Export final copy",
+            )
+            setTextColor(Color.WHITE)
+            background = MediaUiStyle.rounded(
+                MediaUiStyle.ACCENT,
+                14,
+                this@ClipEditorActivity,
             )
             setOnClickListener {
                 if (trimEndUs <= trimStartUs) {
@@ -579,11 +633,16 @@ class ClipEditorActivity : Activity() {
         fun makeSection(): LinearLayout {
             return LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
+                background = MediaUiStyle.rounded(
+                    MediaUiStyle.SURFACE,
+                    18,
+                    this@ClipEditorActivity,
+                )
                 setPadding(
-                    0,
-                    MediaUiStyle.dp(this@ClipEditorActivity, 12),
-                    0,
-                    MediaUiStyle.dp(this@ClipEditorActivity, 20),
+                    MediaUiStyle.dp(this@ClipEditorActivity, 14),
+                    MediaUiStyle.dp(this@ClipEditorActivity, 14),
+                    MediaUiStyle.dp(this@ClipEditorActivity, 14),
+                    MediaUiStyle.dp(this@ClipEditorActivity, 16),
                 )
             }
         }
@@ -591,8 +650,7 @@ class ClipEditorActivity : Activity() {
         val trimSection = makeSection().apply {
             addView(trimStatus)
             addView(trimTimeline)
-            addView(setStartButton)
-            addView(setEndButton)
+            addView(trimMarksRow)
             addView(resetTrimButton)
         }
 
@@ -711,9 +769,19 @@ class ClipEditorActivity : Activity() {
             addView(toolRow)
         }
 
+        controls.addView(editorTitle)
+        controls.addView(editorSubtitle)
         controls.addView(toolRail)
         sections.forEach { section ->
-            controls.addView(section)
+            controls.addView(
+                section,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply {
+                    topMargin = MediaUiStyle.dp(this@ClipEditorActivity, 12)
+                },
+            )
         }
 
         sections.forEachIndexed { index, section ->
@@ -742,8 +810,8 @@ class ClipEditorActivity : Activity() {
             "My voice: $micGain%",
         )
         exportStatus.text = tr(
-            "El original siempre permanece intacto.",
-            "The original always remains intact.",
+            "Listo para exportar una copia. El original permanece intacto.",
+            "Ready to export a copy. The original remains intact.",
         )
 
         val expectedAudioTracks =
