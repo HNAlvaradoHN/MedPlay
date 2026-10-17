@@ -1503,6 +1503,10 @@ class CaptureService : Service() {
             microphoneAecEstimatedDelayMs = aecMetrics?.delayMs ?: 0,
             microphoneAecRenderCaptureSkewMs =
                 aecMetrics?.renderCaptureSkewMs ?: 0,
+            microphoneAecExternalDelayMs =
+                aecMetrics?.externalDelayMs ?: 0,
+            microphoneAecExternalDelayCorrelation =
+                aecMetrics?.externalDelayCorrelation ?: 0.0,
             thermalProfileDowngrades = thermalProfileDowngrades,
             initialProfile = initialSessionProfile,
         )
