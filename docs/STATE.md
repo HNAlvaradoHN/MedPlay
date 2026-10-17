@@ -1386,3 +1386,26 @@ CI evidence:
 - Android build run `38996894710`: success on branch head `d875b82f6869fed71cd1cef7adf9b2f87370d79b`.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. CI validates build/tests only. Real speaker-bleed suppression, voice quality, AEC convergence and thermal cost still require a newly recorded physical test.
+
+
+## Latest validation APK — aligned AEC3 voice reference
+
+A fresh `dev-latest` APK was generated after merging the timestamp-aligned AEC3 reference path and voice-only hidden playback reference.
+
+Evidence:
+- release workflow run `38997125137`: success;
+- release target: `b0abb9a372af7104e91b7f1fb6ac5a90fa734337`;
+- merged source main: `52d90d5bf8ab11c151c2effbcb7ead68c3400010`;
+- published: `2026-10-17T03:03:28Z`;
+- APK size: 58,558,333 bytes;
+- SHA-256: `4877f6407b151c8d68d42f1f00fdb894a0ea1fc0b02a4aa00b690f9ab24f20d6`.
+
+Physical validation:
+1. install this APK;
+2. record a new full-session with player voice enabled;
+3. test both with system audio ON + voice ON and system audio OFF + voice ON;
+4. in the editor isolate “Mi voz” by setting game audio to 0%;
+5. confirm whether the game/speaker bleed is materially reduced while speech remains intelligible;
+6. inspect diagnostics if not: AEC mode, render/capture frame counts, dropped render frames, ERL/ERLE and estimated delay.
+
+Old recordings cannot validate this change because their microphone audio is already encoded.
