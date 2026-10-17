@@ -150,20 +150,10 @@ Automatic summary:
 - Keep originals immutable.
 - Never claim physical validation from CI alone.
 
+## Current progress
 
-## Progress update — 2026-10-16
-
-- Phase 1 portrait capture: physically validated on the owner's tested vertical game.
-- Phase 1 internal player: physically validated on-device.
-- Phase 2 full-session backend/overlay: implemented, still pending physical validation.
-- Phase 3 editor foundation: implementation started with immutable-source edit projects, trim markers and per-track gain settings.
-
-
-## Progress update — editor visual pass
-
-Phase 3 now includes live-preview color filters, saturation/intensity, brightness, contrast and 90-degree rotation controls, plus processed MP4 export. The next required editor capability is final game-audio + microphone mixing, after which filtered exports can be enabled for two-track recordings without losing voice.
-
-
-## Progress update — final audio mix
-
-Phase 3 now has an implementation for final export with game/microphone gain and single-track AAC mixing. After device validation, the remaining editor work is primarily UX polish and optional higher-level tools (additional presets, transitions/text only if product value justifies them) before moving into post-match highlight detection.
+- Phase 1 portrait capture and internal player: physically validated on the owner's tested device.
+- Phase 2 full-session recording: implemented; physical validation remains separate from Phase 3 closure.
+- Phase 3 internal player/editor: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**. Required scope is complete: internal playback, non-destructive trim, rotation, live color controls, independent game/microphone gain, compatible final MP4 export, immutable originals, media-first gallery/player flow, modular editor rail, clearer trim controls/touch targets, orientation-aware preview balance and clearer export flow.
+- Optional tools such as text, stickers, music, speed effects or transitions are not required to close Phase 3 and are not part of the current baseline.
+- Next product phase after physical validation of the editor is **Phase 4 — Automatic post-match highlights**.
