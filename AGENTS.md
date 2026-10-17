@@ -67,6 +67,20 @@ MedPlay starts its own numbering independently from any previous project content
 Never invent or reuse a session number from model memory.
 While still LOCKED_READ_ONLY, do not use the official numbered header.
 
+## Living documentation discipline
+
+For MedPlay, official memory is a living operational snapshot, not an append-only journal.
+
+Mandatory:
+- update affected `docs/` memory during the same task whenever implementation state, CI evidence, physical validation, blockers or next steps change;
+- physical device results override older `IMPLEMENTADO_PENDIENTE_VALIDACIÓN` wording immediately;
+- remove or replace superseded APK notes, abandoned hypotheses, stale next steps and duplicated historical detail once they no longer help continuation;
+- preserve only the minimum historical lesson needed to avoid repeating a known failure;
+- use Git commits/PRs as the detailed historical record;
+- before handoff, verify that `STATE.md` and `HANDOFF.md` describe the same current reality and a single actionable next step.
+
+Do not leave obsolete text competing with current truth.
+
 ## Public repository security
 
 Treat every committed byte as permanently public.

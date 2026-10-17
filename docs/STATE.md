@@ -1200,48 +1200,6 @@ Evidence:
 Physical validation priority: play a game+voice clip continuously for at least 20–30 seconds while repeatedly moving game and microphone volume sliders. Audio should remain continuous rather than chopped.
 
 
-## Microphone speaker-bleed suppression
-
-Owner feedback established that the microphone track must not intentionally duplicate game audio that MedPlay already captures internally.
-
-Audit finding:
-- player voice used `MediaRecorder.AudioSource.MIC`;
-- no `AcousticEchoCanceler` was attached to the microphone AudioRecord session;
-- therefore speaker playback could acoustically re-enter the microphone track.
-
-Implemented:
-- MedPlay now checks `AcousticEchoCanceler.isAvailable()`;
-- when supported, it creates AEC for the actual microphone `AudioRecord.audioSessionId`;
-- AEC is enabled before voice recording starts;
-- the effect is released with the microphone recorder lifecycle;
-- session diagnostics now persist `microphoneAecAvailable` and `microphoneAecEnabled`.
-
-Important limitation:
-- Android AEC is device/vendor dependent and cannot guarantee perfect separation on every phone or at every speaker volume;
-- if AEC is unavailable or fails to enable, MedPlay records that fact rather than claiming echo suppression is active;
-- software reference-based echo cancellation using internal game audio remains a possible future fallback if native AEC proves insufficient on target devices.
-
-CI evidence:
-- Android build run `38958855256`: success.
-
-Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN on the owner's device.
-
-
-## Latest validation APK — microphone AEC
-
-A fresh `dev-latest` APK was generated after enabling native acoustic echo cancellation on the player-voice microphone path.
-
-Evidence:
-- release workflow run `38959116657`: build/tests and release steps succeeded;
-- release target: `331fec252e437b90b5738324ec32b9a47168b00b`;
-- source main feature state: `c1883875f2fc939648959701baec2e2db7aa7e47`;
-- published: `2026-10-16T20:02:07Z`;
-- `MedPlay-debug.apk` size: 11,726,322 bytes;
-- SHA-256: `7f3beb8fa6f9157f2468028844763b2e4b8b3a9195401c7b7a9ac531df27d2fb`.
-
-Physical validation priority: record with phone speakers audible and player voice enabled, then inspect whether speaker bleed is materially reduced and confirm diagnostics report `microphoneAecAvailable` / `microphoneAecEnabled`.
-
-
 ## XRecorder reference audit + first media UI slice
 
 The owner supplied XRecorder 2.5.5.1 as a reference for both audio behavior and media/editor UX.
@@ -1291,121 +1249,49 @@ Physical validation priority:
 - existing editor audio/visual/export behavior remains functional.
 
 
-## Reference-based software AEC3 for player voice
+## Current microphone speaker-bleed status
 
-Owner device validation showed that Android's native `AcousticEchoCanceler` could report enabled yet still allow objectionable game/speaker bleed into the microphone track. That native path is therefore no longer treated as sufficient when MedPlay has internal playback PCM available.
+Status: **ABIERTO — VALIDACIÓN FÍSICA NEGATIVA**.
 
-Implemented:
-- WebRTC AEC3 is now the primary echo canceller when internal game audio + player voice are both active;
-- `InternalAudioCapture` taps clean playback PCM before AAC and supplies it as the AEC3 render/far-end reference while leaving the recorded game track unchanged;
-- `MicrophoneVoiceCapture` processes microphone PCM through AEC3 before AAC;
-- processing uses 48 kHz PCM in 10 ms / 480-sample frames;
-- AEC3 float samples retain the library's required int16 amplitude scale;
-- native Android AEC is not stacked on top of software AEC3; it remains only as fallback when reference-based AEC3 cannot be created;
-- when Android silences MedPlay's microphone because another app owns input, AEC adaptation is suspended, the mic track encodes silence to preserve timeline duration, and AEC3 state is recreated when capture resumes;
-- capture start is anchored with `AudioRecord.getTimestamp(..., TIMEBASE_BOOTTIME)` when the HAL provides it; AAC PTS remains sample-count based to keep a stable media timescale without scheduler jitter;
-- diagnostics identify `microphoneAecMode=webrtc_aec3|platform|none` and expose render/capture frame counts plus AEC3 ERL/ERLE/delay evidence.
+User requirement:
+- the player-voice microphone track must preserve the player's voice while materially suppressing game/audio emitted by the phone speaker;
+- game audio is already available separately through internal playback capture and must not be duplicated intentionally into the microphone track.
 
-Dependency/toolchain:
-- `cn.enaium.webrtc.aec3:webrtc-aec3-kmp:1.0.3`, an Android-capable JNI/Kotlin wrapper around extracted WebRTC AEC3;
-- wrapper license: MIT; upstream AEC3 uses WebRTC/BSD-style licensing;
-- dependency requires Kotlin 2.4.x and compileSdk 37, so build tooling moved to Kotlin 2.4.10, AGP 9.1.1, Gradle 9.3.1 and compileSdk 37 while targetSdk remains 35.
+Verified history that still matters:
+- Android platform `AcousticEchoCanceler` was physically insufficient on the owner's target phone even when enabled;
+- MedPlay therefore moved to WebRTC AEC3 with clean `AudioPlaybackCapture` PCM as far-end/render reference and raw microphone PCM as near-end/capture;
+- an early software-AEC3 validation build had a microphone foreground-state regression that prevented the intended microphone path from starting; that regression was fixed;
+- voice-only mode now keeps a hidden playback capture strictly as AEC reference without persisting a game-audio track;
+- playback and microphone use 48 kHz / 10 ms frames and BOOTTIME-based capture timing.
 
-CI evidence:
-- latest code run `38994316142`: success on `66aeaa746d594c4448e92bbf326707cd8cc1762a`.
+Latest physically tested result:
+- AEC3 reference alignment and clock-derived delay logic up through main audio commit `58ab7b2` were tested on-device;
+- **the defect remained unchanged: speaker/game audio was still present in the isolated “Mi voz” track**;
+- therefore the #114 approach is **not resolved** and must not be described as pending validation.
 
-Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. CI proves build/tests only. The actual speaker-bleed reduction, voice quality, A/V synchronization and runtime CPU/thermal cost still require the owner's device.
+Current follow-up work after that failed device test:
+- PR #115 adds correlation-derived external delay estimation: **CI failed**;
+- PR #116 removes MedPlay's second render queue/delay override and lets AEC3 own its internal render queue/delay estimation: **CI passed**, not physically validated;
+- PR #117 feeds render reference to AEC3 as it arrives and briefly queues microphone capture until render catches up; it also flushes queued microphone frames on stop: **CI failed**;
+- none of #115/#116/#117 is merged into main as the accepted solution.
 
+Current blocker:
+- determine and fix the concrete build failure in #117 (or reject that approach with evidence) before producing another validation APK;
+- do not generate another physical-test APK from #114 logic alone.
 
-## Latest validation APK — WebRTC AEC3 player voice
+Diagnostics that remain useful:
+- `microphoneAecMode`;
+- render/capture frame counts;
+- dropped render frames;
+- ERL/ERLE;
+- AEC estimated delay;
+- render/capture skew.
 
-A fresh `dev-latest` APK was generated after merging the reference-based WebRTC AEC3 microphone pipeline.
+Next step:
+1. inspect #117's exact build error;
+2. correct only the AEC ordering implementation needed to get a clean build;
+3. review against #116 so contradictory AEC queue/delay strategies are not stacked;
+4. require green CI;
+5. then produce one new APK and physically retest with “Mi voz” isolated.
 
-Evidence:
-- release workflow run `38994570302`: build/tests and release steps succeeded;
-- release target: `f9a41334b4118d415916c3c59b672f1d07dbe08d`;
-- merged source main: `e2a9e8aeb215b0630282a55596beaf713d7396a7`;
-- published: `2026-10-17T02:23:24Z`;
-- `MedPlay-debug.apk` size: 58,541,949 bytes;
-- SHA-256: `1e5a54012217d66f7a6600860512d48bf7724c2e050c3870771061709a85a355`.
-
-Physical validation priority:
-1. full-session recording with internal audio + player voice enabled;
-2. phone speaker loud while game/video audio plays and the player speaks;
-3. verify game audio remains clean and microphone speaker bleed is materially reduced;
-4. inspect diagnostics: `microphoneAecMode=webrtc_aec3`, render/capture frame counts increasing, and ERL/ERLE/delay values present;
-5. test a game using microphone/voice chat and confirm MedPlay recovers cleanly after Android silences/unsilences its microphone client;
-6. watch for voice artifacts, A/V drift, heat and gameplay impact.
-
-Status remains IMPLEMENTADO_PENDIENTE_VALIDACIÓN until the owner performs the physical test.
-
-
-## Microphone foreground-state regression fix
-
-Owner physical validation of the first WebRTC AEC3 APK showed no usable player voice in the editor; only the internal game/speaker audio was audible.
-
-Code audit found a concrete session-initialization regression:
-- `startAsProjectionForegroundService(includeMicrophone = true)` correctly set `microphoneForegroundTypeActive=true`;
-- later in the same `startCapture()` path, session-state initialization reset `microphoneForegroundTypeActive=false`;
-- `startMicrophoneVoiceIfPermitted()` therefore returned before constructing `MicrophoneVoiceCapture`;
-- as a result, the previous validation APK did not actually exercise the real microphone + AEC3 path on normal initial startup.
-
-Fix:
-- preserve the foreground microphone state through session initialization;
-- Android build run `38995054877`: success;
-- merged main commit: `4bd712dc9ca57a4b3d0db0cb5e0f6f0813808ed0`.
-
-Fresh validation APK:
-- release workflow run `38995271164`: success;
-- release target `b0e6e23a23f2ffae47961468418eb3bf3625a7d7`;
-- published `2026-10-17T02:34:07Z`;
-- APK size 58,541,949 bytes;
-- SHA-256 `a7378278e0af2c16cedd9c4d37a90be013b3d6eb2eeb6256c70a73c45e638e7c`.
-
-Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. The next physical test must use a newly recorded full-session after installing this APK.
-
-
-## AEC3 reference alignment + voice-only hidden reference
-
-Owner asked to make the microphone path remove game/speaker audio rather than merely recording everything the physical microphone hears.
-
-Code audit found two concrete architectural weaknesses in the existing AEC3 path:
-- when internal audio recording was disabled but player voice was enabled, `InternalAudioCapture` did not run at all, so software AEC3 had no clean far-end reference and the microphone fell back to device/platform behavior;
-- when internal playback was active, arbitrary playback chunks could be handed directly to AEC3 while the microphone was processed in 10 ms frames, allowing the render side to advance in bursts ahead of capture.
-
-Implemented:
-- playback PCM callbacks now carry BOOTTIME-anchored first-frame timestamps and channel count;
-- microphone PCM frames are anchored to the same AudioRecord hardware clock;
-- AEC3 now queues bounded 10 ms far-end frames and only analyzes render frames that have actually occurred by the microphone frame time;
-- AEC3 starts with a 25 ms render/capture buffer-delay prior, while its adaptive estimator still determines the acoustic path;
-- when the user selects voice without recording system audio, playback capture still runs privately as an AEC reference but no game-audio writer/track is created;
-- explicit capture-plan tests cover system-only, voice-only, both and no-audio cases;
-- diagnostics now expose `microphoneAecDroppedRenderFrames`.
-
-CI evidence:
-- Android build run `38996894710`: success on branch head `d875b82f6869fed71cd1cef7adf9b2f87370d79b`.
-
-Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. CI validates build/tests only. Real speaker-bleed suppression, voice quality, AEC convergence and thermal cost still require a newly recorded physical test.
-
-
-## Latest validation APK — aligned AEC3 voice reference
-
-A fresh `dev-latest` APK was generated after merging the timestamp-aligned AEC3 reference path and voice-only hidden playback reference.
-
-Evidence:
-- release workflow run `38997125137`: success;
-- release target: `b0abb9a372af7104e91b7f1fb6ac5a90fa734337`;
-- merged source main: `52d90d5bf8ab11c151c2effbcb7ead68c3400010`;
-- published: `2026-10-17T03:03:28Z`;
-- APK size: 58,558,333 bytes;
-- SHA-256: `4877f6407b151c8d68d42f1f00fdb894a0ea1fc0b02a4aa00b690f9ab24f20d6`.
-
-Physical validation:
-1. install this APK;
-2. record a new full-session with player voice enabled;
-3. test both with system audio ON + voice ON and system audio OFF + voice ON;
-4. in the editor isolate “Mi voz” by setting game audio to 0%;
-5. confirm whether the game/speaker bleed is materially reduced while speech remains intelligible;
-6. inspect diagnostics if not: AEC mode, render/capture frame counts, dropped render frames, ERL/ERLE and estimated delay.
-
-Old recordings cannot validate this change because their microphone audio is already encoded.
+Do not mark the defect resolved until the owner's device shows material speaker-bleed reduction with intelligible voice.
