@@ -929,3 +929,14 @@ Validate on device:
 6. confirm exported copies appear correctly and the original source is untouched.
 
 Do not add text, stickers, music, speed effects or transitions merely to call Phase 3 complete; those are optional future tools. Once this validation passes, the next planned product block is Phase 4 automatic post-match highlight detection.
+
+## Current validation APK
+
+Use `dev-latest` from release run `39056806884` for current physical testing.
+
+- target: `f519a1e6441adb6c213f120aca443bdd483b3706`;
+- published: `2026-10-17T18:10:04Z`;
+- APK size: 58,558,333 bytes;
+- release workflow is back to manual-only.
+
+This build supersedes older validation APKs for current device testing and includes the Phase 3 closure plus the earlier synchronized-audio changes.
