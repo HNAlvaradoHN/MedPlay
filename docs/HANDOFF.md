@@ -911,3 +911,21 @@ Physical validation still required:
 Do not add fixed manual delays to hide a synchronization problem. If long-session drift is measured, investigate actual clock drift and use proper compensation/resampling.
 
 The old AEC3 experimental PRs (#115/#116/#117) are superseded by the owner's decision not to continue pursuing loudspeaker-bleed cancellation and should not be treated as the next task.
+
+## Phase 3 closure handoff
+
+Required Phase 3 editor/player scope is now implemented and merged on main at `1d9cab96da193cc72c3904bff97e9d9d227e8402`.
+
+CI evidence: PR #125 run `39056526090` passed tests/build.
+
+Current status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
+
+Validate on device:
+1. open both portrait and landscape clips;
+2. drag both trim handles and use Mark start / Mark end / Use full video;
+3. confirm filters, brightness, contrast, saturation and rotation preview correctly;
+4. confirm game and voice gains are understandable and audible when available;
+5. run fast export and final export;
+6. confirm exported copies appear correctly and the original source is untouched.
+
+Do not add text, stickers, music, speed effects or transitions merely to call Phase 3 complete; those are optional future tools. Once this validation passes, the next planned product block is Phase 4 automatic post-match highlight detection.

@@ -1285,3 +1285,27 @@ Physical validation priority:
 5. inspect `audioMicrophoneStartSkewMs` in the session diagnostics.
 
 Do not claim long-duration drift is solved until device testing confirms it. Android documents that nominally equal audio sample rates are not by themselves a guarantee that independent audio clocks cannot drift; if measurable long-session drift appears, the next correction must be clock-drift compensation/resampling rather than arbitrary fixed offsets.
+
+## Phase 3 editor closure
+
+Phase 3 required scope is implemented on main as of `1d9cab96da193cc72c3904bff97e9d9d227e8402`.
+
+Final UX pass:
+- portrait/landscape preview uses orientation-aware space allocation;
+- trim range now shows start, end and selected duration together;
+- start/end marking is grouped and the full-video reset is explicit;
+- trim handles have larger touch targets and clearer selected-state styling;
+- editor tools remain grouped as Recorte / Imagen / Audio / Exportar;
+- game-audio controls are hidden when that source does not exist;
+- export messaging clearly states that a new copy is created and the original stays unchanged;
+- final export is visually primary while the fast remux path remains available.
+
+Evidence:
+- PR #125 Android build run `39056526090`: success;
+- required Phase 3 functionality was preserved; no new optional editing feature was introduced.
+
+Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
+
+Physical validation should verify: trim gestures, portrait/landscape layout, visual controls, game/voice gain preview, fast export, final processed export, and that the source recording remains unchanged.
+
+Next product block after validation: **Phase 4 — Automatic post-match highlights**.
