@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.medplay.app"
-    compileSdk = 37
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.medplay.app"
@@ -32,7 +32,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.8.1")
     implementation("androidx.media3:media3-ui:1.8.1")
     implementation("androidx.media3:media3-transformer:1.8.1")
-    implementation("cn.enaium.webrtc.aec3:webrtc-aec3-kmp-android:1.0.3")
+    implementation("cn.enaium.webrtc.aec3:webrtc-aec3-kmp-android:1.0.0")
     testImplementation("junit:junit:4.13.2")
 }
 
