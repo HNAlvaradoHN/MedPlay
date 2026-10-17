@@ -13,6 +13,13 @@ data class RecordingSessionDiagnostics(
     val microphonePeakAbs: Int = 0,
     val microphoneAecAvailable: Boolean = false,
     val microphoneAecEnabled: Boolean = false,
+    val microphoneSoftwareAecEnabled: Boolean = false,
+    val microphoneSoftwareAecRenderFrames: Long = 0L,
+    val microphoneSoftwareAecCaptureFrames: Long = 0L,
+    val microphoneSoftwareAecProcessedFrames: Long = 0L,
+    val microphoneSoftwareAecEchoReturnLossDb: Double? = null,
+    val microphoneSoftwareAecEchoReturnLossEnhancementDb: Double? = null,
+    val microphoneSoftwareAecEstimatedDelayMs: Int? = null,
     val thermalProfileDowngrades: Int = 0,
     val initialProfile: RecordingProfile? = null,
 ) {
@@ -49,6 +56,31 @@ data class RecordingSessionDiagnostics(
             appendLine("microphonePeakAbs=$microphonePeakAbs")
             appendLine("microphoneAecAvailable=$microphoneAecAvailable")
             appendLine("microphoneAecEnabled=$microphoneAecEnabled")
+            appendLine("microphoneSoftwareAecEnabled=$microphoneSoftwareAecEnabled")
+            appendLine(
+                "microphoneSoftwareAecRenderFrames=" +
+                    microphoneSoftwareAecRenderFrames
+            )
+            appendLine(
+                "microphoneSoftwareAecCaptureFrames=" +
+                    microphoneSoftwareAecCaptureFrames
+            )
+            appendLine(
+                "microphoneSoftwareAecProcessedFrames=" +
+                    microphoneSoftwareAecProcessedFrames
+            )
+            appendLine(
+                "microphoneSoftwareAecEchoReturnLossDb=" +
+                    (microphoneSoftwareAecEchoReturnLossDb ?: "unknown")
+            )
+            appendLine(
+                "microphoneSoftwareAecEchoReturnLossEnhancementDb=" +
+                    (microphoneSoftwareAecEchoReturnLossEnhancementDb ?: "unknown")
+            )
+            appendLine(
+                "microphoneSoftwareAecEstimatedDelayMs=" +
+                    (microphoneSoftwareAecEstimatedDelayMs ?: "unknown")
+            )
             appendLine("maxThermalStatus=$maxThermalStatus")
             appendLine("sustainabilityVerdict=$sustainabilityVerdict")
             appendLine("encodedSamples=${encoderHealth.encodedSamples}")
