@@ -1322,3 +1322,19 @@ Evidence:
 - release workflow was restored to manual-only afterward.
 
 Use this APK for the remaining physical validation of Phase 3 and the previously pending audio checks. Older validation APK references are superseded for current-device testing.
+
+## Owner screenshot corrections — overlay edge + editor preview
+
+Owner device screenshots showed two concrete UI defects after the Phase 3 pass:
+- the floating recording control stopped with a visible lateral gap instead of reaching the screen edge;
+- the editor preview consumed too much vertical space and the source framing appeared cut.
+
+Merged fix `c23d9ae6f3eeab811086cab2d1a48c824c39f36d`:
+- full-session floating control now snaps flush to x=0 or the right screen edge;
+- retroactive clip control now also snaps to the nearest edge after dragging and starts flush at the left edge;
+- editor portrait preview allocation reduced from 56% to 44%, landscape from 64% to 58%;
+- PlayerView now explicitly uses FIT scaling so the complete video frame is preferred over crop.
+
+Evidence: PR #130 Android build run `39058532447` succeeded.
+
+Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
