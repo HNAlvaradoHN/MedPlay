@@ -55,7 +55,7 @@ class FloatingClipControl(
             android.graphics.PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = (12f * density).toInt()
+            x = 0
             y = (180f * density).toInt()
         }
 
@@ -104,6 +104,27 @@ class FloatingClipControl(
                             bubble.showAcceptedFeedback()
                         } else {
                             bubble.showBusyFeedback()
+                        }
+                    } else {
+                        val screenWidth = context.resources.displayMetrics.widthPixels
+                        val centerX = layout.x + layout.width / 2
+                        layout.x = if (centerX < screenWidth / 2) {
+                            0
+                        } else {
+                            (screenWidth - layout.width).coerceAtLeast(0)
+                        }
+                        runCatching {
+                            windowManager.updateViewLayout(bubble, layout)
+                        }
+                        microphoneStatusParams?.let { statusLayout ->
+                            statusLayout.x = layout.x
+                            statusLayout.y = layout.y + layout.height +
+                                (8f * density).toInt()
+                            microphoneStatusView?.let { statusView ->
+                                runCatching {
+                                    windowManager.updateViewLayout(statusView, statusLayout)
+                                }
+                            }
                         }
                     }
                     true
