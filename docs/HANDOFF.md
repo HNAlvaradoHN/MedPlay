@@ -940,3 +940,12 @@ Use `dev-latest` from release run `39056806884` for current physical testing.
 - release workflow is back to manual-only.
 
 This build supersedes older validation APKs for current device testing and includes the Phase 3 closure plus the earlier synchronized-audio changes.
+
+## Latest owner UI corrections
+
+Merged on main at `c23d9ae6f3eeab811086cab2d1a48c824c39f36d` after green PR #130 CI run `39058532447`:
+- floating recording controls snap flush to the nearest left/right edge;
+- editor preview is shorter, especially in portrait;
+- preview scaling is explicitly FIT to show the whole video frame.
+
+Physical validation required: drag the recording control to both edges and open the same clip shown in the owner's screenshot to confirm the full source frame is visible with a smaller preview.
