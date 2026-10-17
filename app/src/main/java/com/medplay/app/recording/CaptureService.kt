@@ -36,6 +36,7 @@ class CaptureService : Service() {
     private var rollingAudioWriter: RollingAudioSegmentWriter? = null
     private var microphoneVoiceCapture: MicrophoneVoiceCapture? = null
     private var rollingMicrophoneWriter: RollingAudioSegmentWriter? = null
+    private var echoCancellationPipeline: WebRtcEchoCancellationPipeline? = null
     private var floatingClipControl: FloatingClipControl? = null
     private var floatingSessionControl: FloatingSessionControl? = null
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -59,6 +60,12 @@ class CaptureService : Service() {
     private var sessionMicrophonePeakAbs = 0
     private var sessionMicrophoneAecAvailable = false
     private var sessionMicrophoneAecEnabled = false
+    @Volatile private var sessionAecProcessedFrames = 0L
+    @Volatile private var sessionAecRenderFrames = 0L
+    @Volatile private var sessionAecDroppedRenderFrames = 0L
+    @Volatile private var sessionAecEchoReturnLoss = Double.NaN
+    @Volatile private var sessionAecEchoReturnLossEnhancement = Double.NaN
+    @Volatile private var sessionAecEstimatedDelayMs = -1
     private var microphoneCurrentlySilenced = false
     private var microphoneForegroundTypeActive = false
     private var fullSessionPaused = false
@@ -337,8 +344,13 @@ class CaptureService : Service() {
         sessionMicrophonePeakAbs = 0
         sessionMicrophoneAecAvailable = false
         sessionMicrophoneAecEnabled = false
+        sessionAecProcessedFrames = 0L
+        sessionAecRenderFrames = 0L
+        sessionAecDroppedRenderFrames = 0L
+        sessionAecEchoReturnLoss = Double.NaN
+        sessionAecEchoReturnLossEnhancement = Double.NaN
+        sessionAecEstimatedDelayMs = -1
         microphoneCurrentlySilenced = false
-        microphoneForegroundTypeActive = false
         fullSessionPaused = false
         activePauseStartedUs = Long.MIN_VALUE
         completedPauseIntervals.clear()
@@ -386,7 +398,11 @@ class CaptureService : Service() {
         }
         thermalGuard = startedThermalGuard
 
+        prepareEchoCancellationPipeline()
         startInternalAudioIfPermitted(mediaProjection)
+        if (internalAudioCapture == null) {
+            closeEchoCancellationPipeline()
+        }
         startMicrophoneVoiceIfPermitted()
         showFloatingControl()
         if (activeRecordingMode == RecordingModePreference.Mode.FULL_SESSION) {
@@ -597,6 +613,43 @@ class CaptureService : Service() {
         return true
     }
 
+    private fun prepareEchoCancellationPipeline() {
+        if (echoCancellationPipeline != null) return
+        if (activeRecordingMode != RecordingModePreference.Mode.FULL_SESSION) return
+        if (!InternalAudioPreference.isEnabled(applicationContext)) return
+        if (!MicrophoneVoicePreference.isEnabled(applicationContext)) return
+        if (
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        echoCancellationPipeline = runCatching {
+            WebRtcEchoCancellationPipeline(
+                onMetrics = { metrics ->
+                    sessionAecProcessedFrames = metrics.processedFrames
+                    sessionAecRenderFrames = metrics.renderFrames
+                    sessionAecDroppedRenderFrames =
+                        metrics.droppedRenderFrames
+                    sessionAecEchoReturnLoss = metrics.echoReturnLoss
+                    sessionAecEchoReturnLossEnhancement =
+                        metrics.echoReturnLossEnhancement
+                    sessionAecEstimatedDelayMs = metrics.estimatedDelayMs
+                }
+            )
+        }.getOrNull()
+
+        val enabled = echoCancellationPipeline != null
+        sessionMicrophoneAecAvailable = enabled
+        sessionMicrophoneAecEnabled = enabled
+    }
+
+    private fun closeEchoCancellationPipeline() {
+        runCatching { echoCancellationPipeline?.close() }
+        echoCancellationPipeline = null
+    }
+
     private fun startInternalAudioIfPermitted(projection: MediaProjection?) {
         if (projection == null) return
         if (!InternalAudioPreference.isEnabled(applicationContext)) return
@@ -614,6 +667,14 @@ class CaptureService : Service() {
         val audioCapture = InternalAudioCapture(
             mediaProjection = projection,
             consumer = audioWriter,
+            onPcmReference = { buffer, bytesRead, startUs, channels ->
+                echoCancellationPipeline?.submitRenderPcm(
+                    buffer = buffer,
+                    bytesRead = bytesRead,
+                    firstFrameStartUs = startUs,
+                    channelCount = channels,
+                )
+            },
             onFatalError = {
                 Handler(Looper.getMainLooper()).post {
                     disableInternalAudio()
@@ -641,6 +702,7 @@ class CaptureService : Service() {
 
         runCatching { rollingAudioWriter?.close() }
         rollingAudioWriter = null
+        closeEchoCancellationPipeline()
     }
 
     private fun startMicrophoneVoiceIfPermitted() {
@@ -662,6 +724,10 @@ class CaptureService : Service() {
             return
         }
 
+        if (echoCancellationPipeline == null && internalAudioCapture != null) {
+            prepareEchoCancellationPipeline()
+        }
+
         val voiceWriter = RollingAudioSegmentWriter(
             directory = File(cacheDir, "medplay_rolling_microphone"),
             retentionUs = activeRetentionUs,
@@ -669,6 +735,7 @@ class CaptureService : Service() {
         val voiceCapture = MicrophoneVoiceCapture(
             context = applicationContext,
             consumer = voiceWriter,
+            echoCancellationPipeline = echoCancellationPipeline,
             onSilencedChanged = { silenced ->
                 Handler(Looper.getMainLooper()).post {
                     handleMicrophoneSilencedChanged(silenced)
@@ -744,6 +811,8 @@ class CaptureService : Service() {
 
         runCatching { rollingMicrophoneWriter?.close() }
         rollingMicrophoneWriter = null
+
+        closeEchoCancellationPipeline()
         microphoneCurrentlySilenced = false
     }
 
@@ -1407,6 +1476,14 @@ class CaptureService : Service() {
             microphonePeakAbs = sessionMicrophonePeakAbs,
             microphoneAecAvailable = sessionMicrophoneAecAvailable,
             microphoneAecEnabled = sessionMicrophoneAecEnabled,
+            softwareAecProcessedFrames = sessionAecProcessedFrames,
+            softwareAecRenderFrames = sessionAecRenderFrames,
+            softwareAecDroppedRenderFrames =
+                sessionAecDroppedRenderFrames,
+            softwareAecEchoReturnLoss = sessionAecEchoReturnLoss,
+            softwareAecEchoReturnLossEnhancement =
+                sessionAecEchoReturnLossEnhancement,
+            softwareAecEstimatedDelayMs = sessionAecEstimatedDelayMs,
             thermalProfileDowngrades = thermalProfileDowngrades,
             initialProfile = initialSessionProfile,
         )
@@ -1418,6 +1495,12 @@ class CaptureService : Service() {
         sessionMicrophonePeakAbs = 0
         sessionMicrophoneAecAvailable = false
         sessionMicrophoneAecEnabled = false
+        sessionAecProcessedFrames = 0L
+        sessionAecRenderFrames = 0L
+        sessionAecDroppedRenderFrames = 0L
+        sessionAecEchoReturnLoss = Double.NaN
+        sessionAecEchoReturnLossEnhancement = Double.NaN
+        sessionAecEstimatedDelayMs = -1
         initialSessionProfile = null
         thermalProfileDowngrades = 0
         accumulatedEncodedSamples = 0L
