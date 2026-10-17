@@ -1359,3 +1359,25 @@ Evidence:
 - release workflow restored to manual-only at `7e866255bd440d57e9fab184e6b972ddd731e7ca`.
 
 Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
+
+## Editor preview size correction after owner validation
+
+The owner clarified that the preview container itself should remain large; only the video content should scale to fit completely inside it. The prior smaller-container approach was rejected because it made the preview less useful and left the controls visually oversized.
+
+Merged implementation `7ddf23306b7f6229f10ef85349ebeb62391d120c`:
+- portrait preview area increased to 52% of display height;
+- landscape preview area increased to 58%;
+- PlayerView remains FIT so the entire recorded frame is prioritized inside that larger area;
+- editor tool buttons use smaller text/padding;
+- trim action buttons are compacted;
+- trim timeline height reduced from 84dp to 64dp.
+
+Evidence:
+- PR #139 Android build run `39061742159`: success;
+- validation release run `39061982742`: success;
+- current `dev-latest` target: `ca115edaf5e1790e9f460d9ac5d3fff17602d72f`;
+- published: `2026-10-17T19:21:10Z`;
+- APK size: 58,558,349 bytes;
+- release workflow restored to manual-only at `26bb17e055436b48445336fd263aba39e5b6efe5`.
+
+Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
