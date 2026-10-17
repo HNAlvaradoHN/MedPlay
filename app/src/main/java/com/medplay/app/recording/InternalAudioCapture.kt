@@ -23,6 +23,12 @@ import kotlin.concurrent.thread
 class InternalAudioCapture(
     private val mediaProjection: MediaProjection,
     private val consumer: EncodedAudioConsumer = EncodedAudioConsumer.Discard,
+    private val onPcmReference: (
+        buffer: ByteBuffer,
+        bytesRead: Int,
+        firstFrameStartUs: Long,
+        channelCount: Int,
+    ) -> Unit = { _, _, _, _ -> },
     private val onFatalError: (Throwable) -> Unit = {},
 ) {
 
@@ -197,6 +203,11 @@ class InternalAudioCapture(
         encoder: MediaCodec,
     ) {
         val outputInfo = MediaCodec.BufferInfo()
+        val captureStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
+        val captureClock = AudioCaptureClock(
+            sampleRate = SAMPLE_RATE,
+            captureStartUs = captureStartUs,
+        )
         var totalFramesSubmitted = 0L
 
         while (running.get()) {
@@ -214,21 +225,36 @@ class InternalAudioCapture(
                     if (bytesRead < 0) {
                         error("AudioRecord read failed: $bytesRead")
                     } else if (bytesRead > 0) {
-                        val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
+                        val framesRead = bytesRead / BYTES_PER_FRAME
+                        val timing = captureClock.timingForRead(
+                            record = record,
+                            firstFramePosition = totalFramesSubmitted,
+                            framesRead = framesRead,
+                        )
+                        onPcmReference(
+                            input.duplicate(),
+                            bytesRead,
+                            timing.absoluteStartUs,
+                            CHANNEL_COUNT,
+                        )
                         encoder.queueInputBuffer(
                             inputIndex,
                             0,
                             bytesRead,
-                            ptsUs,
+                            timing.presentationTimeUs,
                             0,
                         )
-                        totalFramesSubmitted += bytesRead / BYTES_PER_FRAME
+                        totalFramesSubmitted += framesRead
                     } else {
-                        val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
+                        val ptsUs = captureClock.ptsForFramePosition(
+                            totalFramesSubmitted
+                        )
                         encoder.queueInputBuffer(inputIndex, 0, 0, ptsUs, 0)
                     }
                 } else {
-                    val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
+                    val ptsUs = captureClock.ptsForFramePosition(
+                        totalFramesSubmitted
+                    )
                     encoder.queueInputBuffer(inputIndex, 0, 0, ptsUs, 0)
                 }
             }
@@ -238,7 +264,9 @@ class InternalAudioCapture(
 
         val eosIndex = encoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
         if (eosIndex >= 0) {
-            val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
+            val ptsUs = captureClock.ptsForFramePosition(
+                totalFramesSubmitted
+            )
             encoder.queueInputBuffer(
                 eosIndex,
                 0,
