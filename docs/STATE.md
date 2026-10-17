@@ -1289,3 +1289,29 @@ Physical validation priority:
 - editor tool switching between Recorte / Imagen / Audio / Exportar;
 - preview sizing for portrait and landscape clips;
 - existing editor audio/visual/export behavior remains functional.
+
+
+## Reference-based software AEC3 for player voice
+
+Owner device validation showed that Android's native `AcousticEchoCanceler` could report enabled yet still allow objectionable game/speaker bleed into the microphone track. That native path is therefore no longer treated as sufficient when MedPlay has internal playback PCM available.
+
+Implemented:
+- WebRTC AEC3 is now the primary echo canceller when internal game audio + player voice are both active;
+- `InternalAudioCapture` taps clean playback PCM before AAC and supplies it as the AEC3 render/far-end reference while leaving the recorded game track unchanged;
+- `MicrophoneVoiceCapture` processes microphone PCM through AEC3 before AAC;
+- processing uses 48 kHz PCM in 10 ms / 480-sample frames;
+- AEC3 float samples retain the library's required int16 amplitude scale;
+- native Android AEC is not stacked on top of software AEC3; it remains only as fallback when reference-based AEC3 cannot be created;
+- when Android silences MedPlay's microphone because another app owns input, AEC adaptation is suspended, the mic track encodes silence to preserve timeline duration, and AEC3 state is recreated when capture resumes;
+- capture start is anchored with `AudioRecord.getTimestamp(..., TIMEBASE_BOOTTIME)` when the HAL provides it; AAC PTS remains sample-count based to keep a stable media timescale without scheduler jitter;
+- diagnostics identify `microphoneAecMode=webrtc_aec3|platform|none` and expose render/capture frame counts plus AEC3 ERL/ERLE/delay evidence.
+
+Dependency/toolchain:
+- `cn.enaium.webrtc.aec3:webrtc-aec3-kmp:1.0.3`, an Android-capable JNI/Kotlin wrapper around extracted WebRTC AEC3;
+- wrapper license: MIT; upstream AEC3 uses WebRTC/BSD-style licensing;
+- dependency requires Kotlin 2.4.x and compileSdk 37, so build tooling moved to Kotlin 2.4.10, AGP 9.1.1, Gradle 9.3.1 and compileSdk 37 while targetSdk remains 35.
+
+CI evidence:
+- latest code run `38994316142`: success on `66aeaa746d594c4448e92bbf326707cd8cc1762a`.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. CI proves build/tests only. The actual speaker-bleed reduction, voice quality, A/V synchronization and runtime CPU/thermal cost still require the owner's device.
