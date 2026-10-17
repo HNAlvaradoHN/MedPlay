@@ -21,6 +21,7 @@ class RecordingSessionDiagnosticsTest {
             retentionSeconds = 300,
             maxThermalStatus = 3,
             audioWasActive = true,
+            audioMicrophoneStartSkewMs = 7,
             encoderHealth = EncoderRuntimeHealth.Snapshot(
                 encodedSamples = 90,
                 timestampRegressions = 0,
@@ -56,6 +57,7 @@ class RecordingSessionDiagnosticsTest {
         assertTrue(text.contains("resolution=1920x1080"))
         assertTrue(text.contains("encodedSamples=90"))
         assertTrue(text.contains("timestampRegressions=0"))
+        assertTrue(text.contains("audioMicrophoneStartSkewMs=7"))
         assertTrue(text.contains("microphoneWasActive=true"))
         assertTrue(text.contains("microphoneWasSilenced=true"))
         assertTrue(text.contains("microphoneAecMode=webrtc_aec3"))
