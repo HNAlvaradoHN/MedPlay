@@ -1270,13 +1270,7 @@ Evidence:
 
 Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
 
-Current validation APK:
-- release workflow run `39058804572`: success;
-- release target: `3dad3fb1215d975212d95eab0475f37795e121dd`;
-- published: `2026-10-17T18:37:26Z`;
-- `MedPlay-debug.apk` size: 58,558,349 bytes;
-- this build also contains the latest overlay-edge and editor-preview corrections;
-- the release workflow was restored to manual-only immediately afterward.
+Validation build: use the current overall validation APK recorded at the end of this file; older audio-specific APK references are superseded.
 
 Physical validation priority:
 1. use headphones/earbuds so speaker bleed is not part of the test;
@@ -1311,73 +1305,29 @@ Physical validation should verify: trim gestures, portrait/landscape layout, vis
 
 Next product block after validation: **Phase 4 — Automatic post-match highlights**.
 
-## Current overall validation APK
+## Current owner UI / capture correction
 
-The current `dev-latest` build contains the completed Phase 3 scope, audio synchronization work, and the latest owner-reported overlay/editor-preview corrections.
+The repeated editor screenshots established that the incomplete preview was not primarily a PlayerView sizing problem. MedPlay was encoding fixed 16:9 / 9:16 profiles, while modern tall phone displays can have a substantially narrower portrait aspect ratio. A PlayerView using FIT cannot restore screen area that was never encoded.
+
+Current implementation:
+- merged product commit `f677fc2ae35ceb279035f45d6637adcfd8148133`;
+- capture profiles now preserve the aspect ratio of the content Android is actually capturing while keeping the selected quality class bounded by its original long side;
+- dynamic fitted dimensions respect the hardware encoder's required width/height alignment and are accepted only when the encoder reports support;
+- Android's captured-content resize callback can update the profile geometry when the captured region differs from the initial display geometry;
+- the editor preview remains FIT and is intentionally large (62% of display height in portrait, 58% in landscape);
+- Recorte / Imagen / Audio / Exportar controls remain compact without becoming thin;
+- trim action buttons use a 44dp minimum height, rounded surfaces, normal text casing and balanced padding;
+- the previously implemented partially-hidden side-tab recording control remains unchanged.
 
 Evidence:
-- release workflow run `39058804572`: success;
-- release target: `3dad3fb1215d975212d95eab0475f37795e121dd`;
-- published: `2026-10-17T18:37:26Z`;
+- aspect-policy unit coverage includes tall-phone, wide-phone and standard 16:9 cases;
+- PR #143 Android build run `39063224426`: success;
+- validation release run `39063431965`: success;
+- current `dev-latest` target: `e870b5e4b2f044b766dee5af4887d07330b20977`;
+- published: `2026-10-17T19:41:02Z`;
 - `MedPlay-debug.apk` size: 58,558,349 bytes;
-- release workflow was restored to manual-only afterward.
-
-Use this APK for current physical validation. Older validation APK references are superseded for current-device testing.
-
-## Owner screenshot corrections — overlay edge + editor preview
-
-Owner device screenshots showed two concrete UI defects after the Phase 3 pass:
-- the floating recording control stopped with a visible lateral gap instead of reaching the screen edge;
-- the editor preview consumed too much vertical space and the source framing appeared cut.
-
-Merged fix `c23d9ae6f3eeab811086cab2d1a48c824c39f36d`:
-- full-session floating control now snaps flush to x=0 or the right screen edge;
-- retroactive clip control now also snaps to the nearest edge after dragging and starts flush at the left edge;
-- editor portrait preview allocation reduced from 56% to 44%, landscape from 64% to 58%;
-- PlayerView now explicitly uses FIT scaling so the complete video frame is preferred over crop.
-
-Evidence: PR #130 Android build run `39058532447` succeeded.
+- release workflow restored to manual-only at `b691e449aed7f078a0d6829f0d53a4f7334c6393`.
 
 Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
 
-## Refined overlay tab + editor preview correction
-
-Latest owner clarification changed the intended overlay behavior: the recording control should park partially off-screen like a side tab, not remain fully visible at the edge. The editor screenshot also showed that the previous preview adjustment was still not satisfactory.
-
-Merged implementation `98b91134311592078dbcdcce4fd8576db10342ec`:
-- both full-session and retroactive clip controls now park with only 42% of their width exposed at the nearest side;
-- dragging still allows repositioning before the control re-tucks to the nearest side;
-- portrait editor preview is bounded to 34% of display height and landscape to 46%;
-- PlayerView FIT mode is enforced in code as well as layout so the preview favors the complete frame.
-
-Evidence:
-- PR #135 Android build run `39060342440`: success;
-- validation APK release run `39060537762`: success;
-- current `dev-latest` target: `2c12f6ed5eae2113ec18620c758d0ee90f201a45`;
-- published: `2026-10-17T19:01:39Z`;
-- APK size: 58,558,349 bytes;
-- release workflow restored to manual-only at `7e866255bd440d57e9fab184e6b972ddd731e7ca`.
-
-Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
-
-## Editor preview size correction after owner validation
-
-The owner clarified that the preview container itself should remain large; only the video content should scale to fit completely inside it. The prior smaller-container approach was rejected because it made the preview less useful and left the controls visually oversized.
-
-Merged implementation `7ddf23306b7f6229f10ef85349ebeb62391d120c`:
-- portrait preview area increased to 52% of display height;
-- landscape preview area increased to 58%;
-- PlayerView remains FIT so the entire recorded frame is prioritized inside that larger area;
-- editor tool buttons use smaller text/padding;
-- trim action buttons are compacted;
-- trim timeline height reduced from 84dp to 64dp.
-
-Evidence:
-- PR #139 Android build run `39061742159`: success;
-- validation release run `39061982742`: success;
-- current `dev-latest` target: `ca115edaf5e1790e9f460d9ac5d3fff17602d72f`;
-- published: `2026-10-17T19:21:10Z`;
-- APK size: 58,558,349 bytes;
-- release workflow restored to manual-only at `26bb17e055436b48445336fd263aba39e5b6efe5`.
-
-Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
+Physical validation must use a **new recording made with this APK**. Older clips were already encoded with the previous fixed aspect ratio and cannot prove this correction. Verify that the complete captured screen is present in the new clip/editor preview and that the trim buttons look compact but normally proportioned.
