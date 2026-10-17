@@ -8,7 +8,6 @@ import android.media.MediaCodecInfo
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.media.projection.MediaProjection
-import android.os.SystemClock
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
@@ -23,6 +22,7 @@ import kotlin.concurrent.thread
 class InternalAudioCapture(
     private val mediaProjection: MediaProjection,
     private val consumer: EncodedAudioConsumer = EncodedAudioConsumer.Discard,
+    private val onPcmReference: (ByteBuffer, Int) -> Unit = { _, _ -> },
     private val onFatalError: (Throwable) -> Unit = {},
 ) {
 
@@ -115,8 +115,6 @@ class InternalAudioCapture(
             encoderStarted = true
             createdRecord.startRecording()
 
-            val monotonicStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
-            consumer.onCaptureStarted(monotonicStartUs, SAMPLE_RATE, CHANNEL_COUNT)
         } catch (error: Throwable) {
             runCatching {
                 if (record?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
@@ -198,6 +196,7 @@ class InternalAudioCapture(
     ) {
         val outputInfo = MediaCodec.BufferInfo()
         var totalFramesSubmitted = 0L
+        var captureStartPublished = false
 
         while (running.get()) {
             val inputIndex = encoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
@@ -214,6 +213,18 @@ class InternalAudioCapture(
                     if (bytesRead < 0) {
                         error("AudioRecord read failed: $bytesRead")
                     } else if (bytesRead > 0) {
+                        if (!captureStartPublished) {
+                            consumer.onCaptureStarted(
+                                AudioRecordClock.captureStartMonotonicUs(
+                                    record,
+                                    SAMPLE_RATE,
+                                ),
+                                SAMPLE_RATE,
+                                CHANNEL_COUNT,
+                            )
+                            captureStartPublished = true
+                        }
+                        onPcmReference(input, bytesRead)
                         val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
                         encoder.queueInputBuffer(
                             inputIndex,
