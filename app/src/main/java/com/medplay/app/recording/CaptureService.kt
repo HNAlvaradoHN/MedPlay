@@ -341,7 +341,9 @@ class CaptureService : Service() {
         sessionMicrophoneAecAvailable = false
         sessionMicrophoneAecEnabled = false
         microphoneCurrentlySilenced = false
-        microphoneForegroundTypeActive = false
+        // Do not clear microphoneForegroundTypeActive here. It was set by
+        // startAsProjectionForegroundService() above and determines whether
+        // the full-session microphone AudioRecord is allowed to start.
         fullSessionPaused = false
         activePauseStartedUs = Long.MIN_VALUE
         completedPauseIntervals.clear()
