@@ -103,7 +103,7 @@ class ClipEditorActivity : Activity() {
 
         val isLandscape =
             resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        val previewWeight = if (isLandscape) 0.64f else 0.56f
+        val previewWeight = if (isLandscape) 0.58f else 0.44f
         val controlsWeight = 1f - previewWeight
 
         val root = LinearLayout(this).apply {
