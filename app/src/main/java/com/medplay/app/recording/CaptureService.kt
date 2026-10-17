@@ -1491,6 +1491,8 @@ class CaptureService : Service() {
             },
             microphoneAecRenderFrames = aecMetrics?.renderFrames ?: 0L,
             microphoneAecCaptureFrames = aecMetrics?.captureFrames ?: 0L,
+            microphoneAecDroppedRenderFrames =
+                aecMetrics?.droppedRenderFrames ?: 0L,
             microphoneAecResets = aecMetrics?.resets ?: 0,
             microphoneAecEchoReturnLossDb =
                 aecMetrics?.echoReturnLoss ?: 0.0,
