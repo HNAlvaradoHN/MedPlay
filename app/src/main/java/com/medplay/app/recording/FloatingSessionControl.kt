@@ -61,7 +61,8 @@ class FloatingSessionControl(
 
         val sizePx = (56f * density).toInt()
         val screenWidth = context.resources.displayMetrics.widthPixels
-        val initialX = (screenWidth - sizePx)
+        val exposedWidthPx = (sizePx * EDGE_EXPOSED_FRACTION).toInt()
+        val initialX = (screenWidth - exposedWidthPx)
             .coerceAtLeast(0)
 
         val bubbleView = TextView(context).apply {
@@ -294,10 +295,12 @@ class FloatingSessionControl(
         val screenWidth = context.resources.displayMetrics.widthPixels
         val center = layout.x + layout.width / 2
         side = if (center < screenWidth / 2) Side.LEFT else Side.RIGHT
+        val exposedWidthPx =
+            (layout.width * EDGE_EXPOSED_FRACTION).toInt()
         layout.x = if (side == Side.LEFT) {
-            0
+            -(layout.width - exposedWidthPx)
         } else {
-            (screenWidth - layout.width).coerceAtLeast(0)
+            (screenWidth - exposedWidthPx).coerceAtLeast(0)
         }
         runCatching { windowManager.updateViewLayout(view, layout) }
         updatePanelPosition()
@@ -404,5 +407,6 @@ class FloatingSessionControl(
     companion object {
         private const val TIMER_REFRESH_MS = 500L
         private const val STATUS_DURATION_MS = 3_500L
+        private const val EDGE_EXPOSED_FRACTION = 0.42f
     }
 }

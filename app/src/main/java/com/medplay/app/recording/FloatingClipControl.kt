@@ -41,6 +41,7 @@ class FloatingClipControl(
         val density = context.resources.displayMetrics.density
         val style = FloatingControlStylePreference.get(context)
         val sizePx = (style.sizeDp * density).toInt()
+        val exposedWidthPx = (sizePx * EDGE_EXPOSED_FRACTION).toInt()
 
         val bubble = GlassClipView(context).apply {
             setStyle(style)
@@ -55,7 +56,7 @@ class FloatingClipControl(
             android.graphics.PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 0
+            x = -(sizePx - exposedWidthPx)
             y = (180f * density).toInt()
         }
 
@@ -108,10 +109,12 @@ class FloatingClipControl(
                     } else {
                         val screenWidth = context.resources.displayMetrics.widthPixels
                         val centerX = layout.x + layout.width / 2
+                        val exposedWidthPx =
+                            (layout.width * EDGE_EXPOSED_FRACTION).toInt()
                         layout.x = if (centerX < screenWidth / 2) {
-                            0
+                            -(layout.width - exposedWidthPx)
                         } else {
-                            (screenWidth - layout.width).coerceAtLeast(0)
+                            (screenWidth - exposedWidthPx).coerceAtLeast(0)
                         }
                         runCatching {
                             windowManager.updateViewLayout(bubble, layout)
@@ -240,6 +243,10 @@ class FloatingClipControl(
         }
         view = null
         params = null
+    }
+
+    companion object {
+        private const val EDGE_EXPOSED_FRACTION = 0.42f
     }
 }
 

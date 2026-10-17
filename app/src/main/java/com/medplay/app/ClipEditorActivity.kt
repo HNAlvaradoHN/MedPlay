@@ -23,6 +23,7 @@ import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.media3.common.MediaItem
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -90,6 +91,7 @@ class ClipEditorActivity : Activity() {
             null,
         ) as PlayerView
         playerView.player = player
+        playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
         val previewSurface = playerView.videoSurfaceView ?: playerView
 
         player.setMediaItem(MediaItem.fromUri(source))
@@ -103,8 +105,10 @@ class ClipEditorActivity : Activity() {
 
         val isLandscape =
             resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        val previewWeight = if (isLandscape) 0.58f else 0.44f
-        val controlsWeight = 1f - previewWeight
+        val previewHeightPx = (
+            resources.displayMetrics.heightPixels *
+                if (isLandscape) 0.46f else 0.34f
+            ).toInt()
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -114,8 +118,7 @@ class ClipEditorActivity : Activity() {
             playerView,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                previewWeight,
+                previewHeightPx,
             )
         )
 
@@ -142,7 +145,7 @@ class ClipEditorActivity : Activity() {
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
-                controlsWeight,
+                1f,
             )
         )
 
