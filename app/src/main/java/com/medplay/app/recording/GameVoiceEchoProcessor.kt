@@ -152,9 +152,9 @@ internal class GameVoiceEchoProcessor private constructor(
             }
 
             processedFrames++
-            publishStateLocked(
-                includeMetrics = processedFrames % METRICS_INTERVAL_FRAMES == 0L,
-            )
+            if (processedFrames % METRICS_INTERVAL_FRAMES == 0L) {
+                publishStateLocked(includeMetrics = true)
+            }
             return result
         }
     }
