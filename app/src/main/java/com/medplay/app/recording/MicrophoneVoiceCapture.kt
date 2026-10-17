@@ -349,6 +349,44 @@ class MicrophoneVoiceCapture(
             }
         }
 
+        val flushed = echoProcessor?.flushCapture().orEmpty()
+        var flushOffset = 0
+        while (flushOffset < flushed.size) {
+            val inputIndex = encoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
+            if (inputIndex < 0) {
+                drainEncoder(encoder, outputInfo)
+                continue
+            }
+
+            val input = encoder.getInputBuffer(inputIndex)
+            if (input == null) {
+                val ptsUs =
+                    totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
+                encoder.queueInputBuffer(inputIndex, 0, 0, ptsUs, 0)
+                continue
+            }
+
+            input.clear()
+            val chunk = minOf(
+                input.remaining(),
+                flushed.size - flushOffset,
+            )
+            input.put(flushed, flushOffset, chunk)
+
+            val ptsUs =
+                totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
+            encoder.queueInputBuffer(
+                inputIndex,
+                0,
+                chunk,
+                ptsUs,
+                0,
+            )
+            totalFramesSubmitted += chunk / BYTES_PER_FRAME
+            flushOffset += chunk
+            drainEncoder(encoder, outputInfo)
+        }
+
         val eosIndex = encoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
         if (eosIndex >= 0) {
             val ptsUs = totalFramesSubmitted * 1_000_000L / SAMPLE_RATE
