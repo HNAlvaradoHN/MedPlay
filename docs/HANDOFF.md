@@ -957,3 +957,15 @@ Use current `dev-latest` from run `39060537762` to validate the refined owner-re
 - editor preview should occupy less height and show the complete video frame using FIT.
 
 Target: `2c12f6ed5eae2113ec18620c758d0ee90f201a45`, published `2026-10-17T19:01:39Z`, APK size 58,558,349 bytes. Workflow is back to manual-only.
+
+## Current editor validation build
+
+Use current `dev-latest` from run `39061982742`.
+
+Expected behavior:
+- preview area is large again;
+- recorded frame is fitted completely inside it;
+- tool buttons and trim controls are visibly more compact;
+- side-tab overlay behavior from the previous correction remains included.
+
+Target: `ca115edaf5e1790e9f460d9ac5d3fff17602d72f`, published `2026-10-17T19:21:10Z`, APK size 58,558,349 bytes. Workflow is manual-only.
