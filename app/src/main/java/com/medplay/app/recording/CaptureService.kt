@@ -648,11 +648,11 @@ class CaptureService : Service() {
             consumer =
                 audioWriter ?: InternalAudioCapture.EncodedAudioConsumer.Discard,
             onPcmReference = {
-                    pcm,
-                    bytesRead,
-                    firstFrameStartUs,
-                    channelCount,
-                ->
+                pcm,
+                bytesRead,
+                firstFrameStartUs,
+                channelCount,
+            ->
                 voiceEchoProcessor?.offerRenderPcm(
                     source = pcm,
                     bytesRead = bytesRead,
