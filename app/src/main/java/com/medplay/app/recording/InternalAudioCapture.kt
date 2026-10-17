@@ -80,6 +80,7 @@ class InternalAudioCapture(
         var record: AudioRecord? = null
         var encoder: MediaCodec? = null
         var encoderStarted = false
+        var captureStartUs = Long.MIN_VALUE
 
         try {
             val createdRecord = AudioRecord.Builder()
@@ -121,8 +122,8 @@ class InternalAudioCapture(
             encoderStarted = true
             createdRecord.startRecording()
 
-            val monotonicStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
-            consumer.onCaptureStarted(monotonicStartUs, SAMPLE_RATE, CHANNEL_COUNT)
+            captureStartUs = SystemClock.elapsedRealtimeNanos() / 1_000L
+            consumer.onCaptureStarted(captureStartUs, SAMPLE_RATE, CHANNEL_COUNT)
         } catch (error: Throwable) {
             runCatching {
                 if (record?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
@@ -139,6 +140,10 @@ class InternalAudioCapture(
 
         val readyRecord = checkNotNull(record)
         val readyEncoder = checkNotNull(encoder)
+        check(captureStartUs != Long.MIN_VALUE) {
+            "Audio capture start timestamp unavailable"
+        }
+        val readyCaptureStartUs = captureStartUs
 
         audioRecord = readyRecord
         codec = readyEncoder
@@ -154,7 +159,7 @@ class InternalAudioCapture(
                 runLoop(
                     readyRecord,
                     readyEncoder,
-                    monotonicStartUs,
+                    readyCaptureStartUs,
                 )
             } catch (error: Throwable) {
                 if (!stopping.get()) {
