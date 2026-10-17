@@ -1249,49 +1249,32 @@ Physical validation priority:
 - existing editor audio/visual/export behavior remains functional.
 
 
-## Current microphone speaker-bleed status
+## Current microphone / internal-audio policy
 
-Status: **ABIERTO — VALIDACIÓN FÍSICA NEGATIVA**.
+Owner decision:
+- keep optional microphone capture because it remains useful with headphones/earbuds;
+- do not spend further project time trying to guarantee perfect speaker-bleed removal when the phone loudspeaker is audible;
+- speaker bleed with loudspeaker playback is a known physical limitation, not an active blocker for MedPlay.
 
-User requirement:
-- the player-voice microphone track must preserve the player's voice while materially suppressing game/audio emitted by the phone speaker;
-- game audio is already available separately through internal playback capture and must not be duplicated intentionally into the microphone track.
+Current synchronization implementation:
+- internal playback and microphone are separate AAC tracks at 48 kHz;
+- both tracks are anchored to Android `AudioTimestamp` using `TIMEBASE_BOOTTIME` when the HAL supplies it;
+- encoded PTS remain sample-count based inside each stream, while rolling segments are mapped back to the common monotonic clock and remuxed by absolute source time;
+- merged main commit `db897b8` hardens the fallback used when a startup hardware timestamp is temporarily unavailable: the first frame is estimated from blocking-read completion minus the duration of frames actually read, instead of using raw `now`; this prevents different first-read sizes from creating artificial source-specific offsets;
+- diagnostics now expose `audioMicrophoneStartSkewMs` so physical tests can report the measured initial offset between system audio and microphone.
 
-Verified history that still matters:
-- Android platform `AcousticEchoCanceler` was physically insufficient on the owner's target phone even when enabled;
-- MedPlay therefore moved to WebRTC AEC3 with clean `AudioPlaybackCapture` PCM as far-end/render reference and raw microphone PCM as near-end/capture;
-- an early software-AEC3 validation build had a microphone foreground-state regression that prevented the intended microphone path from starting; that regression was fixed;
-- voice-only mode now keeps a hidden playback capture strictly as AEC reference without persisting a game-audio track;
-- playback and microphone use 48 kHz / 10 ms frames and BOOTTIME-based capture timing.
+Evidence:
+- PR #120 tests/build: success;
+- unit coverage verifies that a 2048-frame playback first read and a 480-frame microphone first read resolve to the same capture start when they represent the same real interval;
+- no post-merge main CI run exists for this workflow; PR CI is the available build evidence.
 
-Latest physically tested result:
-- AEC3 reference alignment and clock-derived delay logic up through main audio commit `58ab7b2` were tested on-device;
-- **the defect remained unchanged: speaker/game audio was still present in the isolated “Mi voz” track**;
-- therefore the #114 approach is **not resolved** and must not be described as pending validation.
+Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
 
-Current follow-up work after that failed device test:
-- PR #115 adds correlation-derived external delay estimation: **CI failed**;
-- PR #116 removes MedPlay's second render queue/delay override and lets AEC3 own its internal render queue/delay estimation: **CI passed**, not physically validated;
-- PR #117 feeds render reference to AEC3 as it arrives and briefly queues microphone capture until render catches up; it also flushes queued microphone frames on stop: **CI failed**;
-- none of #115/#116/#117 is merged into main as the accepted solution.
+Physical validation priority:
+1. use headphones/earbuds so speaker bleed is not part of the test;
+2. record a new full-session with internal audio + microphone enabled;
+3. create a clear sync event (for example, speak/count exactly with a distinct game sound) near the beginning and again after a longer recording;
+4. verify game and voice remain aligned in the saved clip and editor;
+5. inspect `audioMicrophoneStartSkewMs` in the session diagnostics.
 
-Current blocker:
-- determine and fix the concrete build failure in #117 (or reject that approach with evidence) before producing another validation APK;
-- do not generate another physical-test APK from #114 logic alone.
-
-Diagnostics that remain useful:
-- `microphoneAecMode`;
-- render/capture frame counts;
-- dropped render frames;
-- ERL/ERLE;
-- AEC estimated delay;
-- render/capture skew.
-
-Next step:
-1. inspect #117's exact build error;
-2. correct only the AEC ordering implementation needed to get a clean build;
-3. review against #116 so contradictory AEC queue/delay strategies are not stacked;
-4. require green CI;
-5. then produce one new APK and physically retest with “Mi voz” isolated.
-
-Do not mark the defect resolved until the owner's device shows material speaker-bleed reduction with intelligible voice.
+Do not claim long-duration drift is solved until device testing confirms it. Android documents that nominally equal audio sample rates are not by themselves a guarantee that independent audio clocks cannot drift; if measurable long-session drift appears, the next correction must be clock-drift compensation/resampling rather than arbitrary fixed offsets.
