@@ -932,14 +932,14 @@ Do not add text, stickers, music, speed effects or transitions merely to call Ph
 
 ## Current validation APK
 
-Use `dev-latest` from release run `39056806884` for current physical testing.
+Use `dev-latest` from release run `39058804572` for current physical testing.
 
-- target: `f519a1e6441adb6c213f120aca443bdd483b3706`;
-- published: `2026-10-17T18:10:04Z`;
-- APK size: 58,558,333 bytes;
+- target: `3dad3fb1215d975212d95eab0475f37795e121dd`;
+- published: `2026-10-17T18:37:26Z`;
+- APK size: 58,558,349 bytes;
 - release workflow is back to manual-only.
 
-This build supersedes older validation APKs for current device testing and includes the Phase 3 closure plus the earlier synchronized-audio changes.
+This build supersedes older validation APKs for current device testing and includes Phase 3, the synchronized-audio work, and the latest floating-control/editor-preview corrections.
 
 ## Latest owner UI corrections
 

@@ -1271,10 +1271,11 @@ Evidence:
 Status: **IMPLEMENTADO_PENDIENTE_VALIDACIÓN FÍSICA**.
 
 Current validation APK:
-- release workflow run `39009298806`: success;
-- release target: `fa93423d3df8db3c61b004994039581685ab6143`;
-- published: `2026-10-17T06:19:22Z`;
-- `MedPlay-debug.apk` size: 58,558,333 bytes;
+- release workflow run `39058804572`: success;
+- release target: `3dad3fb1215d975212d95eab0475f37795e121dd`;
+- published: `2026-10-17T18:37:26Z`;
+- `MedPlay-debug.apk` size: 58,558,349 bytes;
+- this build also contains the latest overlay-edge and editor-preview corrections;
 - the release workflow was restored to manual-only immediately afterward.
 
 Physical validation priority:
@@ -1310,18 +1311,18 @@ Physical validation should verify: trim gestures, portrait/landscape layout, vis
 
 Next product block after validation: **Phase 4 — Automatic post-match highlights**.
 
-## Latest overall validation APK — Phase 3 closure
+## Current overall validation APK
 
-The current `dev-latest` build contains the completed required Phase 3 editor/player scope plus the previously merged audio synchronization work.
+The current `dev-latest` build contains the completed Phase 3 scope, audio synchronization work, and the latest owner-reported overlay/editor-preview corrections.
 
 Evidence:
-- release workflow run `39056806884`: success;
-- release target: `f519a1e6441adb6c213f120aca443bdd483b3706`;
-- published: `2026-10-17T18:10:04Z`;
-- `MedPlay-debug.apk` size: 58,558,333 bytes;
+- release workflow run `39058804572`: success;
+- release target: `3dad3fb1215d975212d95eab0475f37795e121dd`;
+- published: `2026-10-17T18:37:26Z`;
+- `MedPlay-debug.apk` size: 58,558,349 bytes;
 - release workflow was restored to manual-only afterward.
 
-Use this APK for the remaining physical validation of Phase 3 and the previously pending audio checks. Older validation APK references are superseded for current-device testing.
+Use this APK for current physical validation. Older validation APK references are superseded for current-device testing.
 
 ## Owner screenshot corrections — overlay edge + editor preview
 
