@@ -968,3 +968,20 @@ Fresh validation release run `38995271164` passed.
 APK SHA-256: `a7378278e0af2c16cedd9c4d37a90be013b3d6eb2eeb6256c70a73c45e638e7c`.
 
 Physical validation must be done with a newly recorded full-session after installing this APK; old clips cannot validate this fix.
+
+
+## AEC3 alignment / voice-only reference handoff
+
+The next microphone validation build changes the architecture rather than adding another platform AEC toggle.
+
+Important behavior:
+1. System audio ON + voice OFF: playback is recorded normally; microphone is not needed.
+2. System audio OFF + voice ON: playback capture still runs as a hidden clean AEC3 far-end reference, but it is not persisted as a game-audio track.
+3. System audio ON + voice ON: the clean playback signal is both recorded and used as AEC3 reference; microphone remains a separate processed track.
+4. Playback reference and microphone are BOOTTIME timestamped; render is framed/queued in bounded 10 ms units and drained in capture-time order instead of being analyzed in arbitrary large bursts.
+
+AEC3 uses a 25 ms render/capture buffer-delay prior and retains its own adaptive echo-path estimation.
+
+Diagnostics now include `microphoneAecDroppedRenderFrames`; healthy physical validation should show `microphoneAecMode=webrtc_aec3`, increasing render/capture frames, and few/no queue drops.
+
+CI run `38996894710` passed. Do not mark speaker bleed resolved until the owner records a fresh full-session on-device and isolates the “Mi voz” track in the editor.

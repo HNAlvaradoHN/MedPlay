@@ -1363,3 +1363,26 @@ Fresh validation APK:
 - SHA-256 `a7378278e0af2c16cedd9c4d37a90be013b3d6eb2eeb6256c70a73c45e638e7c`.
 
 Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. The next physical test must use a newly recorded full-session after installing this APK.
+
+
+## AEC3 reference alignment + voice-only hidden reference
+
+Owner asked to make the microphone path remove game/speaker audio rather than merely recording everything the physical microphone hears.
+
+Code audit found two concrete architectural weaknesses in the existing AEC3 path:
+- when internal audio recording was disabled but player voice was enabled, `InternalAudioCapture` did not run at all, so software AEC3 had no clean far-end reference and the microphone fell back to device/platform behavior;
+- when internal playback was active, arbitrary playback chunks could be handed directly to AEC3 while the microphone was processed in 10 ms frames, allowing the render side to advance in bursts ahead of capture.
+
+Implemented:
+- playback PCM callbacks now carry BOOTTIME-anchored first-frame timestamps and channel count;
+- microphone PCM frames are anchored to the same AudioRecord hardware clock;
+- AEC3 now queues bounded 10 ms far-end frames and only analyzes render frames that have actually occurred by the microphone frame time;
+- AEC3 starts with a 25 ms render/capture buffer-delay prior, while its adaptive estimator still determines the acoustic path;
+- when the user selects voice without recording system audio, playback capture still runs privately as an AEC reference but no game-audio writer/track is created;
+- explicit capture-plan tests cover system-only, voice-only, both and no-audio cases;
+- diagnostics now expose `microphoneAecDroppedRenderFrames`.
+
+CI evidence:
+- Android build run `38996894710`: success on branch head `d875b82f6869fed71cd1cef7adf9b2f87370d79b`.
+
+Status: IMPLEMENTADO_PENDIENTE_VALIDACIÓN. CI validates build/tests only. Real speaker-bleed suppression, voice quality, AEC convergence and thermal cost still require a newly recorded physical test.

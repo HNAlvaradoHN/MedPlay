@@ -16,6 +16,7 @@ data class RecordingSessionDiagnostics(
     val microphoneAecMode: String = "none",
     val microphoneAecRenderFrames: Long = 0L,
     val microphoneAecCaptureFrames: Long = 0L,
+    val microphoneAecDroppedRenderFrames: Long = 0L,
     val microphoneAecResets: Int = 0,
     val microphoneAecEchoReturnLossDb: Double = 0.0,
     val microphoneAecEchoReturnLossEnhancementDb: Double = 0.0,
@@ -59,6 +60,10 @@ data class RecordingSessionDiagnostics(
             appendLine("microphoneAecMode=$microphoneAecMode")
             appendLine("microphoneAecRenderFrames=$microphoneAecRenderFrames")
             appendLine("microphoneAecCaptureFrames=$microphoneAecCaptureFrames")
+            appendLine(
+                "microphoneAecDroppedRenderFrames=" +
+                    microphoneAecDroppedRenderFrames
+            )
             appendLine("microphoneAecResets=$microphoneAecResets")
             appendLine(
                 "microphoneAecEchoReturnLossDb=" +
