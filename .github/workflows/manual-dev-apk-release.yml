@@ -2,6 +2,9 @@ name: Manual dev APK release
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ci/build-aec3-delay-apk
 
 permissions:
   contents: write
