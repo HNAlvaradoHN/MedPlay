@@ -251,9 +251,10 @@ class MicrophoneVoiceCapture(
         val outputInfo = MediaCodec.BufferInfo()
         val rawInput = ByteBuffer.allocateDirect(AEC_FRAME_BYTES)
             .order(ByteOrder.nativeOrder())
+        var totalFramesRead = 0L
         var totalFramesSubmitted = 0L
         var nextSignalProbeFrame = 0L
-        var captureStartPublished = false
+        var captureStartUs = Long.MIN_VALUE
 
         while (running.get()) {
             rawInput.clear()
@@ -271,17 +272,23 @@ class MicrophoneVoiceCapture(
                 continue
             }
 
-            if (!captureStartPublished) {
-                consumer.onCaptureStarted(
+            if (captureStartUs == Long.MIN_VALUE) {
+                captureStartUs =
                     AudioRecordClock.captureStartMonotonicUs(
                         record,
                         SAMPLE_RATE,
-                    ),
+                    )
+                consumer.onCaptureStarted(
+                    captureStartUs,
                     SAMPLE_RATE,
                     CHANNEL_COUNT,
                 )
-                captureStartPublished = true
             }
+
+            val firstFrameStartUs =
+                captureStartUs +
+                    totalFramesRead * 1_000_000L / SAMPLE_RATE
+            totalFramesRead += bytesRead / BYTES_PER_FRAME
 
             if (totalFramesSubmitted >= nextSignalProbeFrame) {
                 publishPcmPeak(rawInput, bytesRead)
@@ -290,8 +297,9 @@ class MicrophoneVoiceCapture(
             }
 
             val processed = echoProcessor?.processCaptureMonoPcm(
-                rawInput,
-                bytesRead,
+                source = rawInput,
+                bytesRead = bytesRead,
+                firstFrameStartUs = firstFrameStartUs,
             ) ?: ByteArray(bytesRead).also { bytes ->
                 val copy = rawInput.duplicate()
                 copy.position(0)
