@@ -9,6 +9,7 @@ import android.media.MediaCodecInfo
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.media.MediaRecorder
+import android.media.audiofx.AcousticEchoCanceler
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
@@ -39,6 +40,7 @@ class MicrophoneVoiceCapture(
     private var codec: MediaCodec? = null
     private var worker: Thread? = null
     private var recordingCallback: AudioManager.AudioRecordingCallback? = null
+    private var acousticEchoCanceler: AcousticEchoCanceler? = null
     private val running = AtomicBoolean(false)
     private val stopping = AtomicBoolean(false)
     private var lastSilenced: Boolean? = null
@@ -63,6 +65,7 @@ class MicrophoneVoiceCapture(
         var encoder: MediaCodec? = null
         var encoderStarted = false
         var callback: AudioManager.AudioRecordingCallback? = null
+        var echoCanceler: AcousticEchoCanceler? = null
 
         try {
             val createdRecord = AudioRecord.Builder()
@@ -76,10 +79,25 @@ class MicrophoneVoiceCapture(
                 "Microphone AudioRecord failed to initialize"
             }
 
-            onEchoCancellationState(
-                echoProcessor != null,
-                echoProcessor != null,
-            )
+            if (echoProcessor != null) {
+                // Software AEC3 owns echo cancellation. Do not run two
+                // adaptive cancellers on the same near-end signal.
+                onEchoCancellationState(true, true)
+            } else {
+                val available = AcousticEchoCanceler.isAvailable()
+                if (available) {
+                    echoCanceler = runCatching {
+                        AcousticEchoCanceler.create(
+                            createdRecord.audioSessionId
+                        )
+                    }.getOrNull()
+                }
+                val enabled = runCatching {
+                    echoCanceler?.setEnabled(true)
+                    echoCanceler?.enabled == true
+                }.getOrDefault(false)
+                onEchoCancellationState(available, enabled)
+            }
 
             val createdCallback = object : AudioManager.AudioRecordingCallback() {
                 override fun onRecordingConfigChanged(
@@ -141,6 +159,7 @@ class MicrophoneVoiceCapture(
                 runCatching { encoder?.stop() }
             }
             runCatching { encoder?.release() }
+            runCatching { echoCanceler?.release() }
             runCatching { record?.release() }
             throw error
         }
@@ -151,6 +170,7 @@ class MicrophoneVoiceCapture(
         audioRecord = readyRecord
         codec = readyEncoder
         recordingCallback = callback
+        acousticEchoCanceler = echoCanceler
         stopping.set(false)
         running.set(true)
 
@@ -203,6 +223,9 @@ class MicrophoneVoiceCapture(
         }
         runCatching { encoder?.release() }
         codec = null
+
+        runCatching { acousticEchoCanceler?.release() }
+        acousticEchoCanceler = null
 
         runCatching { record?.release() }
         audioRecord = null
